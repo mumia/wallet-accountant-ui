@@ -1,0 +1,26 @@
+version: '3.4'
+
+services:
+  start:
+    image: node:latest
+    working_dir: /app
+    volumes:
+      - .:/app
+    ports:
+      - "3000:3000"
+    entrypoint: ["yarn", "start", "--verbose"]
+    networks:
+      wallet-accountant_wallet-accountant: ~
+
+  bash:
+    image: node:latest
+    working_dir: /app
+    volumes:
+      - .:/app
+    entrypoint: ["bash"]
+    networks:
+      wallet-accountant_wallet-accountant: ~
+
+networks:
+  wallet-accountant_wallet-accountant:
+    external: true
