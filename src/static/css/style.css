@@ -192,7 +192,7 @@ ul {
 }
 
 .ninjaDash-delete-modal .ant-modal-body {
-  padding: 20px 24px;
+  /*padding: 20px 24px;*/
 }
 
 .ninjaDash-delete-modal .ninjadash-delete-confirm {
@@ -769,10 +769,6 @@ ul {
 
 /* form select */
 
-.ant-select-single:not(.ant-select-customize-input) .ant-select-selector {
-  height: 38px !important;
-}
-
 .ant-select-single .ant-select-selector .ant-select-selection-item,
 .ant-select-single .ant-select-selector .ant-select-selection-placeholder {
   line-height: 35px !important;
@@ -871,11 +867,6 @@ ul {
 
 .project-modal .ant-picker {
   width: 100%;
-}
-
-.project-modal-footer {
-  padding: 10px !important;
-  text-align: left !important;
 }
 
 .ninjadash-addTask-modal {
@@ -1012,22 +1003,10 @@ ul {
   padding-left: 25px !important;
 }
 
-.ant-select-dropdown .ant-select-item.ant-select-item-option-active {
-  background: #8231D305;
-}
+
 
 .ant-select-dropdown .ant-select-item.ant-select-item-option-selected .ant-select-item-option-content {
   padding-left: 10px;
-}
-
-.ant-select-dropdown .ant-select-item.ant-select-item-option-selected {
-  color: #8231D3;
-  background: #8231D306;
-}
-
-.ant-select-dropdown .ant-select-item.ant-select-item-option-selected .ant-select-item-option-content {
-  color: #8231D3;
-  font-weight: 500;
 }
 
 .ant-select-dropdown .ant-select-item .ant-select-item-option-content {
@@ -2499,14 +2478,6 @@ html[dir="rtl"] .ninjadash-task-details .ant-modal-body .ninjadash-checklist-row
   .rdrDefinedRangesWrapper {
     border-right: 0 none;
   }
-
-  .project-modal .ant-picker {
-    margin-bottom: 30px;
-  }
-
-  .project-modal {
-    padding: 0 !important;
-  }
 }
 
 @media only screen and (max-width: 575px) {
@@ -2847,23 +2818,6 @@ html[dir="rtl"] .ninjadash-task-details .ant-modal-body .ninjadash-checklist-row
   background: #0A0A0A;
 }
 
-.btn-rtl {
-  width: 60px;
-  height: 60px;
-  border: 1px solid #fff;
-  background: #4347d9;
-  color: #fff;
-  position: fixed;
-  right: 0;
-  top: 50%;
-  margin-top: -30px;
-  z-index: 99999999;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 /* masonry-grid start from here */
 
 .my-masonry-grid {
@@ -2902,56 +2856,6 @@ html[dir="rtl"] .ninjadash-task-details .ant-modal-body .ninjadash-checklist-row
 
 li.active>.display {
   display: block;
-}
-
-/* rtl section from here */
-html[dir="rtl"] .ant-card-head-title span {
-  margin-right: 15px;
-}
-
-html[dir="rtl"] span[aria-label="arrow-right"] svg,
-html[dir="rtl"] span[aria-label="arrow-left"] svg {
-  transform: rotateY(180deg);
-}
-
-html[dir="rtl"] .ant-menu.ant-menu-vertical {
-  text-align: right !important;
-}
-
-html[dir="rtl"] .ant-menu.ant-menu-vertical .ant-menu-submenu-placement-rightTop {
-  left: -170px !important;
-}
-
-html[dir="rtl"] .ant-menu.ant-menu-vertical .ant-menu-vertical-left {
-  text-align: right;
-}
-
-html[dir="rtl"] .ant-modal-confirm .ant-modal-confirm-btns .ant-btn+.ant-btn {
-  margin-left: 0;
-  margin-right: 8px;
-}
-
-html[dir="rtl"] .ant-menu.ant-menu-vertical .ant-menu-submenu-arrow {
-  right: auto;
-  left: 16px;
-  transform: rotateY(180deg);
-}
-
-html[dir="rtl"] .ant-menu-vertical .ant-menu-submenu-title {
-  padding-right: 15px !important;
-}
-
-html[dir="rtl"] .project-modal-footer {
-  text-align: right !important;
-}
-
-html[dir="rtl"] .ant-card-extra .ant-dropdown-trigger {
-  margin-right: 20px !important;
-  margin-left: 0 !important;
-}
-
-html[dir="rtl"] .dark-mode .ninjadash-navbar-menu {
-  margin-right: 20px;
 }
 
 /* Dark Mode Css */

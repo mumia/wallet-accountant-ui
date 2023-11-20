@@ -1,0 +1,35 @@
+.ant-select-single {
+    height: auto !important;
+}
+
+.ant-select-selector {
+    padding: 6px 20px !important;
+    height: 48px !important;
+}
+
+.ant-input {
+    padding: 12px 20px !important;
+}
+
+.ant-form-item:last-child {
+    margin-bottom: 0;
+}
+
+.ant-select-item-option-active {
+    color: white;
+}
+
+.ant-select-dropdown .ant-select-item.ant-select-item-option-active {
+    color: #FFFFFF !important;
+    background: #6726A8;
+}
+.ant-select-dropdown .ant-select-item.ant-select-item-option-selected {
+    color: #FFFFFF !important;
+    background: #8231D3;
+}
+
+.ant-select-dropdown .ant-select-item.ant-select-item-option-active .ant-select-item-option-content,
+.ant-select-dropdown .ant-select-item.ant-select-item-option-selected .ant-select-item-option-content {
+    color: #FFFFFF !important;/*8231D3*/;
+    font-weight: 500;
+}
