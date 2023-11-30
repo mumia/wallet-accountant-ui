@@ -20,6 +20,11 @@ import Accounts, { loader as accountsLoader } from "./container/account/Accounts
 import Movements from "./container/movements/Movements";
 import NotFound from "./container/404";
 
+export type Message = {
+  subject: string
+  event: string
+}
+
 const ProviderConfig: React.FC = () => {
   useAppSelector((state: StateReducers) => {
     theme.config.mode = state.layoutMode.mode;

@@ -6,7 +6,7 @@ type ActiveMonth = {
   year: number;
 };
 
-export type AccountBase = {
+export interface AccountBase {
   accountType: number;
   bankName: string;
   /* eslint-disable no-restricted-globals */
@@ -14,7 +14,7 @@ export type AccountBase = {
   currency: string;
   startingBalance: number;
   startingBalanceDate: Date;
-  notes: string;
+  notes?: string;
 }
 
 export type Account = AccountBase & {
@@ -29,7 +29,7 @@ export default class AccountApi extends DataService {
     return response.data;
   }
 
-  async registerAccount(account: Account): Promise<boolean> {
+  async registerAccount(account: AccountBase): Promise<boolean> {
     const response = await this.client.post('/account', account);
 
     return response.status === HttpStatusCode.Created
