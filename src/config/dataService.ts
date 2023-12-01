@@ -1,13 +1,38 @@
-import axios, { AxiosInstance, AxiosResponse } from "axios";
+import axios, { AxiosError, AxiosInstance, AxiosResponse, HttpStatusCode } from "axios";
+import { Navigate } from "react-router-dom";
 // import { getItem } from '../../utility/localStorageControl';
 
 const BASE_URL = `${process.env.REACT_APP_BASE_URL}`;
 
-// type ApiError = {
-//   error: string
-//   code: number
-//   context?: { [key: string]: string | number }
-// }
+type Context = { [key: string]: string | number | undefined }
+
+export class ApiError {
+  readonly _error: string;
+  readonly _code: number;
+  readonly _context?: Context;
+
+  constructor(error: string, code: number, context?: Context) {
+    this._error = error;
+    this._code = code;
+    this._context = context;
+  }
+
+  get error() {
+    return this._error;
+  }
+
+  get code() {
+    return this._code;
+  }
+
+  get context() {
+    return this._context;
+  }
+
+  message() {
+    return this._error + " (" + this._code + ")";
+  }
+}
 
 class DataService {
   protected client: AxiosInstance;
@@ -39,43 +64,74 @@ class DataService {
   }
 
   private onRequestRejected(error: any) {
-    // Do something with request error
-    return Promise.reject(error);
+    return processError(error);
   }
 
   private onResponseFulfilled(response: AxiosResponse): AxiosResponse {
     return response;
   }
 
-  private onResponseRejected(error: any) {
-    /**
-     * Do something in case the response returns an error code [3**, 4**, 5**] etc
-     * For example, on token expiration retrieve a new access token, retry a failed request etc
-     */
-    console.log(error);
-
-    return Promise.reject(error);
+  private onResponseRejected(error: any): Promise<ApiError> {
+    return processError(error);
   }
 }
 
+function processError(error: any): Promise<ApiError> {
+  /**
+   * Do something in case the response returns an error code [3**, 4**, 5**] etc
+   * For example, on token expiration retrieve a new access token, retry a failed request etc
+   */
+  if (axios.isAxiosError(error)) {
+    const axiosError: AxiosError = error;
+    switch (axiosError.response === undefined ? 0 : axiosError.response.status) {
+      case HttpStatusCode.Unauthorized:
+        console.log("NEED TO LOGIN");
 
-// function errorFromAxiosError(axiosError: AxiosError): ApiError {
-//   return {error: axiosError.message, code: 999};
-// }
+        Navigate({ to: "/" });
 
-// if (axios.isAxiosError(error)) {
-//   return Promise.reject(errorFromAxiosError(error));
-// }
-//
-// if (error.message === undefined) {
-//   return Promise.reject()
-// }
-//
-// if (.code === HttpStatusCode.Unauthorized) {
-//   console.log("NEED TO LOGIN");
-//
-//   Navigate("/");
-// }
+        break;
 
+      case HttpStatusCode.BadRequest:
+      case HttpStatusCode.InternalServerError:
+        return Promise.reject(apiErrorFromWalletAccountantError(error));
+
+      default:
+        return Promise.reject(apiErrorFromAxiosError(error));
+    }
+  }
+
+  return Promise.reject(apiErrorFromError(error));
+}
+
+function apiErrorFromWalletAccountantError(error: AxiosError): ApiError {
+  if (error.response === undefined) {
+    return apiErrorFromAxiosError(error);
+  }
+
+  const errorData = error.response.data as { error: string, code: number, context?: Context };
+
+  console.log(errorData);
+
+  const apiError = new ApiError(errorData.error, errorData.code, errorData.context);
+
+  console.log("WA Error: (" + error.message + ") - " + JSON.stringify(apiError));
+
+  return apiError;
+}
+
+function apiErrorFromAxiosError(error: AxiosError): ApiError {
+  const apiError = new ApiError(error.message, 999);
+
+  console.log("Error: (" + error.message + ") - " + JSON.stringify(apiError));
+
+  return apiError;
+}
+
+function apiErrorFromError(error: Error): ApiError {
+  const apiError = new ApiError(error.message, 999, { stack: error.stack });
+  console.log("Error: " + JSON.stringify(apiError));
+
+  return apiError;
+}
 
 export { DataService };

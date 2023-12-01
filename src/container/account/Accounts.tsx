@@ -1,12 +1,14 @@
 import React, { ReactElement, useState } from "react";
 import { Button, Table } from "antd";
 import { CardToolbox, Main } from "../styled";
-import { useLoaderData } from "react-router-dom";
+import { useLoaderData, useNavigate } from "react-router-dom";
 import { UilPlus } from "@iconscout/react-unicons";
 import { PageHeader } from "../../components/page-headers/page-headers";
 import { Cards } from "../../components/cards/frame/cards-frame";
 import RegisterAccount from "./RegisterAccount";
 import AccountApi, { Account } from "../../api/AcountApi";
+import { WebSocketRunnerHelper, WS_URL } from "../../layout/WebSocketRunner";
+import useWebSocket from "react-use-websocket";
 
 interface TableData {
   name: ReactElement;
@@ -31,10 +33,10 @@ function getAccountsTableData(accounts: Account[]): TableData[] {
   const tableData: TableData[] = [];
 
   if (accounts.length > 0) {
-    accounts.map((item) => {
+    accounts.forEach((item) => {
       const startDate = new Date(item.startingBalanceDate);
 
-      return tableData.push({
+      tableData.push({
         name: <span>{item.name}</span>,
         bank: <span>{item.bankName}</span>,
         type: <span>{item.accountType === 1 ? "Checking" : "Savings"}</span>,
@@ -57,8 +59,9 @@ function getAccountsTableData(accounts: Account[]): TableData[] {
   return tableData;
 }
 
-function Accounts() {
+const Accounts = (): React.JSX.Element => {
   const [visible, setVisible] = useState(false);
+  const navigate = useNavigate();
 
   const columns = [
     {
@@ -103,6 +106,16 @@ function Accounts() {
 
   const accounts = useLoaderData() as Account[];
   const accountsTableData = getAccountsTableData(accounts);
+
+  const refresh = () => {
+    navigate(".");
+  };
+
+  useWebSocket(
+    WS_URL,
+    WebSocketRunnerHelper("account", refresh)
+  );
+
   return (
     <>
       <CardToolbox>
@@ -130,6 +143,6 @@ function Accounts() {
       </Main>
     </>
   );
-}
+};
 
 export default Accounts;

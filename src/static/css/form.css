@@ -7,7 +7,12 @@
     height: 48px !important;
 }
 
-.ant-input {
+.ant-input-number {
+    width: 100%;
+}
+
+.ant-input,
+.ant-input-number-input {
     padding: 12px 20px !important;
 }
 

@@ -1,25 +1,20 @@
-version: '3.4'
+version: '3.8'
 
 services:
-  start:
-    image: node:latest
-    working_dir: /app
+  dev:
+    build:
+      dockerfile: docker/Dockerfile
+    working_dir: "/app"
     volumes:
-      - .:/app
+      - ".:/app"
+      - "./docker/dev-entrypoint.sh:/root/entrypoint.sh"
+    entrypoint: ["/root/entrypoint.sh"]
     ports:
       - "3000:3000"
-    entrypoint: ["yarn", "start", "--verbose"]
     networks:
-      wallet-accountant_wallet-accountant: ~
-
-  bash:
-    image: node:latest
-    working_dir: /app
-    volumes:
-      - .:/app
-    entrypoint: ["bash"]
-    networks:
-      wallet-accountant_wallet-accountant: ~
+      wallet-accountant_wallet-accountant:
+        aliases:
+          - wallet-accountant-ui
 
 networks:
   wallet-accountant_wallet-accountant:
