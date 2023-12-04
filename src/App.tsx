@@ -19,11 +19,7 @@ import { theme } from "./config/theme/themeVariables";
 import Accounts, { loader as accountsLoader } from "./container/account/Accounts";
 import Movements from "./container/movements/Movements";
 import NotFound from "./container/404";
-
-export type Message = {
-  subject: string
-  event: string
-}
+import Tags, { loader as tagsLoader } from "./container/tags/Tags";
 
 const ProviderConfig: React.FC = () => {
   useAppSelector((state: StateReducers) => {
@@ -48,6 +44,7 @@ const ProviderConfig: React.FC = () => {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="accounts" loader={accountsLoader} errorElement={<ErrorBoundary />} element={<Accounts />} />
+          <Route path="tags" loader={tagsLoader} errorElement={<ErrorBoundary />} element={<Tags />} />
           <Route path="movements" element={<Movements />} />
         </Route>
         <Route path="/not-found" element={<NotFound />} />

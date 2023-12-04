@@ -21,7 +21,7 @@ export default function RegisterAccount({ onClose, visible }: Control) {
     const api = new AccountApi();
 
     try {
-      const account = form.getFieldsValue()
+      const account = form.getFieldsValue();
       const success = await api.registerAccount(account);
 
       if (success) {
@@ -77,8 +77,11 @@ export default function RegisterAccount({ onClose, visible }: Control) {
         layout="vertical"
         autoComplete="off"
       >
-        <Form.Item name="accountType" label="Account type"
-                   rules={[{ required: true, message: "Please select an account type!" }]}>
+        <Form.Item
+          name="accountType"
+          label="Account type"
+          rules={[{ required: true, message: "Please select an account type!" }]}
+        >
           <Select
             placeholder="Account type"
             options={[
@@ -87,12 +90,18 @@ export default function RegisterAccount({ onClose, visible }: Control) {
             ]}
           />
         </Form.Item>
-        <Form.Item name="name" label="Account name"
-                   rules={[{ required: true, message: "Please fill in the account name!" }]}>
+        <Form.Item
+          name="name"
+          label="Account name"
+          rules={[{ required: true, message: "Please fill in the account name!" }]}
+        >
           <Input placeholder="Account Name" />
         </Form.Item>
-        <Form.Item name="bankName" label="Bank name"
-                   rules={[{ required: true, message: "Please fill in the bank name!" }]}>
+        <Form.Item
+          name="bankName"
+          label="Bank name"
+          rules={[{ required: true, message: "Please fill in the bank name!" }]}
+        >
           <Input placeholder="Bank Name" />
         </Form.Item>
         <Form.Item name="currency" label="Currency" rules={[{ required: true, message: "Please select a currency!" }]}>
@@ -105,12 +114,18 @@ export default function RegisterAccount({ onClose, visible }: Control) {
             ]}
           />
         </Form.Item>
-        <Form.Item name="startingBalance" label="Starting balance"
-                   rules={[{ required: true, message: "Please fill in the starting balance!" }]}>
+        <Form.Item
+          name="startingBalance"
+          label="Starting balance"
+          rules={[{ required: true, message: "Please fill in the starting balance!" }]}
+        >
           <InputNumber placeholder="Starting balance" />
         </Form.Item>
-        <Form.Item name="startingBalanceDate" label="Starting balance date"
-                   rules={[{ required: true, message: "Please pick a starting balance date!" }]}>
+        <Form.Item
+          name="startingBalanceDate"
+          label="Starting balance date"
+          rules={[{ required: true, message: "Please pick a starting balance date!" }]}
+        >
           <DatePicker placeholder="yyyy/mm/dd" format="YYYY/MM/DD" />
         </Form.Item>
         <Form.Item name="notes" label="Notes" initialValue={``}>

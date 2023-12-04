@@ -62,6 +62,8 @@ function getAccountsTableData(accounts: Account[]): TableData[] {
 const Accounts = (): React.JSX.Element => {
   const [visible, setVisible] = useState(false);
   const navigate = useNavigate();
+  const accounts = useLoaderData() as Account[];
+  const accountsTableData = getAccountsTableData(accounts);
 
   const columns = [
     {
@@ -96,20 +98,11 @@ const Accounts = (): React.JSX.Element => {
     }
   ];
 
-  const showModal = () => {
-    setVisible(true);
-  };
+  const showModal = () => setVisible(true);
 
-  const hideModal = () => {
-    setVisible(false);
-  };
+  const hideModal = () => setVisible(false);
 
-  const accounts = useLoaderData() as Account[];
-  const accountsTableData = getAccountsTableData(accounts);
-
-  const refresh = () => {
-    navigate(".");
-  };
+  const refresh = () => navigate(".");
 
   useWebSocket(
     WS_URL,
