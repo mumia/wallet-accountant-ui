@@ -1,11 +1,11 @@
-import { UilCreditCard, UilDashboard, UilEllipsisV, UilWallet } from "@iconscout/react-unicons";
+import { UilCreditCard, UilDashboard, UilEllipsisV, UilTagAlt, UilWallet } from "@iconscout/react-unicons";
 import { Menu } from "antd";
 import * as PropTypes from "prop-types";
+import { InferProps } from "prop-types";
 import * as React from "react";
 import { ReactElement, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { MenuInfo } from "rc-menu/lib/interface";
-import { InferProps } from "prop-types";
 
 function MenuItems(props: InferProps<typeof MenuItems.propTypes>) {
   function getItem(
@@ -74,6 +74,12 @@ function MenuItems(props: InferProps<typeof MenuItems.propTypes>) {
       `${path}/accounts`,
       "accounts",
       <UilCreditCard />
+    ),
+    getItem(
+      "tags",
+      `${path}/tags`,
+      "tags",
+      <UilTagAlt />
     ),
     getItem(
       "movements",
