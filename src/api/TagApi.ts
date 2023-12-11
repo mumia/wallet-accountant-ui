@@ -28,8 +28,8 @@ export interface NewTagInCategory {
 }
 
 export default class TagApi extends DataService {
-  async tags(): Promise<TagCategory[]> {
-    const response = await this.client.get<TagCategory[]>("/tags");
+  async tags(filters?: string[]): Promise<TagCategory[]> {
+    const response = await this.client.get<TagCategory[]>("/tags", {params: {filters: filters}});
 
     return response.data;
   }

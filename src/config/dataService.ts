@@ -1,6 +1,6 @@
 import axios, { AxiosError, AxiosInstance, AxiosResponse, HttpStatusCode } from "axios";
 import { Navigate } from "react-router-dom";
-// import { getItem } from '../../utility/localStorageControl';
+import { MessageInstance } from "antd/es/message/interface";
 
 const BASE_URL = `${process.env.REACT_APP_BASE_URL}`;
 
@@ -31,6 +31,47 @@ export class ApiError {
 
   message() {
     return this._error + " (" + this._code + ")";
+  }
+}
+
+export const writeOperationHelper = async (
+  messageApi: MessageInstance,
+  loadingMessage: string,
+  successMessage: string,
+  writeOperation: () => Promise<boolean>,
+  onSuccess: () => void
+) => {
+  messageApi.open({
+    type: "loading",
+    content: loadingMessage,
+    duration: 0
+  });
+
+  try {
+    const success = await writeOperation();
+
+    if (success) {
+      messageApi.destroy();
+      messageApi.open({
+        type: "success",
+        content: successMessage
+      });
+
+      onSuccess();
+    }
+  } catch (error) {
+    messageApi.destroy();
+    if (error instanceof ApiError) {
+      messageApi.open({
+        type: "error",
+        content: error.message()
+      });
+    } else {
+      messageApi.open({
+        type: "error",
+        content: JSON.stringify(error)
+      });
+    }
   }
 }
 

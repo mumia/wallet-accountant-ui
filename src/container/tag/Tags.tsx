@@ -5,10 +5,10 @@ import { Button, Card, Col, Row, Tag as AntTag } from "antd";
 import { UilPlus } from "@iconscout/react-unicons";
 import TagApi, { Tag, TagCategory } from "../../api/TagApi";
 import { useLoaderData, useNavigate } from "react-router-dom";
-import NewTagCategory from "../../container/tags/NewTagCategory";
+import NewTagCategory from "../../container/tag/NewTagCategory";
 import useWebSocket from "react-use-websocket";
 import { WebSocketRunnerHelper, WS_URL } from "../../layout/WebSocketRunner";
-import NewTag from "../../container/tags/NewTag";
+import NewTag from "../../container/tag/NewTag";
 
 const api = new TagApi();
 
