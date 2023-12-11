@@ -29,6 +29,12 @@ export default class AccountApi extends DataService {
     return response.data;
   }
 
+  async account(accountId: string): Promise<Account> {
+    const response = await this.client.get<Account>("/account/" + accountId);
+
+    return response.data;
+  }
+
   async registerAccount(account: AccountBase): Promise<boolean> {
     const response = await this.client.post('/account', account);
 

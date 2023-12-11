@@ -1,4 +1,4 @@
-import { UilCreditCard, UilDashboard, UilEllipsisV, UilTagAlt, UilWallet } from "@iconscout/react-unicons";
+import { UilCreditCard, UilDashboard, UilEllipsisV, UilTagAlt, UilFolder, UilWallet } from "@iconscout/react-unicons";
 import { Menu } from "antd";
 import * as PropTypes from "prop-types";
 import { InferProps } from "prop-types";
@@ -70,23 +70,29 @@ function MenuItems(props: InferProps<typeof MenuItems.propTypes>) {
       <UilDashboard />
     ),
     getItem(
-      "accounts",
+      "movement",
+      `${path}/movements`,
+      "movement",
+      <UilWallet />
+    ),
+    getItem(
+      "account",
       `${path}/accounts`,
-      "accounts",
+      "account",
       <UilCreditCard />
     ),
     getItem(
-      "tags",
+      "tag",
       `${path}/tags`,
-      "tags",
+      "tag",
       <UilTagAlt />
     ),
     getItem(
-      "movements",
-      `${path}/movements`,
-      "movements",
-      <UilWallet />
-    )
+      "movementType",
+      `${path}/movement-types`,
+      "movementType",
+      <UilFolder />
+    ),
   ];
 
   let defaultSelectedKeys = mainPathSplit.join('_');

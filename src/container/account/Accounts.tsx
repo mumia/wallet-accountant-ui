@@ -6,7 +6,7 @@ import { UilPlus } from "@iconscout/react-unicons";
 import { PageHeader } from "../../components/page-headers/page-headers";
 import { Cards } from "../../components/cards/frame/cards-frame";
 import RegisterAccount from "./RegisterAccount";
-import AccountApi, { Account } from "../../api/AcountApi";
+import AccountApi, { Account } from "../../api/AccountApi";
 import { WebSocketRunnerHelper, WS_URL } from "../../layout/WebSocketRunner";
 import useWebSocket from "react-use-websocket";
 
@@ -32,29 +32,31 @@ function padValue(value: string | number) {
 function getAccountsTableData(accounts: Account[]): TableData[] {
   const tableData: TableData[] = [];
 
-  if (accounts.length > 0) {
-    accounts.forEach((item) => {
-      const startDate = new Date(item.startingBalanceDate);
+  if (accounts.length <= 0) {
+    return tableData;
+  }
 
-      tableData.push({
-        name: <span>{item.name}</span>,
-        bank: <span>{item.bankName}</span>,
-        type: <span>{item.accountType === 1 ? "Checking" : "Savings"}</span>,
-        startBalance: (
-          <span>
+  accounts.forEach((item) => {
+    const startDate = new Date(item.startingBalanceDate);
+
+    tableData.push({
+      name: <span>{item.name}</span>,
+      bank: <span>{item.bankName}</span>,
+      type: <span>{item.accountType === 1 ? "Checking" : "Savings"}</span>,
+      startBalance: (
+        <span>
             {item.startingBalance} {item.currency} on {startDate.getFullYear()}/{padValue(startDate.getMonth() + 1)}/
-            {padValue(startDate.getDate())}
+          {padValue(startDate.getDate())}
           </span>
-        ),
-        activeMonth: (
-          <span>
+      ),
+      activeMonth: (
+        <span>
             {item.activeMonth.year}/{padValue(item.activeMonth.month)}
           </span>
-        ),
-        notes: <span>{item.notes}</span>
-      });
+      ),
+      notes: <span>{item.notes}</span>
     });
-  }
+  });
 
   return tableData;
 }

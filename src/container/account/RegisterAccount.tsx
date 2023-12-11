@@ -1,5 +1,5 @@
 import { Button, DatePicker, Form, Input, InputNumber, message, Modal, Select } from "antd";
-import AccountApi from "../../api/AcountApi";
+import AccountApi from "../../api/AccountApi";
 import { ApiError } from "../../config/dataService";
 
 type Control = {

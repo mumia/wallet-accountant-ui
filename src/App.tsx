@@ -17,10 +17,10 @@ import { ConfigProvider } from "antd";
 import { ThemeProvider } from "styled-components";
 import { theme } from "./config/theme/themeVariables";
 import Accounts, { loader as accountsLoader } from "./container/account/Accounts";
-import Movements from "./container/movements/Movements";
+import Movements from "./container/movement/Movements";
 import NotFound from "./container/404";
-import Tags, { loader as tagsLoader } from "./container/tags/Tags";
-
+import Tags, { loader as tagsLoader } from "./container/tag/Tags";
+import MovementTypes, { loader as movementTypesLoader } from "./container/movementType/MovementTypes";
 const ProviderConfig: React.FC = () => {
   useAppSelector((state: StateReducers) => {
     theme.config.mode = state.layoutMode.mode;
@@ -45,6 +45,7 @@ const ProviderConfig: React.FC = () => {
           <Route index element={<Dashboard />} />
           <Route path="accounts" loader={accountsLoader} errorElement={<ErrorBoundary />} element={<Accounts />} />
           <Route path="tags" loader={tagsLoader} errorElement={<ErrorBoundary />} element={<Tags />} />
+          <Route path="movement-types" loader={movementTypesLoader} errorElement={<ErrorBoundary />} element={<MovementTypes />} />
           <Route path="movements" element={<Movements />} />
         </Route>
         <Route path="/not-found" element={<NotFound />} />
