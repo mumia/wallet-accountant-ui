@@ -9,6 +9,7 @@ import RegisterAccount from "./RegisterAccount";
 import AccountApi, { Account } from "../../api/AccountApi";
 import { WebSocketRunnerHelper, WS_URL } from "../../layout/WebSocketRunner";
 import useWebSocket from "react-use-websocket";
+import { padValue } from "../../config/stringHelper";
 
 interface TableData {
   name: ReactElement;
@@ -25,10 +26,6 @@ export async function loader() {
   return api.accounts();
 }
 
-function padValue(value: string | number) {
-  return String(value).padStart(2, "0");
-}
-
 function getAccountsTableData(accounts: Account[]): TableData[] {
   const tableData: TableData[] = [];
 
@@ -42,7 +39,7 @@ function getAccountsTableData(accounts: Account[]): TableData[] {
     tableData.push({
       name: <span>{item.name}</span>,
       bank: <span>{item.bankName}</span>,
-      type: <span>{item.accountType === 1 ? "Checking" : "Savings"}</span>,
+      type: <span>{item.accountType === 'checking' ? "Checking" : "Savings"}</span>,
       startBalance: (
         <span>
             {item.startingBalance} {item.currency} on {startDate.getFullYear()}/{padValue(startDate.getMonth() + 1)}/

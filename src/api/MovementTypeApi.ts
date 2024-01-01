@@ -1,10 +1,11 @@
 import { DataService } from "../config/dataService";
-import TagApi, { NewTagInCategory } from "./TagApi";
-import AccountApi from "./AccountApi";
+import TagApi from "./TagApi";
+import AccountApi, { Account } from "./AccountApi";
 import { HttpStatusCode } from "axios";
+import { tagCategoriesToTagDetail, TagDetail } from "./AccountMonthApi";
 
 interface NewMovementTypeApi {
-  type: string;
+  action: string;
   accountId: string;
   sourceAccountId?: string;
   description: string;
@@ -16,29 +17,17 @@ export type MovementTypeApiResponse = NewMovementTypeApi & {
 }
 
 export interface AccountMovementType {
-  account: AccountDetail;
+  account: Account;
   movementTypes: MovementType[];
 }
 
 export interface MovementType {
   movementTypeId: string;
-  type: string;
-  account: AccountDetail;
-  sourceAccount?: AccountDetail;
+  action: string;
+  account: Account;
+  sourceAccount?: Account;
   description: string;
   tags: TagDetail[];
-}
-
-export interface TagDetail {
-  tagCategoryId: string;
-  tagId: string;
-  category: string;
-  name: string;
-}
-
-export interface AccountDetail {
-  accountId: string;
-  name: string;
 }
 
 const accountApi = new AccountApi();
@@ -60,41 +49,15 @@ async function resolveMovementType(
   const account = await accountFetch;
   const sourceAccount = await sourceAccountFetch;
 
-  let tagDetails: TagDetail[] = [];
-  tagCategories.forEach(
-    tagCategory => {
-      tagCategory.tags.forEach(
-        tag => {
-          const tagDetail = {
-            tagCategoryId: tagCategory.tagCategoryId,
-            tagId: tag.tagId,
-            category: tagCategory.name,
-            name: tag.name
-          }
-
-          if (tagDetails.indexOf(tagDetail) < 0) {
-            tagDetails.push(tagDetail);
-          }
-        }
-      );
-    }
-  );
-
   return {
     movementTypeId: movementType.movementTypeId,
-    type: movementType.type,
-    account: {
-      accountId: account.accountId,
-      name: account.name
-    },
+    action: movementType.action,
+    account: account,
     sourceAccount: sourceAccount === undefined
       ? undefined
-      : {
-        accountId: sourceAccount.accountId,
-        name: sourceAccount.name
-      },
+      : sourceAccount,
     description: movementType.description,
-    tags: tagDetails
+    tags: tagCategoriesToTagDetail(tagCategories)
   };
 }
 
@@ -127,6 +90,14 @@ export default class MovementTypeApi extends DataService {
     );
 
     return accountMovementTypes;
+  }
+
+  async movementTypesByAccountId(accountId: string): Promise<MovementTypeApiResponse> {
+    const response = await this.client.get<MovementTypeApiResponse>(
+      "/movement-type/account/" + accountId
+    );
+
+    return response.data;
   }
 
   async registerMovementType(accountId: string, newMovementTypeApi: NewMovementTypeApi): Promise<boolean> {

@@ -7,7 +7,7 @@ type ActiveMonth = {
 };
 
 export interface AccountBase {
-  accountType: number;
+  accountType: string;
   bankName: string;
   /* eslint-disable no-restricted-globals */
   name: string;

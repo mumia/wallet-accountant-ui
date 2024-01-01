@@ -85,8 +85,8 @@ export default function RegisterAccount({ onClose, visible }: Control) {
           <Select
             placeholder="Account type"
             options={[
-              { value: 1, label: "Checking" },
-              { value: 2, label: "Savings" }
+              { value: "checking", label: "Checking" },
+              { value: "savings", label: "Savings" }
             ]}
           />
         </Form.Item>
@@ -108,9 +108,9 @@ export default function RegisterAccount({ onClose, visible }: Control) {
           <Select
             placeholder="Currency"
             options={[
-              { value: "EUR", label: `{&euro; Euro}` },
-              { value: "USD", label: `$ US Dollar` },
-              { value: "CHF", label: `&#8355; Swiss Franc` }
+              { value: "EUR", label: "\u20AC Euro" },
+              { value: "USD", label: "$ US Dollar" },
+              { value: "CHF", label: "\u20A3 Swiss Franc" }
             ]}
           />
         </Form.Item>
