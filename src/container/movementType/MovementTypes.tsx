@@ -2,7 +2,7 @@ import React, { ReactElement, useState } from "react";
 import { CardToolbox, Main } from "../../container/styled";
 import { PageHeader } from "../../components/page-headers/page-headers";
 import { Cards } from "../../components/cards/frame/cards-frame";
-import MovementTypeApi, { AccountDetail, AccountMovementType, MovementType } from "../../api/MovementTypeApi";
+import MovementTypeApi, { AccountMovementType, MovementType } from "../../api/MovementTypeApi";
 import { useLoaderData, useNavigate } from "react-router-dom";
 import { Button, Collapse, CollapseProps, Table, Tag } from "antd";
 import { UilPlus } from "@iconscout/react-unicons";
@@ -29,10 +29,13 @@ export async function loader() {
 }
 
 type ModalState = {
-  account: AccountDetail;
+  account: Account;
   visible: boolean;
 }
-const defaultModalState = { account: { accountId: "", name: "" }, visible: false };
+const defaultModalState = {
+  account: {} as Account,
+  visible: false
+};
 
 function getMovementTypesTableData(movementTypes: MovementType[]): TableData[] {
   const tableData: TableData[] = [];
@@ -46,7 +49,7 @@ function getMovementTypesTableData(movementTypes: MovementType[]): TableData[] {
       description: <span>{item.description}</span>,
       account: <span>{item.account.name}</span>,
       sourceAccount: <span>{item.sourceAccount?.name || "N/A"}</span>,
-      type: <span>{item.type}</span>,
+      type: <span>{item.action}</span>,
       tags: <span>
         {
           item.tags.map(
@@ -94,7 +97,7 @@ const MovementTypes = (): React.JSX.Element => {
     }
   ];
 
-  const showModal = (account: AccountDetail, event: React.MouseEvent<HTMLElement>) => {
+  const showModal = (account: Account, event: React.MouseEvent<HTMLElement>) => {
     // don't trigger collapse
     event.stopPropagation();
 
@@ -178,7 +181,7 @@ const MovementTypes = (): React.JSX.Element => {
       </CardToolbox>
       <Main>
         <Cards headless>
-          {accountMovementTypes.length > 0
+          {items.length > 0
             ? (<Collapse items={items} />)
             : (<div>No movement types registered</div>)
           }

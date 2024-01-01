@@ -17,10 +17,13 @@ import { ConfigProvider } from "antd";
 import { ThemeProvider } from "styled-components";
 import { theme } from "./config/theme/themeVariables";
 import Accounts, { loader as accountsLoader } from "./container/account/Accounts";
-import Movements from "./container/movement/Movements";
+import AccountOverview, { loader as accountOverviewLoader } from "./container/movement/AccountOverview";
 import NotFound from "./container/404";
 import Tags, { loader as tagsLoader } from "./container/tag/Tags";
 import MovementTypes, { loader as movementTypesLoader } from "./container/movementType/MovementTypes";
+import Movements, { loader as movementsLoader } from "./container/movement/Movements";
+import { ApiError } from "config/dataService";
+
 const ProviderConfig: React.FC = () => {
   useAppSelector((state: StateReducers) => {
     theme.config.mode = state.layoutMode.mode;
@@ -31,22 +34,27 @@ const ProviderConfig: React.FC = () => {
   });
 
   function ErrorBoundary() {
-    let error = useRouteError();
+    let error = useRouteError() as ApiError;
     console.error(error);
     // Uncaught ReferenceError: path is not defined
 
-    return <div>Dang!</div>;
+    return <div>Dang! {error.message()}</div>;
   }
 
   const router = createBrowserRouter(
     createRoutesFromElements(
       <>
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="accounts" loader={accountsLoader} errorElement={<ErrorBoundary />} element={<Accounts />} />
-          <Route path="tags" loader={tagsLoader} errorElement={<ErrorBoundary />} element={<Tags />} />
-          <Route path="movement-types" loader={movementTypesLoader} errorElement={<ErrorBoundary />} element={<MovementTypes />} />
-          <Route path="movements" element={<Movements />} />
+        <Route path="/admin" errorElement={<ErrorBoundary />} element={<AdminLayout />}>
+          <Route errorElement={<ErrorBoundary />}>
+            <Route index element={<Dashboard />} />
+            <Route path="accounts" loader={accountsLoader} element={<Accounts />} />
+            <Route path="tags" loader={tagsLoader} element={<Tags />} />
+            <Route path="movement-types" loader={movementTypesLoader} element={<MovementTypes />} />
+            <Route path="movements">
+              <Route index loader={accountOverviewLoader} element={<AccountOverview />} />
+              <Route path=":accountId" loader={movementsLoader} element={<Movements />} />
+            </Route>
+          </Route>
         </Route>
         <Route path="/not-found" element={<NotFound />} />
         <Route path="*" element={<Navigate replace to="/not-found" />} />
