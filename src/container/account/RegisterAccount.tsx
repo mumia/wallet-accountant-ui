@@ -1,6 +1,7 @@
 import { Button, DatePicker, Form, Input, InputNumber, message, Modal, Select } from "antd";
-import AccountApi from "../../api/AccountApi";
+import AccountApi, { AccountBase } from "../../api/AccountApi";
 import { ApiError } from "../../config/dataService";
+import dayjs from "dayjs";
 
 type Control = {
   onClose: () => void;
@@ -8,7 +9,7 @@ type Control = {
 };
 
 export default function RegisterAccount({ onClose, visible }: Control) {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<AccountBase>();
   const [messageApi, contextHolder] = message.useMessage();
 
   const handleOk = async () => {
@@ -22,6 +23,8 @@ export default function RegisterAccount({ onClose, visible }: Control) {
 
     try {
       const account = form.getFieldsValue();
+      account.startingBalance = account.startingBalance * 100;
+
       const success = await api.registerAccount(account);
 
       if (success) {
@@ -104,7 +107,10 @@ export default function RegisterAccount({ onClose, visible }: Control) {
         >
           <Input placeholder="Bank Name" />
         </Form.Item>
-        <Form.Item name="currency" label="Currency" rules={[{ required: true, message: "Please select a currency!" }]}>
+        <Form.Item
+          name="currency" label="Currency"
+          rules={[{ required: true, message: "Please select a currency!" }]}
+        >
           <Select
             placeholder="Currency"
             options={[
@@ -125,8 +131,19 @@ export default function RegisterAccount({ onClose, visible }: Control) {
           name="startingBalanceDate"
           label="Starting balance date"
           rules={[{ required: true, message: "Please pick a starting balance date!" }]}
+          // getValueFromEvent={(onChange) => dayjs(onChange).format("YYYY-MM-DD")}
+          // getValueProps={(i) => ({ value: dayjs(i) })}
         >
-          <DatePicker placeholder="yyyy/mm/dd" format="YYYY/MM/DD" />
+          <DatePicker
+            placeholder="yyyy/mm/dd"
+            format="YYYY/MM/DD"
+            onChange={(date, dateString) => {
+              form.setFieldValue(
+                "startingBalanceDate",
+                dayjs(date.format("YYYY-MM-DDTH:mm:ss+00:00"), "YYYY-MM-DDTH:mm:ssZ")
+              );
+            }}
+          />
         </Form.Item>
         <Form.Item name="notes" label="Notes" initialValue={``}>
           <Input.TextArea rows={2} placeholder="Notes" />

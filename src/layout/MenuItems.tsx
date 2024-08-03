@@ -93,6 +93,12 @@ function MenuItems(props: InferProps<typeof MenuItems.propTypes>) {
       "movementType",
       <UilFolder />
     ),
+    getItem(
+      "importFile",
+      `${path}/import-files`,
+      "importFile",
+      <UilFolder />
+    ),
   ];
 
   let defaultSelectedKeys = mainPathSplit.join('_');

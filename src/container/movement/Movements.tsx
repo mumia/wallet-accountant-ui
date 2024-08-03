@@ -6,12 +6,14 @@ import { LoaderFunctionArgs, useLoaderData } from "react-router-dom";
 import AccountMonthApi, { AccountMonth, TagDetail } from "../../api/AccountMonthApi";
 import { Button, Col, Divider, Row, Table, Tag as AntTag } from "antd";
 import { Cards } from "../../components/cards/frame/cards-frame";
-import { UilPlus } from "@iconscout/react-unicons";
+import { UilFileCheckAlt, UilPlus } from "@iconscout/react-unicons";
 import MovementTypeApi, { MovementTypeApiResponse } from "../../api/MovementTypeApi";
 import RegisterNewMovement from "./RegisterNewMovement";
 import TagApi, { TagCategory } from "../../api/TagApi";
-import { padValue } from "../../config/stringHelper";
+import { euroFormatter, padValue } from "../../config/stringHelper";
 import Money from "../../components/Money";
+import EndMonth from "./EndMonth";
+import { ColumnsType } from "antd/es/table";
 
 const api = new AccountMonthApi();
 const accountApi = new AccountApi();
@@ -62,7 +64,11 @@ function getMovementsTableData(accountMonth: AccountMonth): TableData[] {
       changeFactor = -1;
     }
 
+    console.log(currentBalance);
+
     currentBalance = currentBalance + (item.amount * changeFactor);
+
+    console.log(currentBalance, item.amount, changeFactor);
 
     tableData.unshift(
       {
@@ -79,12 +85,7 @@ function getMovementsTableData(accountMonth: AccountMonth): TableData[] {
           negative={item.action === "debit"}
           showPositiveSymbol={true}
         />,
-        balance: <Money
-          value={currentBalance}
-          currency={accountMonth.account.currency}
-          negative={currentBalance < 0}
-        />,
-
+        balance: <Money value={currentBalance} currency={accountMonth.account.currency} />,
         sourceAccount: item.sourceAccount,
         movementTypeId: item.movementTypeId,
         tags: item.tags
@@ -121,34 +122,55 @@ export default function Movements() {
     movementTypes,
     tagCategories
   ] = useLoaderData() as [AccountMonth, Account, Account[], MovementTypeApiResponse[], TagCategory[]];
-  const [visible, setVisible] = useState(false);
+  const [newMovementVisible, setNewMovementVisible] = useState(false);
+  const [endMothVisible, setEndMonthVisible] = useState(false);
 
-  const columns = [
+  const columns: ColumnsType<TableData> = [
     {
-      title: "Date",
-      dataIndex: "date",
-      key: "date"
+      title: 'Date',
+      dataIndex: 'date',
+      key: 'date'
     },
     {
-      title: "Description",
-      dataIndex: "description",
-      key: "description"
+      title: 'Description',
+      dataIndex: 'description',
+      key: 'description'
     },
     {
-      title: "Amount",
-      dataIndex: "amount",
-      key: "amount"
+      title: 'Amount',
+      dataIndex: 'amount',
+      key: 'amount',
+      align: 'right'
     },
     {
-      title: "Balance",
-      dataIndex: "balance",
-      key: "balance"
+      title: 'Balance',
+      dataIndex: 'balance',
+      key: 'balance',
+      align: 'right'
     }
   ];
 
-  const showModal = () => setVisible(true);
+  const showNewMovementModal = () => setNewMovementVisible(true);
+  const hideNewMovementModal = () => setNewMovementVisible(false);
 
-  const hideModal = () => setVisible(false);
+  const showEndMonthModal = () => setEndMonthVisible(true);
+  const hideEndMonthModal = () => setEndMonthVisible(false);
+
+  let buttons = [];
+
+  const currentDate = new Date();
+  if (currentDate.getFullYear() > accountMonth.activeMonth.year || (currentDate.getMonth() + 1) > accountMonth.activeMonth.month) {
+    buttons.push(
+      <Button key="2" onClick={showEndMonthModal} type="primary" size="middle"  className="btn-add_new" danger>
+        <UilFileCheckAlt/>End month
+      </Button>
+    );
+  }
+  buttons.push(
+    <Button key="1" onClick={showNewMovementModal} type="primary" size="middle" className="btn-add_new">
+      <UilPlus /> Register movement
+    </Button>
+  );
 
   return (
     <>
@@ -157,11 +179,7 @@ export default function Movements() {
           className="ninjadash-page-header-main"
           ghost
           title="Movements"
-          buttons={[
-            <Button key="1" onClick={showModal} type="primary" size="middle" className="btn-add_new">
-              <UilPlus /> Register movement
-            </Button>
-          ]}
+          buttons={buttons}
         />
       </CardToolbox>
       <Main>
@@ -173,13 +191,15 @@ export default function Movements() {
             <strong>Month:</strong> {accountMonth.activeMonth.year} / {accountMonth.activeMonth.month}
           </Col>
           <Col span={8}>
-            <strong>Balance:</strong> {accountMonth.balance} {account.currency}
+            <strong>Balance:</strong>
+            <Money value={account.startingBalance} currency={account.currency}/>
           </Col>
         </Row>
         <Divider />
         <Cards headless>
           {accountMonth.movements.length > 0 ? (
             <Table
+              bordered
               pagination={false}
               columns={columns}
               dataSource={getMovementsTableData(accountMonth)}
@@ -192,12 +212,18 @@ export default function Movements() {
           )}
         </Cards>
         <RegisterNewMovement
-          onClose={hideModal}
-          visible={visible}
+          onClose={hideNewMovementModal}
+          visible={newMovementVisible}
           currentAccount={account}
           accounts={accounts}
           movementTypes={movementTypes}
           tagCategories={tagCategories}
+        />
+        <EndMonth
+          onClose={hideEndMonthModal}
+          visible={endMothVisible}
+          account={account}
+          accountMonth={accountMonth}
         />
       </Main>
     </>

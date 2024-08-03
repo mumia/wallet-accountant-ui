@@ -10,6 +10,8 @@ import AccountApi, { Account } from "../../api/AccountApi";
 import { WebSocketRunnerHelper, WS_URL } from "../../layout/WebSocketRunner";
 import useWebSocket from "react-use-websocket";
 import { padValue } from "../../config/stringHelper";
+import { showDate } from "../../config/dateHelper";
+import Money from "../../components/Money";
 
 interface TableData {
   name: ReactElement;
@@ -39,12 +41,11 @@ function getAccountsTableData(accounts: Account[]): TableData[] {
     tableData.push({
       name: <span>{item.name}</span>,
       bank: <span>{item.bankName}</span>,
-      type: <span>{item.accountType === 'checking' ? "Checking" : "Savings"}</span>,
+      type: <span>{item.accountType === "checking" ? "Checking" : "Savings"}</span>,
       startBalance: (
         <span>
-            {item.startingBalance} {item.currency} on {startDate.getFullYear()}/{padValue(startDate.getMonth() + 1)}/
-          {padValue(startDate.getDate())}
-          </span>
+          <Money value={item.startingBalance} currency={item.currency} /> on {showDate(startDate)}
+        </span>
       ),
       activeMonth: (
         <span>

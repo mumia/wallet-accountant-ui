@@ -4,33 +4,33 @@ import TagApi, { TagCategory } from "./TagApi";
 import AccountApi, { Account } from "./AccountApi";
 
 interface AccountMonthResponse {
-  accountMonthId: string;
-  accountId: string;
-  activeMonth: ActiveMonth;
-  movements: AccountMovementResponse[];
-  balance: number;
-  initialBalance: number;
-  monthEnded: boolean;
+  accountMonthId: string
+  accountId: string
+  activeMonth: ActiveMonth
+  movements: AccountMovementResponse[]
+  balance: number
+  initialBalance: number
+  monthEnded: boolean
 }
 
-interface NewAccountMovement {
+export interface NewAccountMovement {
   movementTypeId?: string
-  action: string;
-  accountId: string;
-  sourceAccountId?: string;
-  description: string;
+  action: string
+  accountId: string
+  sourceAccountId?: string
+  description: string
   amount: number
   date: Date
-  tagIds: string[];
+  tagIds: string[]
 }
 
 type AccountMovementResponse = NewAccountMovement & {
-  accountMovementId: string;
+  accountMovementId: string
 }
 
 interface ActiveMonth {
-  month: number;
-  year:  number;
+  month: number
+  year:  number
 }
 
 export interface AccountMonth {
@@ -59,6 +59,13 @@ export interface TagDetail {
   tagId: string;
   category: string;
   name: string;
+}
+
+interface EndMonth {
+  accountId: string;
+  year: number;
+  month: number;
+  endBalance: number;
 }
 
 const accountApi = new AccountApi();
@@ -142,5 +149,15 @@ export default class AccountMonthApi extends DataService {
       newAccountMovement);
 
     return response.status === HttpStatusCode.Created
+  }
+
+  async endMonth(account: Account, endMonth: EndMonth): Promise<boolean> {
+    endMonth.accountId = account.accountId;
+    endMonth.year = account.activeMonth.year;
+    endMonth.month= account.activeMonth.month;
+
+    const response = await this.client.put('/account-month', endMonth);
+
+    return response.status === HttpStatusCode.NoContent
   }
 }

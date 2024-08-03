@@ -23,6 +23,8 @@ import Tags, { loader as tagsLoader } from "./container/tag/Tags";
 import MovementTypes, { loader as movementTypesLoader } from "./container/movementType/MovementTypes";
 import Movements, { loader as movementsLoader } from "./container/movement/Movements";
 import { ApiError } from "config/dataService";
+import ImportedFiles, { loader as importedFilesLoader } from "./container/ImportFile/ImportedFiles";
+import ImportedFileRows, { loader as importedFileRowsLoader }  from "./container/ImportFile/ImportedFileRows";
 
 const ProviderConfig: React.FC = () => {
   useAppSelector((state: StateReducers) => {
@@ -35,10 +37,16 @@ const ProviderConfig: React.FC = () => {
 
   function ErrorBoundary() {
     let error = useRouteError() as ApiError;
+    console.error(typeof error);
     console.error(error);
     // Uncaught ReferenceError: path is not defined
 
-    return <div>Dang! {error.message()}</div>;
+    let errorMessage = error
+    // if (typeof error.message == 'function') {
+    //   errorMessage = error.message();
+    // }
+
+    return <div>Dang! {errorMessage.error}</div>;
   }
 
   const router = createBrowserRouter(
@@ -53,6 +61,10 @@ const ProviderConfig: React.FC = () => {
             <Route path="movements">
               <Route index loader={accountOverviewLoader} element={<AccountOverview />} />
               <Route path=":accountId" loader={movementsLoader} element={<Movements />} />
+            </Route>
+            <Route path="import-files">
+              <Route index loader={importedFilesLoader} element={<ImportedFiles />} />
+              <Route path=":importFileId/:accountId" loader={importedFileRowsLoader} element={<ImportedFileRows />} />
             </Route>
           </Route>
         </Route>

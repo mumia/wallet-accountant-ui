@@ -18,3 +18,9 @@ export function convertCurrencyToSymbol(currency: string) {
 
   return "";
 }
+
+export const euroFormatter = function(value: number): string {
+  const formatter = new Intl.NumberFormat('pt-PT', {minimumFractionDigits: 2});
+
+  return formatter.format(value / 100);
+}
