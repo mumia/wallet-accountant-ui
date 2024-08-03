@@ -4,7 +4,7 @@ import AccountApi, { Account } from "./AccountApi";
 import { HttpStatusCode } from "axios";
 import { tagCategoriesToTagDetail, TagDetail } from "./AccountMonthApi";
 
-interface NewMovementTypeApi {
+export interface NewMovementTypeCreate {
   action: string;
   accountId: string;
   sourceAccountId?: string;
@@ -12,7 +12,7 @@ interface NewMovementTypeApi {
   tags: string[];
 }
 
-export type MovementTypeApiResponse = NewMovementTypeApi & {
+export type MovementTypeApiResponse = NewMovementTypeCreate & {
   movementTypeId: string
 }
 
@@ -100,7 +100,7 @@ export default class MovementTypeApi extends DataService {
     return response.data;
   }
 
-  async registerMovementType(accountId: string, newMovementTypeApi: NewMovementTypeApi): Promise<boolean> {
+  async registerMovementType(accountId: string, newMovementTypeApi: NewMovementTypeCreate): Promise<boolean> {
     newMovementTypeApi.accountId = accountId
 
     const response = await this.client.post('/movement-type', newMovementTypeApi);

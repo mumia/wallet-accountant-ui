@@ -2400,13 +2400,12 @@ const CardToolbox = Styled.div`
     padding: 0 14px;
     font-size: 14px;
     color: #fff;
-    background-color: ${(props: ExecutionContext) => props.theme.colors.primaryColor};
     @media only screen and (max-width: 375px){
       padding: 0 10px;
     }
     svg{
-      width: 14px;
-      height: 14px;
+      width: 20px;
+      height: 20px;
       margin-left: 6px;
     }
     a{
@@ -2417,6 +2416,7 @@ const CardToolbox = Styled.div`
       }
     }
   }
+  
   .ant-select-selection-search{
     .ant-input-suffix{
       svg{

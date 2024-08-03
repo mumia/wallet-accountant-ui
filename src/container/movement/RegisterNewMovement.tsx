@@ -1,7 +1,7 @@
 import { Button, Checkbox, Col, DatePicker, Form, Input, InputNumber, message, Modal, Row, Select } from "antd";
 import { writeOperationHelper } from "../../config/dataService";
 import { MovementTypeApiResponse } from "../../api/MovementTypeApi";
-import AccountMonthApi from "../../api/AccountMonthApi";
+import AccountMonthApi, { NewAccountMovement } from "../../api/AccountMonthApi";
 import { Account } from "../../api/AccountApi";
 import { RangePickerProps } from "antd/es/date-picker";
 import dayjs from "dayjs";
@@ -30,13 +30,15 @@ export default function RegisterNewMovement(
     tagCategories
   }: Control
 ) {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<NewAccountMovement>();
   const [messageApi, contextHolder] = message.useMessage();
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const handleOk = async () => {
     const api = new AccountMonthApi();
     const newMovement = form.getFieldsValue();
+
+    newMovement.amount = newMovement.amount * 100;
 
     await writeOperationHelper(
       messageApi,
@@ -53,15 +55,10 @@ export default function RegisterNewMovement(
 
   dayjs.extend(customParseFormat);
 
-  const disabledDate: RangePickerProps["disabledDate"] = (current) => {
-    const date = dayjs()
-      .month(currentAccount.activeMonth.month - 1)
-      .year(currentAccount.activeMonth.year);
 
-    return current < date.startOf("month") || current >= date.endOf("month");
-  };
-
-  const startDate = currentAccount.activeMonth.year + "-" + currentAccount.activeMonth.month;
+  const currentDate = dayjs()
+    .month(currentAccount.activeMonth.month - 1)
+    .year(currentAccount.activeMonth.year);
 
   const setTagSelectionState = (tagId: string, checked: boolean) => {
     const nextSelectedTags = checked
@@ -90,6 +87,7 @@ export default function RegisterNewMovement(
         </div>
       ]}
       onCancel={handleClose}
+      key={"registerMovementModal"}
     >
       {contextHolder}
       <Form
@@ -98,13 +96,19 @@ export default function RegisterNewMovement(
         onFinish={handleOk}
         layout="vertical"
         autoComplete="off"
+        key={"rmf"}
       >
-        <Form.Item name="movementTypeId" label="Movement type">
+        <Form.Item
+          name="movementTypeId"
+          label="Movement type"
+          key={"rmfMovementTypeId"}
+        >
           {movementTypes == null || movementTypes.length <= 0
             ? (<span>No movement types registered. <Link
               to={"/admin/movement-types"}>Manage movement types</Link></span>)
             : (
               <Select
+                key={"rmfMovementTypeIdSelect"}
                 placeholder="No movement type associated"
                 options={movementTypes && movementTypes.map(
                   movementType => {
@@ -122,9 +126,11 @@ export default function RegisterNewMovement(
         <Form.Item
           name="action"
           label="Action"
+          key={"rmfAction"}
           rules={[{ required: true, message: "Please select an action!" }]}
         >
           <Select
+            key={"rmfActionSelect"}
             placeholder="Action"
             options={[
               { value: "debit", label: "Debit" },
@@ -136,44 +142,56 @@ export default function RegisterNewMovement(
         <Form.Item
           name="description"
           label="Description"
+          key={"rmfDescription"}
           rules={[{ required: true, message: "Please fill in the description!" }]}
         >
-          <Input placeholder="Description" />
+          <Input key={"rmfDescriptionInput"} placeholder="Description" />
         </Form.Item>
 
         <Form.Item
           name="amount"
           label={`Amount (${currentAccount.currency})`}
+          key={"rmfAmount"}
           rules={[{ required: true, message: "Please fill in the amount!" }]}
         >
-          <InputNumber placeholder={`Amount (${currentAccount.currency})`} />
+          <InputNumber key={"rmfAmountAmount"} placeholder={`Amount (${currentAccount.currency})`} />
         </Form.Item>
 
         <Form.Item
           name="date"
           label="Date"
+          key={"rmfDate"}
           rules={[{ required: true, message: "Please pick a date!" }]}
         >
           <DatePicker
+            key={"rmfDatePicker"}
             placeholder="yyyy/mm/dd"
             format="YYYY/MM/DD"
             showToday={false}
-            disabledDate={disabledDate}
-            defaultValue={dayjs(startDate, "YYYY-MM")}
+            minDate={currentDate.startOf("month")}
+            maxDate={currentDate.endOf("month")}
+            // defaultValue={currentDate.startOf("month")}
           />
         </Form.Item>
 
         <Form.Item
           name="tagIds"
           label="TagIds"
+          key={"rmfTagIds"}
           rules={[{ required: true, message: "Please select at least one tag!" }]}
         >
-          <Checkbox.Group style={{width: "100%"}}>
+          <Checkbox.Group key={"rmfTagIdsCheckbox"} style={{ width: "100%" }}>
             {tagCategories.map(tagCategory =>
-              <Row>
-                <Col span={24} style={{ borderBottom: "1px solid #ccc" }}>{tagCategory.name}</Col>
+              <Row key={"rmfticRow" + tagCategory.tagCategoryId}>
+                <Col
+                  key={"rmfticCol" + tagCategory.tagCategoryId}
+                  span={24}
+                  style={{ borderBottom: "1px solid #ccc" }}
+                >
+                  {tagCategory.name}
+                </Col>
                 {tagCategory.tags.map((tag) =>
-                  <Col span={6} offset={1}>
+                  <Col key={"rmfticRow" + tag.tagId} span={6} offset={1}>
                     <CheckableTag
                       key={tag.tagId}
                       checked={selectedTags.includes(tag.tagId)}
@@ -191,11 +209,13 @@ export default function RegisterNewMovement(
         <Form.Item
           name="sourceAccountId"
           label="Source/Target account"
+          key={"rmfSourceAccountId"}
         >
           {accounts == null || accounts.length <= 0
             ? (<span>No other accounts. <Link to={"/admin/accounts"}>Manage accounts</Link></span>)
             : (
               <Select
+                key={"rmfSourceAccountIdSelect"}
                 placeholder="Source/Target account"
                 defaultValue={""}
                 options={

@@ -1,5 +1,5 @@
 import { Button, Checkbox, Col, Form, Input, message, Modal, Select } from "antd";
-import MovementTypeApi from "../../api/MovementTypeApi";
+import MovementTypeApi, { NewMovementTypeCreate } from "../../api/MovementTypeApi";
 import { Account } from "../../api/AccountApi";
 import { TagCategory } from "../../api/TagApi";
 import React, { useState } from "react";
@@ -24,7 +24,7 @@ export default function RegisterNewMovementType(
     tagCategories
   }: ModalProps
 ) {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<NewMovementTypeCreate>();
   const [messageApi, contextHolder] = message.useMessage();
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 

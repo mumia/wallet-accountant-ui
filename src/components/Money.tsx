@@ -1,9 +1,9 @@
-import { convertCurrencyToSymbol } from "../config/stringHelper";
+import { euroFormatter } from "../config/stringHelper";
 
 type Props = {
   value: number,
   currency: string,
-  negative: boolean,
+  negative?: boolean,
   showPositiveSymbol?: boolean
 };
 
@@ -15,7 +15,11 @@ export default function Money(
     showPositiveSymbol
   }: Props
 ) {
-  let symbol = '\u00A0';
+  let symbol = '';
+
+  if (negative === null) {
+    negative = value < 0;
+  }
 
   if (negative) {
     symbol = "-";
@@ -27,7 +31,7 @@ export default function Money(
 
   return (
     <span className={symbol === "-" ? "negative" : "positive"}>
-      {symbol}{convertCurrencyToSymbol(currency)}{value}
+      {symbol}{euroFormatter(value)} {currency}
     </span>
   );
 }

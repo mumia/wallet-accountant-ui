@@ -38,3 +38,7 @@
     color: #FFFFFF !important;/*8231D3*/;
     font-weight: 500;
 }
+
+.ant-upload .ant-btn {
+    display: flex;
+}
