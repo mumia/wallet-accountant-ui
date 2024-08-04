@@ -70,9 +70,9 @@ function MenuItems(props: InferProps<typeof MenuItems.propTypes>) {
       <UilDashboard />
     ),
     getItem(
-      "movement",
-      `${path}/movements`,
-      "movement",
+      "ledger",
+      `${path}/ledger`,
+      "ledger",
       <UilWallet />
     ),
     getItem(

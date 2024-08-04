@@ -17,11 +17,11 @@ import { ConfigProvider } from "antd";
 import { ThemeProvider } from "styled-components";
 import { theme } from "./config/theme/themeVariables";
 import Accounts, { loader as accountsLoader } from "./container/account/Accounts";
-import AccountOverview, { loader as accountOverviewLoader } from "./container/movement/AccountOverview";
+import AccountOverview, { loader as accountOverviewLoader } from "./container/ledger/AccountOverview";
 import NotFound from "./container/404";
 import Tags, { loader as tagsLoader } from "./container/tag/Tags";
 import MovementTypes, { loader as movementTypesLoader } from "./container/movementType/MovementTypes";
-import Movements, { loader as movementsLoader } from "./container/movement/Movements";
+import Ledgers, { loader as ledgersLoader } from "./container/ledger/Ledgers";
 import { ApiError } from "config/dataService";
 import ImportedFiles, { loader as importedFilesLoader } from "./container/ImportFile/ImportedFiles";
 import ImportedFileRows, { loader as importedFileRowsLoader }  from "./container/ImportFile/ImportedFileRows";
@@ -58,9 +58,9 @@ const ProviderConfig: React.FC = () => {
             <Route path="accounts" loader={accountsLoader} element={<Accounts />} />
             <Route path="tags" loader={tagsLoader} element={<Tags />} />
             <Route path="movement-types" loader={movementTypesLoader} element={<MovementTypes />} />
-            <Route path="movements">
+            <Route path="ledger">
               <Route index loader={accountOverviewLoader} element={<AccountOverview />} />
-              <Route path=":accountId" loader={movementsLoader} element={<Movements />} />
+              <Route path=":accountId" loader={ledgersLoader} element={<Ledgers />} />
             </Route>
             <Route path="import-files">
               <Route index loader={importedFilesLoader} element={<ImportedFiles />} />

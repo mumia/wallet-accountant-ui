@@ -34,7 +34,7 @@ export default function RegisterNewMovementType(
 
     await writeOperationHelper(
       messageApi,
-      "Registering new movement type...",
+      "Registering new ledger type...",
       "Movement type successfully registered",
       () => api.registerMovementType(currentAccount.accountId, newMovementType),
       onClose

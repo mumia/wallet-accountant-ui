@@ -3,7 +3,7 @@ import { PageHeader } from "../../components/page-headers/page-headers";
 import React, { ReactElement, ReactNode, useState } from "react";
 import AccountApi, { Account } from "../../api/AccountApi";
 import { LoaderFunctionArgs, useLoaderData } from "react-router-dom";
-import AccountMonthApi, { AccountMonth, TagDetail } from "../../api/AccountMonthApi";
+import LedgerApi, { Ledger, TagDetail } from "../../api/LedgerApi";
 import { Button, Col, Divider, Row, Table, Tag as AntTag } from "antd";
 import { Cards } from "../../components/cards/frame/cards-frame";
 import { UilFileCheckAlt, UilPlus } from "@iconscout/react-unicons";
@@ -15,7 +15,7 @@ import Money from "../../components/Money";
 import EndMonth from "./EndMonth";
 import { ColumnsType } from "antd/es/table";
 
-const api = new AccountMonthApi();
+const api = new LedgerApi();
 const accountApi = new AccountApi();
 const movementTypeApi = new MovementTypeApi();
 const tagApi = new TagApi();
@@ -38,7 +38,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
 
   return Promise.all(
     [
-      api.accountMonth(params.accountId),
+      api.ledger(params.accountId),
       accountApi.account(params.accountId),
       accountApi.accounts(),
       movementTypeApi.movementTypesByAccountId(params.accountId),
@@ -47,16 +47,16 @@ export async function loader({ params }: LoaderFunctionArgs) {
   );
 }
 
-function getMovementsTableData(accountMonth: AccountMonth): TableData[] {
+function getLedgerTableData(ledger: Ledger): TableData[] {
   const tableData: TableData[] = [];
 
-  if (accountMonth.movements.length <= 0) {
+  if (ledger.movements.length <= 0) {
     return tableData;
   }
 
-  let currentBalance = accountMonth.initialBalance;
+  let currentBalance = ledger.initialBalance;
   let i = 0;
-  accountMonth.movements.forEach((item) => {
+  ledger.movements.forEach((item) => {
     const startDate = new Date(item.date);
 
     let changeFactor = 1;
@@ -81,11 +81,11 @@ function getMovementsTableData(accountMonth: AccountMonth): TableData[] {
         description: <span>{item.description}</span>,
         amount: <Money
           value={item.amount}
-          currency={accountMonth.account.currency}
+          currency={ledger.account.currency}
           negative={item.action === "debit"}
           showPositiveSymbol={true}
         />,
-        balance: <Money value={currentBalance} currency={accountMonth.account.currency} />,
+        balance: <Money value={currentBalance} currency={ledger.account.currency} />,
         sourceAccount: item.sourceAccount,
         movementTypeId: item.movementTypeId,
         tags: item.tags
@@ -101,7 +101,7 @@ function getMovementsTableData(accountMonth: AccountMonth): TableData[] {
 function renderMovementDetail(record: TableData): ReactNode {
   return <Row>
     <Col span={8}>{record.sourceAccount?.name || "No source account"}</Col>
-    <Col span={8}>{record.movementTypeId || "No movement type associated"}</Col>
+    <Col span={8}>{record.movementTypeId || "No ledger type associated"}</Col>
     <Col span={8}>
       {
         record.tags.map(
@@ -114,14 +114,14 @@ function renderMovementDetail(record: TableData): ReactNode {
   </Row>;
 }
 
-export default function Movements() {
+export default function Ledgers() {
   const [
-    accountMonth,
+    ledger,
     account,
     accounts,
     movementTypes,
     tagCategories
-  ] = useLoaderData() as [AccountMonth, Account, Account[], MovementTypeApiResponse[], TagCategory[]];
+  ] = useLoaderData() as [Ledger, Account, Account[], MovementTypeApiResponse[], TagCategory[]];
   const [newMovementVisible, setNewMovementVisible] = useState(false);
   const [endMothVisible, setEndMonthVisible] = useState(false);
 
@@ -159,7 +159,7 @@ export default function Movements() {
   let buttons = [];
 
   const currentDate = new Date();
-  if (currentDate.getFullYear() > accountMonth.activeMonth.year || (currentDate.getMonth() + 1) > accountMonth.activeMonth.month) {
+  if (currentDate.getFullYear() > ledger.activeMonth.year || (currentDate.getMonth() + 1) > ledger.activeMonth.month) {
     buttons.push(
       <Button key="2" onClick={showEndMonthModal} type="primary" size="middle"  className="btn-add_new" danger>
         <UilFileCheckAlt/>End month
@@ -178,7 +178,7 @@ export default function Movements() {
         <PageHeader
           className="ninjadash-page-header-main"
           ghost
-          title="Movements"
+          title="Ledger"
           buttons={buttons}
         />
       </CardToolbox>
@@ -188,7 +188,7 @@ export default function Movements() {
             <strong>Account:</strong> {account.name}
           </Col>
           <Col span={8}>
-            <strong>Month:</strong> {accountMonth.activeMonth.year} / {accountMonth.activeMonth.month}
+            <strong>Month:</strong> {ledger.activeMonth.year} / {ledger.activeMonth.month}
           </Col>
           <Col span={8}>
             <strong>Balance:</strong>
@@ -197,12 +197,12 @@ export default function Movements() {
         </Row>
         <Divider />
         <Cards headless>
-          {accountMonth.movements.length > 0 ? (
+          {ledger.movements.length > 0 ? (
             <Table
               bordered
               pagination={false}
               columns={columns}
-              dataSource={getMovementsTableData(accountMonth)}
+              dataSource={getLedgerTableData(ledger)}
               expandable={{
                 expandedRowRender: (record) => renderMovementDetail(record)
               }}
@@ -223,7 +223,7 @@ export default function Movements() {
           onClose={hideEndMonthModal}
           visible={endMothVisible}
           account={account}
-          accountMonth={accountMonth}
+          ledger={ledger}
         />
       </Main>
     </>

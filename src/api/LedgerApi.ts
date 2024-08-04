@@ -3,8 +3,8 @@ import { HttpStatusCode } from "axios";
 import TagApi, { TagCategory } from "./TagApi";
 import AccountApi, { Account } from "./AccountApi";
 
-interface AccountMonthResponse {
-  accountMonthId: string
+interface LedgerResponse {
+  ledgerId: string
   accountId: string
   activeMonth: ActiveMonth
   movements: AccountMovementResponse[]
@@ -33,8 +33,8 @@ interface ActiveMonth {
   year:  number
 }
 
-export interface AccountMonth {
-  accountMonthId: string;
+export interface Ledger {
+  ledgerId: string;
   account: Account;
   activeMonth: ActiveMonth;
   movements: AccountMovement[];
@@ -118,14 +118,14 @@ export function tagCategoriesToTagDetail(tagCategories: TagCategory[]) {
   return tagDetails
 }
 
-export default class AccountMonthApi extends DataService {
-  async accountMonth(accountId: string): Promise<AccountMonth> {
-    const response = await this.client.get<AccountMonthResponse>("/account-month/" + accountId);
+export default class LedgerApi extends DataService {
+  async ledger(accountId: string): Promise<Ledger> {
+    const response = await this.client.get<LedgerResponse>("/ledger/" + accountId);
 
     const accountFetch = accountApi.account(response.data.accountId);
 
     return {
-      accountMonthId: response.data.accountMonthId,
+      ledgerId: response.data.ledgerId,
       account: await accountFetch,
       monthEnded: response.data.monthEnded,
       activeMonth: response.data.activeMonth,
@@ -138,14 +138,14 @@ export default class AccountMonthApi extends DataService {
       ),
       balance: response.data.balance,
       initialBalance: response.data.initialBalance,
-    } as AccountMonth;
+    } as Ledger;
   }
 
   async registerNewAccountMovement(accountId: string, newAccountMovement: NewAccountMovement): Promise<boolean> {
     newAccountMovement.accountId = accountId;
 
     const response = await this.client.post(
-      '/account-month/account-movement',
+      '/ledger/account-movement',
       newAccountMovement);
 
     return response.status === HttpStatusCode.Created
@@ -156,7 +156,7 @@ export default class AccountMonthApi extends DataService {
     endMonth.year = account.activeMonth.year;
     endMonth.month= account.activeMonth.month;
 
-    const response = await this.client.put('/account-month', endMonth);
+    const response = await this.client.put('/ledger', endMonth);
 
     return response.status === HttpStatusCode.NoContent
   }
