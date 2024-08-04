@@ -217,7 +217,7 @@ export default function VerifyImportedDataRow(
               <Form.Item name="movementTypeId" label="Movement type">
                 {movementTypes == null || movementTypes.length <= 0
                   ? (<span>No movement types registered. <Link
-                    to={"/admin/movement-types"}>Manage movement types</Link></span>)
+                    to={"/admin/ledger-types"}>Manage movement types</Link></span>)
                   : (
                     <Select
                       placeholder="No movement type associated"

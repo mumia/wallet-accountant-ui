@@ -1,6 +1,6 @@
 import { Button, Form, InputNumber, message, Modal } from "antd";
 import { writeOperationHelper } from "../../config/dataService";
-import AccountMonthApi, { AccountMonth } from "../../api/AccountMonthApi";
+import LedgerApi, { Ledger } from "../../api/LedgerApi";
 import { Account } from "../../api/AccountApi";
 import React, { useState } from "react";
 import Money from "../../components/Money";
@@ -10,7 +10,7 @@ type Control = {
   onClose: () => void;
   visible: boolean;
   account: Account,
-  accountMonth: AccountMonth,
+  ledger: Ledger,
 };
 
 export default function EndMonth(
@@ -18,7 +18,7 @@ export default function EndMonth(
     onClose,
     visible,
     account,
-    accountMonth
+    ledger
   }: Control
 ) {
   const [form] = Form.useForm();
@@ -26,12 +26,12 @@ export default function EndMonth(
   const [difference, setDifference] = useState<number | null>(null);
 
   const handleOk = async () => {
-    const api = new AccountMonthApi();
+    const api = new LedgerApi();
     const endMonth = form.getFieldsValue();
 
     await writeOperationHelper(
       messageApi,
-      "Ending current month movement...",
+      "Ending current month ledger...",
       "Current month successfully ended",
       () => api.endMonth(account, endMonth),
       onClose
@@ -50,7 +50,7 @@ export default function EndMonth(
       return;
     }
 
-    setDifference(value - accountMonth.balance);
+    setDifference(value - ledger.balance);
   };
 
   return (
@@ -82,7 +82,7 @@ export default function EndMonth(
         </Form.Item>
         <Form.Item label={`Calculated balance (${account.currency})`} style={{display: "table-row"}}>
           <div style={{display: "table-cell", verticalAlign: "middle"}}>
-            <Money value={accountMonth.balance} currency={account.currency} />
+            <Money value={ledger.balance} currency={account.currency} />
           </div>
           <div style={{display: "table-cell"}}>
             {
@@ -107,7 +107,7 @@ export default function EndMonth(
             [
               { required: true, message: "Please fill in the end of month balance!" },
               {
-                validator: (_, value) => value === undefined || value === null || value === accountMonth.balance
+                validator: (_, value) => value === undefined || value === null || value === ledger.balance
                   ? Promise.resolve()
                   : Promise.reject(new Error("Verified end of month balance mismatch"))
               }

@@ -21,7 +21,7 @@ export default function AccountOverview() {
         <PageHeader
           className="ninjadash-page-header-main"
           ghost
-          title="Movements - Accounts Overview"
+          title="Ledger - Accounts Overview"
         />
       </CardToolbox>
       <Main>

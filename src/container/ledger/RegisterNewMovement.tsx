@@ -1,7 +1,7 @@
 import { Button, Checkbox, Col, DatePicker, Form, Input, InputNumber, message, Modal, Row, Select } from "antd";
 import { writeOperationHelper } from "../../config/dataService";
 import { MovementTypeApiResponse } from "../../api/MovementTypeApi";
-import AccountMonthApi, { NewAccountMovement } from "../../api/AccountMonthApi";
+import LedgerApi, { NewAccountMovement } from "../../api/LedgerApi";
 import { Account } from "../../api/AccountApi";
 import { RangePickerProps } from "antd/es/date-picker";
 import dayjs from "dayjs";
@@ -35,15 +35,15 @@ export default function RegisterNewMovement(
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const handleOk = async () => {
-    const api = new AccountMonthApi();
+    const api = new LedgerApi();
     const newMovement = form.getFieldsValue();
 
     newMovement.amount = newMovement.amount * 100;
 
     await writeOperationHelper(
       messageApi,
-      "Registering new account movement...",
-      "Account movement successfully registered",
+      "Registering new account ledger...",
+      "Account ledger successfully registered",
       () => api.registerNewAccountMovement(currentAccount.accountId, newMovement),
       onClose
     );
@@ -105,7 +105,7 @@ export default function RegisterNewMovement(
         >
           {movementTypes == null || movementTypes.length <= 0
             ? (<span>No movement types registered. <Link
-              to={"/admin/movement-types"}>Manage movement types</Link></span>)
+              to={"/admin/ledger-types"}>Manage movement types</Link></span>)
             : (
               <Select
                 key={"rmfMovementTypeIdSelect"}

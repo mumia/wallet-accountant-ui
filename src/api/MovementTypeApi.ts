@@ -2,7 +2,7 @@ import { DataService } from "../config/dataService";
 import TagApi from "./TagApi";
 import AccountApi, { Account } from "./AccountApi";
 import { HttpStatusCode } from "axios";
-import { tagCategoriesToTagDetail, TagDetail } from "./AccountMonthApi";
+import { tagCategoriesToTagDetail, TagDetail } from "./LedgerApi";
 
 export interface NewMovementTypeCreate {
   action: string;
