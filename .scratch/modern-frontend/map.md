@@ -27,17 +27,20 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 - [Research: design systems and component libraries for a data-heavy finance app](issues/04-research-design-systems-for-a-data-heavy-finance-app.md): prototype shadcn/ui + TanStack Table against Mantine 9; MUI, Ant Design and React Aria ruled out.
 - [Research: generating a typed API client from the OpenAPI contract](issues/02-research-typed-api-client-from-openapi.md): leaning openapi-typescript + openapi-fetch + openapi-react-query, contract committed pinned to a backend SHA; money exact via JSON reviver, or a contract change to strings.
 - [Research: signing in to Zitadel from a browser app](issues/03-research-signing-in-to-zitadel-from-a-browser-app.md): **⚠️ backend (proposed)** new User Agent app `web`, oidc-client-ts with refresh tokens in sessionStorage, no BFF; suggests same-origin via a proxy on `/api`.
+- [Grilling: choose the application stack](issues/05-grilling-choose-the-application-stack.md): React 19 + Vite 8, TypeScript 6 (7.1 later), TanStack Router + Zod 4, TanStack Query, openapi-typescript/fetch/react-query, react-i18next, React Hook Form, TanStack Table, oidc-client-ts; no client state library.
+- [Grilling: exact money in the browser](issues/06-grilling-exact-money-in-the-browser.md): **⚠️ backend** `Money.amount` stays a JSON number, read and written exactly in the UI (reviver + `JSON.rawJSON`, 2025+ browsers); new `GET /currencies` for decimal places; own amount input; `big.js` for display-only maths.
 
 ## Backend changes
 
 <!-- every change the UI needs in wallet-accountant, one line each, linking the ticket that decided it. This list ships with the UI spec as the backend handoff. -->
+
+- New endpoint `GET /currencies` listing each currency code with its decimal places, from `internal/sharedkernel/currency.go`: [Grilling: exact money in the browser](issues/06-grilling-exact-money-in-the-browser.md).
 
 ## Not yet specified
 
 - **How each flow works in detail**, once the screens and design system are settled: the CSV mapping editor; the first Statement import with the Export balance typed twice and the Opening balance preview; the Accept / Keep / Discard review list (bulk actions? keyboard-driven?); how Month close shows every refusal reason; Reverse and Void confirmations; how fresh Notifications must be (polling interval, badge).
 - **Talking to the API, beyond the client itself**: how problem+json errors are shown to the user, where Idempotency-Keys are generated and kept across retries, how cursor pagination appears (infinite scroll vs pages), and what happens when the access token expires mid-action.
 - **Registration and first run**: the screen for someone who signed in but has no Invitation, redeeming the code, creating the first Household.
-- **Repo conventions**: package manager, strict `tsconfig`, lint and format, test approach (unit, component, end-to-end, API mocking), CI, the path from the backend's `openapi.yaml` to the generated client, and a conventions doc in the spirit of the backend's `docs/architecture/conventions.md`. Graduates once the stack is chosen.
 - **The accessibility bar** we commit to, likely set by the chosen design system.
 - **Assembling the handoff**: the final UI spec (in the shape of the backend's `spec.md`) plus the Backend changes list.
 
