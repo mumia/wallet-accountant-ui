@@ -32,6 +32,7 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 - [Grilling: how the UI is served next to the API](issues/07-grilling-how-the-ui-is-served-next-to-the-api.md): **⚠️ backend** mostly settled by the backend's UI contract (Kubernetes route, API under `/api`, `/config.json`); UI image on Caddy tested read-only in CI, Vite on HTTPS proxying `/api`, a UI `make local-deploy`, contract pinned to a backend release tag.
 - [Grilling: screens and navigation for the first slice](issues/08-grilling-screens-and-navigation-for-the-first-slice.md): Household in the URL path; Account-centric tabs (To review, Transactions, Months, Statement imports, Connections); left sidebar; Accounts overview as home; Notifications bell; "To review" added to `CONTEXT.md`. Overview reads deferred to the last ticket.
 - [Prototype: look and feel](issues/09-prototype-look-and-feel.md): shadcn/ui (Base UI, base-nova) + TanStack Table; default preset A "Ledger" in dark, presets B–D and light selectable and saved in the browser; comfortable density; the Category tree picker and list virtualisation are ours to build.
+- [Grilling: repo conventions and tooling](issues/10-grilling-repo-conventions-and-tooling.md): npm, Node LTS only in Docker behind Make; strictest tsconfig; ESLint strict-type-checked + Prettier; by-feature layout with file routes; Vitest + Testing Library + MSW (openapi-msw), Playwright e2e on mocks; CI and releases mirror the backend.
 
 ## Backend changes
 
@@ -47,7 +48,7 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 - **Registration and first run**: the contents of `/register` (Redeem Invitation, and how the generic invalid-code error reads) and `/households/new`, and the Account's getting-started state. Their routing is settled.
 - **The accessibility bar** we commit to, now that it is shadcn/ui on Base UI: what Base UI gives, and what our own parts (Category tree picker, money input, bulk selection) must meet.
 - **Where the theme setting lives in the UI** (User menu? a settings page?) for choosing a preset and light or dark.
-- **Assembling the handoff**: the final UI spec (in the shape of the backend's `spec.md`) plus the Backend changes list.
+- **Assembling the handoff**: the final UI spec (in the shape of the backend's `spec.md`) plus the Backend changes list, and two ADRs in `docs/adr/` (Application stack, Exact money in the browser) per [Grilling: repo conventions and tooling](issues/10-grilling-repo-conventions-and-tooling.md).
 
 ## Out of scope
 
