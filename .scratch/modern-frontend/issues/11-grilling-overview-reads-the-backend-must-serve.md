@@ -3,7 +3,7 @@
 Map: [A modern frontend for Wallet Accountant](../map.md)
 Type: grilling
 Status: open
-Blocked by: 08, 09, 10
+Blocked by: 08, 09, 10, 12, 13, 14, 15, 16, 17, 18
 
 **Take this ticket last**, after every other ticket on the map, at the user's request (see [Grilling: screens and navigation for the first slice](08-grilling-screens-and-navigation-for-the-first-slice.md)). Add any ticket created later to `Blocked by`.
 
