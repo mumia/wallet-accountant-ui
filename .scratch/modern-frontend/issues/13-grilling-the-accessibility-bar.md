@@ -49,3 +49,7 @@ Decided with the user on 2026-11-20, on facts checked the same day against base-
 - 2.2 specifics: focus is never fully hidden by the sticky header or toasts (2.4.11); targets are at least 24×24 px, including icon buttons in comfortable-density tables (2.5.8); sign-in works with paste and password managers (3.3.8, mostly Zitadel's hosted page).
 
 No backend changes.
+
+## Comments
+
+**2026-11-20, from [Grilling: the To review list](14-grilling-the-to-review-list.md):** a parent Category can be picked, so the Category picker no longer uses parent Categories as group labels. Every Category is an indented option, searchable by full path, grouped by kind (Uncategorised first, then Expense, then Income); other Internal Categories are hidden.
