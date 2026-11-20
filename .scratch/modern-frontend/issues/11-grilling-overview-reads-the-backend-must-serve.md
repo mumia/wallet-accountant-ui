@@ -17,3 +17,8 @@ Two gaps found while deciding the screens:
 - **A To review count per Account.** The sidebar and the Accounts overview show how many rows each Account has To review (pending plus Suspected duplicates). `Account` carries no such count, and the only counts are per month in `AccountMonth`. Options: a count on `Account` (⚠️ backend), deriving it from the months list, or dropping it.
 
 Any answer that changes the API goes under `## Backend changes` and onto the map's Backend changes list.
+
+
+## Comments
+
+**2026-11-20, from [Grilling: Month close, Reverse and Void](17-grilling-month-close-reverse-and-void.md):** Month close is now sequential with one open month per Account, Reopen exists for the latest closed month, and `flagged` is gone. The Months list and the Accounts overview's "latest month's state" should show the open month and the not-open-yet ones accordingly.

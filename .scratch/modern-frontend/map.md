@@ -39,6 +39,7 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 - [Grilling: the To review list](issues/14-grilling-the-to-review-list.md): Suspected duplicates section above Pending, Resembles box inline; per-row Category picker (parents pickable, grouped by kind, starts on Uncategorised); bulk via one request per row; optimistic, no Undo, Discard confirmed; no shortcuts; `booking_month` and `state=SUSPECTED_DUPLICATE` in the URL.
 - [Grilling: the CSV mapping editor](issues/15-grilling-the-csv-mapping-editor.md): **⚠️ backend** full-page editor creates the Connection with its mapping; Connections get a name; a sample file is read in the browser to guess settings and pick columns, rows previewed by a new backend test endpoint; header vs position never asked; Zod mirrors the rules; new `encoding` (UTF-8, Windows-1252); editing affects future imports only.
 - [Grilling: the Statement import flow](issues/16-grilling-the-statement-import-flow.md): stepper as prototyped; Connection preselected from the latest import, `?connection_id=` deep link; any file type, only empty refused; Export balance help per glossary (booked, no pending card payments); second entry blocks paste; preview adds file/Connection and zero-row/ignored-rows notes; refusals rendered by the problem's fields; result links to To review. No backend changes.
+- [Grilling: Month close, Reverse and Void](issues/17-grilling-month-close-reverse-and-void.md): **⚠️ backend** one open month per Account, closed in order, Reopen for the latest; closed months lock money but not Category; four-state month screen with blockers up front and a live difference; Reverse only in the open month with exact wording; Void disabled by `void_blocked_by`.
 
 ## Backend changes
 
@@ -50,6 +51,12 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 - An `encoding` field on `CsvMapping` (UTF-8, Windows-1252; absent means UTF-8): [Grilling: the CSV mapping editor](issues/15-grilling-the-csv-mapping-editor.md).
 - A CSV mapping test endpoint: unsaved mapping + sample file → first rows as parsed, or unreadable lines: [Grilling: the CSV mapping editor](issues/15-grilling-the-csv-mapping-editor.md).
 - Contract only: `date_format`, `decimal_separator`, `thousands_separator` as `x-extensible-enum`: [Grilling: the CSV mapping editor](issues/15-grilling-the-csv-mapping-editor.md).
+- One open month per Account, closed one at a time once ended; a closed month locks money and descriptions (Accept, Keep, Discard, Reverse refused; Category changeable, never to Uncategorised); `flagged` removed; changes the Ledger glossary's Month close: [Grilling: Month close, Reverse and Void](issues/17-grilling-month-close-reverse-and-void.md).
+- Reopen the latest closed month, refused while the open month has Accepted Transactions; `reopen_blocked` on `AccountMonth`: [Grilling: Month close, Reverse and Void](issues/17-grilling-month-close-reverse-and-void.md).
+- Statement import rows in months not open yet land pending but can't be acted on; rows in closed months are ignored and counted (Balance check treatment left to the backend grilling): [Grilling: Month close, Reverse and Void](issues/17-grilling-month-close-reverse-and-void.md).
+- Void refused when the import touches a closed month; `void_blocked_by` on `StatementImport`: [Grilling: Month close, Reverse and Void](issues/17-grilling-month-close-reverse-and-void.md).
+- `unchecked_statement_imports` on `AccountMonth`: [Grilling: Month close, Reverse and Void](issues/17-grilling-month-close-reverse-and-void.md).
+- `imported_transaction_id` on `AccountTransaction`: [Grilling: Month close, Reverse and Void](issues/17-grilling-month-close-reverse-and-void.md).
 
 ## Not yet specified
 

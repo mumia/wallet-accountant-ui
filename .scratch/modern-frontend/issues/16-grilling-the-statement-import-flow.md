@@ -58,3 +58,5 @@ Decided with the user on 2026-11-20, against `../wallet-accountant/api/openapi.y
   - Anything else (`preview-mismatch`, `opening-balance-already-recorded`, `empty-statement-file`, `invalid-export-balance`, `csv-mapping-required`): `title` + `detail` only. On `opening-balance-already-recorded` the User goes Back and imports again; the flow then treats it as a later import. No special action.
 
 No backend changes.
+
+**2026-11-20, from [Grilling: Month close, Reverse and Void](17-grilling-month-close-reverse-and-void.md) (amendment):** rows in a closed month are ignored and counted, like rows before the start date; the preview's and result's ignored-rows note covers both (field names depend on the backend change).

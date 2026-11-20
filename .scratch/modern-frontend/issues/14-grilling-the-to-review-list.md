@@ -66,3 +66,5 @@ No backend changes.
 ## Comments
 
 **2026-11-20, from [Grilling: the accessibility bar](13-grilling-the-accessibility-bar.md):** the Category picker is Base UI Combobox with groups (parent Categories as group labels, full-path search); decide here whether a parent Category itself can be picked. Bulk selection is plain checkboxes labelled from the row, Shift+click for ranges. Any Accept/Keep/Discard keyboard shortcuts need a modifier or a way to turn them off (WCAG 2.1.4).
+
+**2026-11-20, from [Grilling: Month close, Reverse and Void](17-grilling-month-close-reverse-and-void.md) (amendment):** only one month per Account is open. Rows booked in a month not open yet show with no Accept, Keep or Discard and a note "February 2026 isn't open yet"; rows in a closed month never reach To review (ignored on import).
