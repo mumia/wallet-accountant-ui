@@ -18,6 +18,7 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
   - English only at launch, but adding a language must be easy: every user-facing string is in message files from day one, and numbers, dates and money are formatted for the locale.
   - Look and feel uses a ready-made design system, chosen by reacting to rough prototypes.
 - **Backend changes must be obvious**: a ticket whose resolution needs a change in `wallet-accountant` writes it under a `## Backend changes` heading in its Answer, tags its Decisions-so-far line with **⚠️ backend**, and adds a line to the Backend changes section below.
+- **Backend grilling prompt**: the handoff ([Task: assemble the handoff](issues/19-task-assemble-the-handoff.md)) gathers every Backend change into one prompt for the `grilling` skill in `wallet-accountant`.
 
 ## Decisions so far
 
@@ -36,6 +37,7 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 - [Grilling: talking to the API](issues/12-grilling-talking-to-the-api.md): Zod per-field checks, server problems as a form alert or a toast, shown untranslated (`title` + `detail`); Idempotency-Key made on first submit and reused on retry; writes retry on network/502–504 only; a chosen month loads in full, otherwise infinite scroll; session end → sign in again by redirect; 30 s stale time, Notifications polled every 60 s.
 - [Grilling: the accessibility bar](issues/13-grilling-the-accessibility-bar.md): WCAG 2.2 AA target; axe in Playwright as the gate, keyboard/role component tests, a token contrast test, a manual VoiceOver checklist; all eight themes tuned to AA on their own; row-labelled checkboxes; Category picker on Base UI Combobox with groups (not cmdk); ESLint pinned to 9 for jsx-a11y.
 - [Grilling: the To review list](issues/14-grilling-the-to-review-list.md): Suspected duplicates section above Pending, Resembles box inline; per-row Category picker (parents pickable, grouped by kind, starts on Uncategorised); bulk via one request per row; optimistic, no Undo, Discard confirmed; no shortcuts; `booking_month` and `state=SUSPECTED_DUPLICATE` in the URL.
+- [Grilling: the CSV mapping editor](issues/15-grilling-the-csv-mapping-editor.md): **⚠️ backend** full-page editor creates the Connection with its mapping; Connections get a name; a sample file is read in the browser to guess settings and pick columns, rows previewed by a new backend test endpoint; header vs position never asked; Zod mirrors the rules; new `encoding` (UTF-8, Windows-1252); editing affects future imports only.
 
 ## Backend changes
 
@@ -43,6 +45,10 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 
 - ✅ Done (backend commit `a182e39`). New endpoint `GET /currencies` listing each currency code with its decimal places: [Grilling: exact money in the browser](issues/06-grilling-exact-money-in-the-browser.md).
 - Environment repo local values: the Vite dev server's redirect URIs for `web`, `ui.enabled` with the UI image, its base image in `images.lock`: [Grilling: how the UI is served next to the API](issues/07-grilling-how-the-ui-is-served-next-to-the-api.md).
+- A required, renameable `name` on Connection, unique within the Account: [Grilling: the CSV mapping editor](issues/15-grilling-the-csv-mapping-editor.md).
+- An `encoding` field on `CsvMapping` (UTF-8, Windows-1252; absent means UTF-8): [Grilling: the CSV mapping editor](issues/15-grilling-the-csv-mapping-editor.md).
+- A CSV mapping test endpoint: unsaved mapping + sample file → first rows as parsed, or unreadable lines: [Grilling: the CSV mapping editor](issues/15-grilling-the-csv-mapping-editor.md).
+- Contract only: `date_format`, `decimal_separator`, `thousands_separator` as `x-extensible-enum`: [Grilling: the CSV mapping editor](issues/15-grilling-the-csv-mapping-editor.md).
 
 ## Not yet specified
 
