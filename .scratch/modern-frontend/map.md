@@ -31,6 +31,7 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 - [Grilling: exact money in the browser](issues/06-grilling-exact-money-in-the-browser.md): **⚠️ backend** `Money.amount` stays a JSON number, read and written exactly in the UI (reviver + `JSON.rawJSON`, 2025+ browsers); new `GET /currencies` for decimal places; own amount input; `big.js` for display-only maths.
 - [Grilling: how the UI is served next to the API](issues/07-grilling-how-the-ui-is-served-next-to-the-api.md): **⚠️ backend** mostly settled by the backend's UI contract (Kubernetes route, API under `/api`, `/config.json`); UI image on Caddy tested read-only in CI, Vite on HTTPS proxying `/api`, a UI `make local-deploy`, contract pinned to a backend release tag.
 - [Grilling: screens and navigation for the first slice](issues/08-grilling-screens-and-navigation-for-the-first-slice.md): Household in the URL path; Account-centric tabs (To review, Transactions, Months, Statement imports, Connections); left sidebar; Accounts overview as home; Notifications bell; "To review" added to `CONTEXT.md`. Overview reads deferred to the last ticket.
+- [Prototype: look and feel](issues/09-prototype-look-and-feel.md): shadcn/ui (Base UI, base-nova) + TanStack Table; default preset A "Ledger" in dark, presets B–D and light selectable and saved in the browser; comfortable density; the Category tree picker and list virtualisation are ours to build.
 
 ## Backend changes
 
@@ -44,7 +45,8 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 - **How each flow works in detail**, once the screens and design system are settled: the CSV mapping editor; the first Statement import with the Export balance typed twice and the Opening balance preview; the Accept / Keep / Discard review list (bulk actions? keyboard-driven?); how Month close shows every refusal reason; Reverse and Void confirmations; how fresh Notifications must be (polling interval, badge).
 - **Talking to the API, beyond the client itself**: how problem+json errors are shown to the user, where Idempotency-Keys are generated and kept across retries, how cursor pagination appears (infinite scroll vs pages), and what happens when the access token expires mid-action.
 - **Registration and first run**: the contents of `/register` (Redeem Invitation, and how the generic invalid-code error reads) and `/households/new`, and the Account's getting-started state. Their routing is settled.
-- **The accessibility bar** we commit to, likely set by the chosen design system.
+- **The accessibility bar** we commit to, now that it is shadcn/ui on Base UI: what Base UI gives, and what our own parts (Category tree picker, money input, bulk selection) must meet.
+- **Where the theme setting lives in the UI** (User menu? a settings page?) for choosing a preset and light or dark.
 - **Assembling the handoff**: the final UI spec (in the shape of the backend's `spec.md`) plus the Backend changes list.
 
 ## Out of scope
@@ -53,3 +55,4 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 - A native phone app or an installable PWA.
 - Translations beyond English (making them easy to add is in scope).
 - Building the frontend itself.
+- Syncing the theme choice across devices through the backend: browser storage at launch, the backend later ([Prototype: look and feel](issues/09-prototype-look-and-feel.md)).
