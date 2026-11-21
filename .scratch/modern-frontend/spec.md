@@ -1,6 +1,6 @@
 # Spec: the first UI slice (Statement import → Accept → Month close)
 
-Status: draft. Two sections are marked **Open**; each waits on a ticket on the [map](map.md). Everything else is decided.
+Status: draft. One section is marked **Open**; it waits on a ticket on the [map](map.md). Everything else is decided.
 
 The first slice of the Wallet Accountant UI, matching the backend's first slice (`../wallet-accountant/.scratch/statement-import-to-month-close/spec.md`). A User signs in, redeems an Invitation, creates a Household, adds Accounts and Categories, describes a bank's CSV file in a Connection, imports Statement files, works through what is To review, and closes each month. It also builds the frontend's walking skeleton: the stack, the API client with exact money, sign-in, the theme system, the Caddy image that meets the backend's UI contract, and CI.
 
@@ -43,10 +43,11 @@ The look is shadcn/ui on Base UI with Tailwind, the "Ledger" preset in dark by d
 
 ### Categories and Accounts
 
-14. As a User, I want to see my Household's Category tree, Internal Categories included, and create, rename and move Categories. **Open**: the screen's detail is decided in [Grilling: the Categories screen, Add Account and the Transactions tab](issues/20-grilling-categories-add-account-and-transactions-tab.md).
+14. As a User, I want to see my Household's Category tree, Internal Categories included, shown as Expense, Income and Internal sections, and create, rename and move my own Categories from small dialogs.
 15. As a User, I want to add an Account from a dialog, choosing its Account currency from the currencies the backend knows, and land on its getting-started checklist.
 16. As a User, I want an empty Household to tell me to add my first Account.
 17. As a User, I want a new Account to show "Create a Connection → Import the first statement" until its first Statement import, with no made-up balance.
+17a. As a User, I want to rename an Account, because its other details can't be changed after it is added (⚠️ backend).
 
 ### Connections and CSV mapping
 
@@ -79,7 +80,7 @@ The look is shadcn/ui on Base UI with Tailwind, the "Ledger" preset in dark by d
 35. As a User, I want an Account's Transactions as a single-entry list with signed amounts, filtered by Booking month, and an Uncategorised filter.
 36. As a User, I want to change a Transaction's Category in its row, also in a closed month (never to Uncategorised there).
 37. As a User, I want to Reverse a Transaction in the open month, told exactly what happens, and see the reversal linked to its original.
-38. **Open**: the Transaction list's columns and filter controls are decided in [Grilling: the Categories screen, Add Account and the Transactions tab](issues/20-grilling-categories-add-account-and-transactions-tab.md).
+38. As a User, I want the Transactions tab to open on the Account's open month, and to narrow a month to its Uncategorised Transactions with one toggle.
 
 ### Months, Month close and Void
 
@@ -215,7 +216,16 @@ From [Grilling: registration, first run and the theme setting](issues/18-grillin
 
 ### Categories, Add Account and the Transaction list
 
-**Open**: decided in [Grilling: the Categories screen, Add Account and the Transactions tab](issues/20-grilling-categories-add-account-and-transactions-tab.md). Already fixed elsewhere: Add Account is a dialog leading to the getting-started state; Change Category is a picker in the row; Reverse is a row-menu action (below); the Uncategorised filter is client-side over a fully loaded month.
+From [Grilling: the Categories screen, Add Account and the Transactions tab](issues/20-grilling-categories-add-account-and-transactions-tab.md).
+
+- **Categories**: three sections, Expense, Income, then Internal, each an indented tree, all expanded at first. Internal is muted with a lock, "Created by Wallet Accountant. Can't be renamed or moved.", and no row actions. "New Category" in the Expense and Income headers creates a root Category; the row menu has "Add sub-Category" (dialog shows "Under: Food › Eating out"), "Rename…" and "Move…". Create and Rename share a one-field **Name** dialog; kind is never asked. Move uses the Category picker limited to the same kind, without the Category and its sub-Categories, plus "Top level". No drag and drop, not optimistic. A 409 `category-name-taken` shows on the Name field; other refusals are the form alert. No Delete (out of scope).
+- **Add Account** (dialog): **Name** (placeholder "Main"); **Kind** as radio cards Bank account, Credit card, Loan, Crypto wallet, Bank account preselected, Cash never offered; **Account currency** combobox preselected to the Base currency, "It can't be changed later."; **Start date** typed with a calendar popover, default the 1st of the current month, capped at today, help "The day this Account's history begins. Your first statement file must cover from this day to today; rows booked before it are ignored. It can't be changed later." Success → the getting-started state.
+- **Rename Account**: "Rename…" in a small menu on the Account header beside "Import statement", a one-field dialog, 1–200 characters (⚠️ backend).
+- **Transactions**: columns Booking date (Transaction date under it when different), Description, Amount (right-aligned, signed), Category picker, row menu (Reverse only, hidden where it doesn't apply). No payee or running balance. The Opening balance Transaction, reversals and reversed rows show the Category as text.
+  - Month field as in To review, offering every month; no `booking_month` means the open month; `booking_month=all` lists all months oldest first with infinite scroll.
+  - "Uncategorised only (7)" toggle chip, `uncategorised=true`, client-side, enabled only for a single month ("Choose a month first"). The Month close Uncategorised blocker links here.
+  - The row picker saves on pick, optimistic, rolled back with a toast, no Undo. With the Uncategorised filter on, a categorised row stays until the filter changes or a reload.
+  - Empty: "No Transactions in March 2026" with "Show all months" (and "Go to To review" when it has rows To review); filtered: "Everything in March 2026 has a Category ✓" with "Show all Transactions".
 
 ### CSV mapping editor
 
@@ -294,6 +304,7 @@ From [Grilling: repo conventions and tooling](issues/10-grilling-repo-convention
 - Updates pushed from the backend (websockets) instead of polling.
 - Issuing Invitations, an Instance administrator area, and everything else outside the backend's first slice.
 - A backend-for-frontend.
+- Deleting or archiving a Category: the backend has no such operation.
 
 ## Further Notes
 

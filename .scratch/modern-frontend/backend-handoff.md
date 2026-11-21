@@ -86,6 +86,14 @@ Decided in `../wallet-accountant-ui/.scratch/modern-frontend/issues/07-grilling-
 - Set `ui.enabled: true` with the UI image and tag, once the image exists.
 - Add the UI image's base image (Caddy) to `images.lock`.
 
+## 6. Rename an Account
+
+Decided in `../wallet-accountant-ui/.scratch/modern-frontend/issues/20-grilling-categories-add-account-and-transactions-tab.md`. Nothing about an Account can change after it is added, so a typo in its name is permanent.
+
+UI constraints (fixed): an Account's `name` can be changed; 1–200 characters, not blank, no uniqueness rule; a blank name is refused with 422 `/problems/invalid-account`. Kind, Account currency and start date stay fixed.
+
+Left to the backend: the operation's shape (e.g. `PATCH /households/{household_id}/accounts/{account_id}` with `name`) and its event.
+
 ## Order
 
-Grill area 1 first: areas 2 and 3 depend on its month states. Area 4 is independent. Area 5 can be done whenever the UI image exists. When the contract changes are released, tell me the release tag: the UI pins its `openapi.yaml` to it.
+Grill area 1 first: areas 2 and 3 depend on its month states. Areas 4 and 6 are independent. Area 5 can be done whenever the UI image exists. When the contract changes are released, tell me the release tag: the UI pins its `openapi.yaml` to it.

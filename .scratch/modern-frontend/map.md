@@ -44,6 +44,7 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 - [Grilling: registration, first run and the theme setting](issues/18-grilling-registration-first-run-and-the-theme-setting.md): `/register` and `/households/new` as centred cards with Sign out; invalid code shown as the backend's problem; `?invitation_code=` prefills; Base currency with no default and "can't be changed later"; empty Accounts overview; two-step getting-started checklist; Appearance dialog in the User menu with Light / Dark / System. No backend changes.
 - [Grilling: overview reads the backend must serve](issues/11-grilling-overview-reads-the-backend-must-serve.md): **⚠️ backend** new `GET …/months` list (every month, unpaged, from creation); `pending`, `suspected_duplicates` and required `open_month` on `Account`; `NOT_OPEN_YET` month state; sidebar and overview read only `GET …/accounts`.
 - [Task: assemble the handoff](issues/19-task-assemble-the-handoff.md): [spec](spec.md) (draft, two **Open** markers), ADR-0001 Application stack and ADR-0002 Exact money in `docs/adr/`, and the [backend handoff](backend-handoff.md) prompt; only `GET /currencies` is done in the backend; two gaps sent back as tickets.
+- [Grilling: the Categories screen, Add Account and the Transactions tab](issues/20-grilling-categories-add-account-and-transactions-tab.md): **⚠️ backend** Categories in Expense / Income / Internal sections with dialogs for Create, Rename and Move (picker, no drag); Add Account with Bank account and Base currency preselected, start date the 1st of this month; new Account rename; Transactions open on the open month, Uncategorised toggle chip, save-on-pick picker. No Category Delete.
 
 ## Backend changes
 
@@ -65,6 +66,7 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 - `pending` and `suspected_duplicates` counts on `Account`, over the whole Account: [Grilling: overview reads the backend must serve](issues/11-grilling-overview-reads-the-backend-must-serve.md).
 - Required `open_month` on `Account` (the start date's month at creation): [Grilling: overview reads the backend must serve](issues/11-grilling-overview-reads-the-backend-must-serve.md).
 - `NOT_OPEN_YET` in `AccountMonth.state`: [Grilling: overview reads the backend must serve](issues/11-grilling-overview-reads-the-backend-must-serve.md).
+- Rename an Account (`name`, 1–200 characters): [Grilling: the Categories screen, Add Account and the Transactions tab](issues/20-grilling-categories-add-account-and-transactions-tab.md).
 
 ## Not yet specified
 
@@ -77,4 +79,5 @@ Nothing left: the remaining fog graduated into tickets on 2026-11-20 (the API be
 - Translations beyond English (making them easy to add is in scope).
 - Building the frontend itself.
 - Syncing the theme choice across devices through the backend: browser storage at launch, the backend later ([Prototype: look and feel](issues/09-prototype-look-and-feel.md)).
+- Deleting or archiving a Category: the backend has none ([Grilling: the Categories screen, Add Account and the Transactions tab](issues/20-grilling-categories-add-account-and-transactions-tab.md)).
 - Updates pushed from the backend to the UI (e.g. websockets) in place of polling: to investigate later, as its own effort ([Grilling: talking to the API](issues/12-grilling-talking-to-the-api.md)).
