@@ -1,0 +1,16 @@
+{
+  "navigation": "Household",
+  "overview": "Accounts overview",
+  "accounts": "Accounts",
+  "categories": "Categories",
+  "addAccount": "Add Account",
+  "switcher": {
+    "household": "Household",
+    "households": "Households",
+    "create": "Create Household…"
+  },
+  "createHousehold": {
+    "title": "Create Household",
+    "description": "A Household keeps its own Accounts and Categories, shared with everyone in it."
+  }
+}

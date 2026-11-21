@@ -4,10 +4,15 @@
 import type { components } from "../api/schema.gen";
 
 type Household = components["schemas"]["Household"];
+type Account = components["schemas"]["Account"];
 
 export interface MockState {
   registered: boolean;
   households: Household[];
+  /** Each Household's Accounts, by Household ID, in the order they were added. */
+  accounts: Record<string, Account[]>;
+  /** The next `remaining` requests whose path ends with `pathEnd` fail with a 503. */
+  failures?: { pathEnd: string; remaining: number };
 }
 
 /** The one Invitation code the mock API accepts. */
@@ -19,15 +24,46 @@ export const seededHousehold: Household = {
   base_currency: "EUR",
 };
 
+/** A second Household, with no Accounts yet. */
+export const secondHousehold: Household = {
+  household_id: "0190f5f2-7c00-7000-8000-000000000002",
+  name: "Cabin",
+  base_currency: "USD",
+};
+
+export const seededAccounts: Account[] = [
+  {
+    account_id: "0190f5f2-7c00-7000-8000-000000000101",
+    name: "Main",
+    kind: "BANK_ACCOUNT",
+    currency: "EUR",
+    start_date: "2026-01-01",
+    awaiting_first_statement_import: false,
+    balance: { amount: "1234.50", currency: "EUR" },
+  },
+  {
+    account_id: "0190f5f2-7c00-7000-8000-000000000102",
+    name: "Credit card",
+    kind: "CREDIT_CARD",
+    currency: "EUR",
+    start_date: "2026-11-01",
+    awaiting_first_statement_import: true,
+  },
+];
+
 /**
  * Where a session starts: `new-user` has signed in but not redeemed an
  * Invitation, `registered` has no Household yet, `household` (the default) has
- * one Household, "Home".
+ * "Home" with two Accounts and "Cabin" with none.
  */
 export const scenarios = {
-  "new-user": () => ({ registered: false, households: [] }),
-  registered: () => ({ registered: true, households: [] }),
-  household: () => ({ registered: true, households: [seededHousehold] }),
+  "new-user": () => ({ registered: false, households: [], accounts: {} }),
+  registered: () => ({ registered: true, households: [], accounts: {} }),
+  household: () => ({
+    registered: true,
+    households: [seededHousehold, secondHousehold],
+    accounts: { [seededHousehold.household_id]: seededAccounts },
+  }),
 } satisfies Record<string, () => MockState>;
 
 export type Scenario = keyof typeof scenarios;

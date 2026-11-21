@@ -1,6 +1,8 @@
+import { HttpResponse } from "msw";
+
 import type { components } from "../api/schema.gen";
 import { validInvitationCode, type MockDb } from "./db";
-import { http } from "./http";
+import { http, withExactAmounts } from "./http";
 
 type Problem = components["schemas"]["Problem"];
 
@@ -15,9 +17,33 @@ const registrationRequired: Problem = {
 
 const notFound: Problem = { type: "about:blank", title: "Not Found", status: 404 };
 
+/** A Household's Accounts, or undefined when the caller can't see the Household. */
+function householdAccounts(db: MockDb, householdId: string) {
+  const state = db.read();
+  const isMember =
+    state.registered && state.households.some(({ household_id }) => household_id === householdId);
+  return isMember ? (state.accounts[householdId] ?? []) : undefined;
+}
+
 /** The mock API, over `db`. Tests add or replace handlers with `server.use(...)`. */
 export function createHandlers(db: MockDb) {
   return [
+    // Injected failures (`db.read().failures`), for the screens' "Try again".
+    http.untyped.all("*/api/*", ({ request }) => {
+      const state = db.read();
+      const { failures } = state;
+      if (
+        failures === undefined ||
+        failures.remaining <= 0 ||
+        !new URL(request.url).pathname.endsWith(failures.pathEnd)
+      ) {
+        return undefined;
+      }
+      db.write({ ...state, failures: { ...failures, remaining: failures.remaining - 1 } });
+      const problem: Problem = { type: "about:blank", title: "Service Unavailable", status: 503 };
+      return HttpResponse.json(problem, { status: 503 });
+    }),
+
     http.get("/currencies", ({ response }) =>
       response(200).json({
         items: [
@@ -97,6 +123,22 @@ export function createHandlers(db: MockDb) {
         ? state.households.find(({ household_id }) => household_id === params.household_id)
         : undefined;
       return household === undefined ? response(404).json(notFound) : response(200).json(household);
+    }),
+
+    http.get("/households/{household_id}/accounts", async ({ params, response }) => {
+      const accounts = householdAccounts(db, params.household_id);
+      return accounts === undefined
+        ? response(404).json(notFound)
+        : response.untyped(await withExactAmounts(response(200).json({ items: accounts })));
+    }),
+
+    http.get("/households/{household_id}/accounts/{account_id}", async ({ params, response }) => {
+      const account = householdAccounts(db, params.household_id)?.find(
+        ({ account_id }) => account_id === params.account_id,
+      );
+      return account === undefined
+        ? response(404).json(notFound)
+        : response.untyped(await withExactAmounts(response(200).json(account)));
     }),
   ];
 }

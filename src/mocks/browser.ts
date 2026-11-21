@@ -5,7 +5,8 @@
 //
 // `?mock-scenario=new-user` (or `registered`, `household`) on any page starts the
 // tab's mock data over from that scenario (src/mocks/db.ts); the parameter is
-// then removed from the address.
+// then removed from the address. `?mock-fail=<path end>:<count>` makes the next
+// <count> API requests whose path ends that way fail with a 503.
 import { HttpResponse } from "msw";
 import { setupWorker } from "msw/browser";
 import { User } from "oidc-client-ts";
@@ -51,6 +52,7 @@ function signIn(): void {
 }
 
 const scenarioParameter = "mock-scenario";
+const failureParameter = "mock-fail";
 
 export async function startMockApi(): Promise<void> {
   const db = createMockDb(window.sessionStorage);
@@ -59,6 +61,12 @@ export async function startMockApi(): Promise<void> {
   if (scenario !== null) {
     db.reset(isScenario(scenario) ? scenario : undefined);
     url.searchParams.delete(scenarioParameter);
+    window.history.replaceState(window.history.state, "", url);
+  }
+  const failure = /^(.+):(\d+)$/.exec(url.searchParams.get(failureParameter) ?? "");
+  if (failure?.[1] !== undefined && failure[2] !== undefined) {
+    db.write({ ...db.read(), failures: { pathEnd: failure[1], remaining: Number(failure[2]) } });
+    url.searchParams.delete(failureParameter);
     window.history.replaceState(window.history.state, "", url);
   }
   const worker = setupWorker(

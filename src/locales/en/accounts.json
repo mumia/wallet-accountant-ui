@@ -1,0 +1,12 @@
+{
+  "addAccount": "Add Account",
+  "addAccountStub": "Adding an Account arrives with the next build of Wallet Accountant.",
+  "accountStub": "This Account's statements, rows and months arrive with the next build.",
+  "overview": {
+    "title": "Accounts",
+    "empty": "Add your first Account. Each bank account or card you want to track is one Account.",
+    "account": "Account",
+    "currency": "Currency",
+    "balance": "Balance"
+  }
+}

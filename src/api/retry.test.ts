@@ -28,7 +28,9 @@ describe("retries", () => {
   });
 
   it("stops: reads after three attempts, writes after two retries", () => {
-    expect(shouldRetryRead(3, network)).toBe(false);
+    // Query passes the failures before the latest one: 0, then 1, then 2.
+    expect(shouldRetryRead(1, network)).toBe(true);
+    expect(shouldRetryRead(2, network)).toBe(false);
     expect(shouldRetryWrite(1, network)).toBe(true);
     expect(shouldRetryWrite(2, network)).toBe(false);
   });

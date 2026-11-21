@@ -1,0 +1,43 @@
+import { Outlet, createFileRoute, notFound } from "@tanstack/react-router";
+import { useState } from "react";
+
+import { errorStatus } from "../../../api/problem";
+import { AddAccountProvider } from "../../../components/add-account";
+import { AddAccountDialog } from "../../../features/accounts/add-account-dialog";
+import { HouseholdShell } from "../../../features/shell/household-shell";
+
+export const Route = createFileRoute("/households/$householdId")({
+  loader: async ({ context: { api, queryClient }, params: { householdId } }) => {
+    const path = { params: { path: { household_id: householdId } } };
+    // For Create Household; the shell doesn't wait for it, and its form shows a failure.
+    queryClient.query(api.queryOptions("get", "/currencies")).catch(() => undefined);
+    try {
+      await Promise.all([
+        queryClient.query(api.queryOptions("get", "/households/{household_id}", path)),
+        queryClient.query(api.queryOptions("get", "/households")),
+        queryClient.query(api.queryOptions("get", "/households/{household_id}/accounts", path)),
+      ]);
+    } catch (error) {
+      if (errorStatus(error) === 404) {
+        throw notFound();
+      }
+      throw error;
+    }
+  },
+  component: function HouseholdLayout() {
+    const { householdId } = Route.useParams();
+    const [addingAccount, setAddingAccount] = useState(false);
+    return (
+      <AddAccountProvider
+        value={() => {
+          setAddingAccount(true);
+        }}
+      >
+        <HouseholdShell householdId={householdId}>
+          <Outlet />
+        </HouseholdShell>
+        <AddAccountDialog open={addingAccount} onOpenChange={setAddingAccount} />
+      </AddAccountProvider>
+    );
+  },
+});

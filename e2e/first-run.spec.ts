@@ -40,7 +40,8 @@ test("a new User redeems an Invitation and creates their first Household", async
   await page.getByRole("button", { name: "Create Household" }).click();
 
   await expect(page).toHaveURL(/\/households\/[0-9a-f-]{36}$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Our home" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Household/ })).toContainText("Our home");
+  await expect(page.getByText("Add your first Account.")).toBeVisible();
   const home = page.url();
   await expectAccessible(page);
 

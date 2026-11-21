@@ -12,8 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
-import { Route as HouseholdsHouseholdIdRouteImport } from './routes/households/$householdId'
+import { Route as HouseholdsHouseholdIdRouteRouteImport } from './routes/households/$householdId/route'
 import { Route as HouseholdsNewRouteImport } from './routes/households/new'
+import { Route as HouseholdsHouseholdIdIndexRouteImport } from './routes/households/$householdId/index'
+import { Route as HouseholdsHouseholdIdCategoriesRouteImport } from './routes/households/$householdId/categories'
+import { Route as HouseholdsHouseholdIdAccountsAccountIdRouteImport } from './routes/households/$householdId/accounts/$accountId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -30,68 +33,103 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HouseholdsHouseholdIdRoute = HouseholdsHouseholdIdRouteImport.update({
-  id: '/households/$householdId',
-  path: '/households/$householdId',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const HouseholdsHouseholdIdRouteRoute =
+  HouseholdsHouseholdIdRouteRouteImport.update({
+    id: '/households/$householdId',
+    path: '/households/$householdId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const HouseholdsNewRoute = HouseholdsNewRouteImport.update({
   id: '/households/new',
   path: '/households/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HouseholdsHouseholdIdIndexRoute =
+  HouseholdsHouseholdIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => HouseholdsHouseholdIdRouteRoute,
+  } as any)
+const HouseholdsHouseholdIdCategoriesRoute =
+  HouseholdsHouseholdIdCategoriesRouteImport.update({
+    id: '/categories',
+    path: '/categories',
+    getParentRoute: () => HouseholdsHouseholdIdRouteRoute,
+  } as any)
+const HouseholdsHouseholdIdAccountsAccountIdRoute =
+  HouseholdsHouseholdIdAccountsAccountIdRouteImport.update({
+    id: '/accounts/$accountId',
+    path: '/accounts/$accountId',
+    getParentRoute: () => HouseholdsHouseholdIdRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/register': typeof RegisterRoute
+  '/households/$householdId': typeof HouseholdsHouseholdIdRouteRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
-  '/households/$householdId': typeof HouseholdsHouseholdIdRoute
   '/households/new': typeof HouseholdsNewRoute
+  '/households/$householdId/categories': typeof HouseholdsHouseholdIdCategoriesRoute
+  '/households/$householdId/': typeof HouseholdsHouseholdIdIndexRoute
+  '/households/$householdId/accounts/$accountId': typeof HouseholdsHouseholdIdAccountsAccountIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/register': typeof RegisterRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/households/$householdId': typeof HouseholdsHouseholdIdRoute
   '/households/new': typeof HouseholdsNewRoute
+  '/households/$householdId/categories': typeof HouseholdsHouseholdIdCategoriesRoute
+  '/households/$householdId': typeof HouseholdsHouseholdIdIndexRoute
+  '/households/$householdId/accounts/$accountId': typeof HouseholdsHouseholdIdAccountsAccountIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/register': typeof RegisterRoute
+  '/households/$householdId': typeof HouseholdsHouseholdIdRouteRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
-  '/households/$householdId': typeof HouseholdsHouseholdIdRoute
   '/households/new': typeof HouseholdsNewRoute
+  '/households/$householdId/categories': typeof HouseholdsHouseholdIdCategoriesRoute
+  '/households/$householdId/': typeof HouseholdsHouseholdIdIndexRoute
+  '/households/$householdId/accounts/$accountId': typeof HouseholdsHouseholdIdAccountsAccountIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/register'
-    | '/auth/callback'
     | '/households/$householdId'
+    | '/auth/callback'
     | '/households/new'
+    | '/households/$householdId/categories'
+    | '/households/$householdId/'
+    | '/households/$householdId/accounts/$accountId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/register'
     | '/auth/callback'
-    | '/households/$householdId'
     | '/households/new'
+    | '/households/$householdId/categories'
+    | '/households/$householdId'
+    | '/households/$householdId/accounts/$accountId'
   id:
     | '__root__'
     | '/'
     | '/register'
-    | '/auth/callback'
     | '/households/$householdId'
+    | '/auth/callback'
     | '/households/new'
+    | '/households/$householdId/categories'
+    | '/households/$householdId/'
+    | '/households/$householdId/accounts/$accountId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   RegisterRoute: typeof RegisterRoute
+  HouseholdsHouseholdIdRouteRoute: typeof HouseholdsHouseholdIdRouteRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
-  HouseholdsHouseholdIdRoute: typeof HouseholdsHouseholdIdRoute
   HouseholdsNewRoute: typeof HouseholdsNewRoute
 }
 
@@ -122,7 +160,7 @@ declare module '@tanstack/react-router' {
       id: '/households/$householdId'
       path: '/households/$householdId'
       fullPath: '/households/$householdId'
-      preLoaderRoute: typeof HouseholdsHouseholdIdRouteImport
+      preLoaderRoute: typeof HouseholdsHouseholdIdRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/households/new': {
@@ -132,14 +170,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HouseholdsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/households/$householdId/': {
+      id: '/households/$householdId/'
+      path: '/'
+      fullPath: '/households/$householdId/'
+      preLoaderRoute: typeof HouseholdsHouseholdIdIndexRouteImport
+      parentRoute: typeof HouseholdsHouseholdIdRouteRoute
+    }
+    '/households/$householdId/categories': {
+      id: '/households/$householdId/categories'
+      path: '/categories'
+      fullPath: '/households/$householdId/categories'
+      preLoaderRoute: typeof HouseholdsHouseholdIdCategoriesRouteImport
+      parentRoute: typeof HouseholdsHouseholdIdRouteRoute
+    }
+    '/households/$householdId/accounts/$accountId': {
+      id: '/households/$householdId/accounts/$accountId'
+      path: '/accounts/$accountId'
+      fullPath: '/households/$householdId/accounts/$accountId'
+      preLoaderRoute: typeof HouseholdsHouseholdIdAccountsAccountIdRouteImport
+      parentRoute: typeof HouseholdsHouseholdIdRouteRoute
+    }
   }
 }
+
+interface HouseholdsHouseholdIdRouteRouteChildren {
+  HouseholdsHouseholdIdCategoriesRoute: typeof HouseholdsHouseholdIdCategoriesRoute
+  HouseholdsHouseholdIdIndexRoute: typeof HouseholdsHouseholdIdIndexRoute
+  HouseholdsHouseholdIdAccountsAccountIdRoute: typeof HouseholdsHouseholdIdAccountsAccountIdRoute
+}
+
+const HouseholdsHouseholdIdRouteRouteChildren: HouseholdsHouseholdIdRouteRouteChildren =
+  {
+    HouseholdsHouseholdIdCategoriesRoute: HouseholdsHouseholdIdCategoriesRoute,
+    HouseholdsHouseholdIdIndexRoute: HouseholdsHouseholdIdIndexRoute,
+    HouseholdsHouseholdIdAccountsAccountIdRoute:
+      HouseholdsHouseholdIdAccountsAccountIdRoute,
+  }
+
+const HouseholdsHouseholdIdRouteRouteWithChildren =
+  HouseholdsHouseholdIdRouteRoute._addFileChildren(
+    HouseholdsHouseholdIdRouteRouteChildren,
+  )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   RegisterRoute: RegisterRoute,
+  HouseholdsHouseholdIdRouteRoute: HouseholdsHouseholdIdRouteRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
-  HouseholdsHouseholdIdRoute: HouseholdsHouseholdIdRoute,
   HouseholdsNewRoute: HouseholdsNewRoute,
 }
 export const routeTree = rootRouteImport

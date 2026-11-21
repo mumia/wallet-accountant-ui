@@ -17,3 +17,7 @@ Waits on backend: none
 ## Spec
 
 [spec.md](../../modern-frontend/spec.md): user story 14; Accessibility (Category picker); Categories, Add Account and the Transaction list (Categories).
+
+## Notes
+
+- From ticket 07: `routes/households/$householdId/categories.tsx` and `features/categories/categories-page.tsx` are a stub the sidebar already links to; replace the page.
