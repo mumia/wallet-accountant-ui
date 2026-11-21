@@ -1,6 +1,6 @@
 # Spec: the first UI slice (Statement import → Accept → Month close)
 
-Status: draft. One section is marked **Open**; it waits on a ticket on the [map](map.md). Everything else is decided.
+Status: draft, fully decided: no section is marked **Open**.
 
 The first slice of the Wallet Accountant UI, matching the backend's first slice (`../wallet-accountant/.scratch/statement-import-to-month-close/spec.md`). A User signs in, redeems an Invitation, creates a Household, adds Accounts and Categories, describes a bank's CSV file in a Connection, imports Statement files, works through what is To review, and closes each month. It also builds the frontend's walking skeleton: the stack, the API client with exact money, sign-in, the theme system, the Caddy image that meets the backend's UI contract, and CI.
 
@@ -112,7 +112,7 @@ From [Grilling: choose the application stack](issues/05-grilling-choose-the-appl
 - React Hook Form + Zod 4; react-i18next with type-safe keys, one JSON namespace per feature; `Intl` for money, numbers and dates.
 - oidc-client-ts 3.5 + react-oidc-context: authorization code with PKCE, refresh tokens, `sessionStorage`. No backend-for-frontend; it is the upgrade path if this becomes a hosted service ([Research: signing in to Zitadel](issues/03-research-signing-in-to-zitadel-from-a-browser-app.md)).
 - No client state library: server data in Query, view state in the URL, form state in React Hook Form, the session in react-oidc-context.
-- shadcn/ui on Base UI (`base-nova` style) with Tailwind 4 ([Prototype: look and feel](issues/09-prototype-look-and-feel.md)). **Open**: fonts bundled or loaded from Google Fonts, how shadcn parts are added and updated from Docker, and the TanStack Table major version, in [Grilling: loose ends from the look-and-feel prototype](issues/21-grilling-loose-ends-from-the-look-and-feel-prototype.md).
+- shadcn/ui on Base UI (`base-nova` style) with Tailwind 4 ([Prototype: look and feel](issues/09-prototype-look-and-feel.md)). Parts are added with `make ui-add c="…"` (the pinned shadcn CLI with `--yes`, in the Node container) and updated by hand with `--overwrite` and a diff review; our edits to `components/ui/` are marked `// local:`. TanStack Table **v9**. The four preset fonts are bundled from Fontsource variable packages and served from the app's own origin, never from Google Fonts ([Grilling: loose ends from the look-and-feel prototype](issues/21-grilling-loose-ends-from-the-look-and-feel-prototype.md)).
 
 ### Money
 

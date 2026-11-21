@@ -130,3 +130,5 @@ No backend changes.
 ## Comments
 
 **2026-11-20, amended by [Grilling: the accessibility bar](13-grilling-the-accessibility-bar.md):** ESLint is pinned to **9**, because `eslint-plugin-jsx-a11y` (6.10.2) doesn't support ESLint 10 yet; move to 10 when it does. jsx-a11y uses its `strict` flat config. The conventions doc's Testing section also covers `@axe-core/playwright` in e2e and the theme token contrast test, and gains a short manual accessibility checklist (keyboard only + VoiceOver).
+
+**2026-11-21, amended by [Grilling: loose ends from the look-and-feel prototype](21-grilling-loose-ends-from-the-look-and-feel-prototype.md):** the conventions doc's **Commands** section gains `make ui-add c="…"` (`npx shadcn add --yes` in the Node container with no keyboard input attached). **Lint and format** gains the shadcn/ui rule: edit `components/ui/` only when a wrapper or prop can't do it, and mark each change `// local:`. **Dependencies** gains manual shadcn updates (`--overwrite`, then review the diff), fonts bundled from Fontsource variable packages, and TanStack Table v9.
