@@ -19,3 +19,7 @@ Waits on backend: partly. The open-month default needs `open_month` on Account, 
 ## Spec
 
 [spec.md](../../modern-frontend/spec.md): user stories 35, 36 (open months), 38; Categories, Add Account and the Transaction list (Transactions); Talking to the API (Long lists).
+
+## Notes
+
+- From ticket 08: `routes/households/$householdId/accounts/$accountId/transactions.tsx` is a stub with `validateSearch: bookingMonthSearch` (`lib/search.ts`); the Account area's tabs already carry `booking_month` between To review and Transactions.

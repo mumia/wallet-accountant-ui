@@ -104,7 +104,7 @@ test("the sidebar leads to each Account and to Categories", async ({ page }) => 
   await page.goto(home);
 
   await navigation(page).getByRole("link", { name: /Main/ }).click();
-  await expect(page).toHaveURL(main);
+  await expect(page).toHaveURL(`${main}/transactions`);
   await expect(page.getByRole("heading", { level: 1, name: "Main" })).toBeVisible();
   await expect(navigation(page).getByRole("link", { name: /Main/ })).toHaveAttribute(
     "aria-current",
@@ -196,7 +196,7 @@ test.describe("on a narrow screen (320 px, or 200% zoom)", () => {
     await drawer.getByRole("link", { name: /Main/ }).click();
 
     await expect(drawer).toBeHidden();
-    await expect(page).toHaveURL(main);
+    await expect(page).toHaveURL(`${main}/transactions`);
     await expectNoSidewaysScroll(page);
   });
 

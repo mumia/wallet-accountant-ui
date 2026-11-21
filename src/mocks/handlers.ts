@@ -132,6 +132,51 @@ export function createHandlers(db: MockDb) {
         : response.untyped(await withExactAmounts(response(200).json({ items: accounts })));
     }),
 
+    http.post("/households/{household_id}/accounts", async ({ params, request, response }) => {
+      const accounts = householdAccounts(db, params.household_id);
+      if (accounts === undefined) {
+        return response(404).json(notFound);
+      }
+      const { name, kind, currency, start_date } = await request.json();
+      if (name.trim() === "" || kind === "CASH") {
+        return response(422).json({
+          type: "/problems/invalid-account",
+          title: "Invalid Account",
+          status: 422,
+          detail:
+            name.trim() === ""
+              ? "The name must not be blank."
+              : "Cash Accounts are not supported yet.",
+        });
+      }
+      const account = {
+        account_id: crypto.randomUUID(),
+        name,
+        kind,
+        currency,
+        start_date,
+        awaiting_first_statement_import: true,
+      };
+      const state = db.read();
+      db.write({
+        ...state,
+        accounts: { ...state.accounts, [params.household_id]: [...accounts, account] },
+      });
+      return response(201).json(account);
+    }),
+
+    http.get(
+      "/households/{household_id}/accounts/{account_id}/connections",
+      ({ params, response }) => {
+        const account = householdAccounts(db, params.household_id)?.find(
+          ({ account_id }) => account_id === params.account_id,
+        );
+        return account === undefined
+          ? response(404).json(notFound)
+          : response(200).json({ items: db.read().connections[params.account_id] ?? [] });
+      },
+    ),
+
     http.get("/households/{household_id}/accounts/{account_id}", async ({ params, response }) => {
       const account = householdAccounts(db, params.household_id)?.find(
         ({ account_id }) => account_id === params.account_id,

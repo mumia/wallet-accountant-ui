@@ -17,3 +17,7 @@ Waits on backend: yes. Needs Connection `name`, `CsvMapping.encoding`, the mappi
 ## Spec
 
 [spec.md](../../modern-frontend/spec.md): user stories 18–23; CSV mapping editor.
+
+## Notes
+
+- From ticket 08: `…/accounts/$accountId/connections/index.tsx` and `connections/new.tsx` are stubs; the getting-started checklist links to `connections/new`. Its step 1 shows "Connection created." without a name until the backend adds one.
