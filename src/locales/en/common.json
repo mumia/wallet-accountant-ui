@@ -1,8 +1,5 @@
 {
   "appName": "Wallet Accountant",
-  "welcome": {
-    "tagline": "Import your bank statements, decide each row and close every month."
-  },
   "unsupportedBrowser": {
     "title": "This browser is too old for Wallet Accountant",
     "body": "Wallet Accountant needs a browser from 2025 or later to show every amount exactly: Chrome or Edge 114, Firefox 135, or Safari 18.4. Update your browser, then open this page again."
@@ -48,5 +45,27 @@
   },
   "dialog": {
     "close": "Close"
+  },
+  "signOut": "Sign out",
+  "currencyLabel": "{{code}} — {{name}}",
+  "errors": {
+    "tryAgain": "Try again",
+    "network": {
+      "title": "Wallet Accountant can't be reached",
+      "detail": "Check your connection, then try again."
+    },
+    "generic": {
+      "title": "Something went wrong",
+      "detail": "Try again in a moment. If it keeps happening, tell whoever runs Wallet Accountant."
+    }
+  },
+  "notFound": {
+    "title": "Not found",
+    "body": "This page doesn't exist, or you don't have access to it.",
+    "home": "Go to your Household"
+  },
+  "combobox": {
+    "showOptions": "Show options",
+    "clear": "Clear"
   }
 }

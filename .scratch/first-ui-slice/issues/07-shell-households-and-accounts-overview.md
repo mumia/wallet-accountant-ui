@@ -25,4 +25,5 @@ The app shell and the Household's home.
 
 ## Notes
 
-- From ticket 05: `components/appearance-dialog.tsx` is ready, with `open` and `onOpenChange`. Wire "Appearance…" in the User menu to it, and remove the placeholder welcome page's button with the page itself.
+- From ticket 05: `components/appearance-dialog.tsx` is ready, with `open` and `onOpenChange`. Wire "Appearance…" in the User menu to it, and remove the Appearance… button from the Household home stub.
+- From ticket 06: `/households/$householdId` is a stub (`features/households/household-home.tsx`) that saves the last-used Household (`lib/last-household.ts`) and has Appearance… and Sign out buttons; replace it with the shell and the Accounts overview, and keep saving the last-used Household. `components/sign-out-button.tsx` is ready for the User menu. The mock API's `household` scenario (the default) has one Household, "Home"; `e2e/appearance.spec.ts` waits for its heading.

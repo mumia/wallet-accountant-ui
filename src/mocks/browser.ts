@@ -2,11 +2,16 @@
 // API in the browser from the same handlers the tests use, and a signed-in User
 // is put where oidc-client-ts keeps it, so the app starts without Zitadel or a
 // backend. Only a `--mode mock` build includes this file.
+//
+// `?mock-scenario=new-user` (or `registered`, `household`) on any page starts the
+// tab's mock data over from that scenario (src/mocks/db.ts); the parameter is
+// then removed from the address.
 import { HttpResponse } from "msw";
 import { setupWorker } from "msw/browser";
 import { User } from "oidc-client-ts";
 
-import { handlers } from "./handlers";
+import { createMockDb, isScenario } from "./db";
+import { createHandlers } from "./handlers";
 import { http } from "./http";
 
 export const mockConfig = {
@@ -45,10 +50,20 @@ function signIn(): void {
   );
 }
 
+const scenarioParameter = "mock-scenario";
+
 export async function startMockApi(): Promise<void> {
+  const db = createMockDb(window.sessionStorage);
+  const url = new URL(window.location.href);
+  const scenario = url.searchParams.get(scenarioParameter);
+  if (scenario !== null) {
+    db.reset(isScenario(scenario) ? scenario : undefined);
+    url.searchParams.delete(scenarioParameter);
+    window.history.replaceState(window.history.state, "", url);
+  }
   const worker = setupWorker(
     http.untyped.get("/config.json", () => HttpResponse.json(mockConfig)),
-    ...handlers,
+    ...createHandlers(db),
   );
   // Everything else (the app's own files) goes to the server as usual.
   await worker.start({ onUnhandledFrame: "bypass", quiet: true });
