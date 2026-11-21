@@ -16,6 +16,9 @@ export function userManagerSettings(config: Config, origin: string): UserManager
     // offline_access asks for a refresh token; email is shown on /register.
     scope: "openid profile email offline_access",
     userStore: new WebStorageStateStore({ store: window.sessionStorage }),
+    // The PKCE verifier and state of a sign-in in flight. oidc-client-ts would
+    // use localStorage, which may be blocked; the redirect comes back to this tab.
+    stateStore: new WebStorageStateStore({ store: window.sessionStorage }),
     automaticSilentRenew: true,
   };
 }
