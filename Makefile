@@ -9,6 +9,13 @@ NODE_IMAGE   := node:$(NODE_VERSION)-bookworm-slim
 NODE_VOLUME  := wallet-accountant-ui-node-modules
 NPM_CACHE    := wallet-accountant-ui-npm-cache
 DEV_PORT     ?= 5173
+# Where the dev server forwards /api: the local cluster's app, or `make run` in
+# wallet-accountant with API_PROXY_TARGET=http://host.docker.internal:8080.
+API_PROXY_TARGET ?= https://wallet.localhost:18443
+# The mkcert CA (`make local-ca` in wallet-accountant) signs the dev certificate,
+# and the dev server trusts it for the cluster's HTTPS.
+MKCERT_CAROOT := $(shell mkcert -CAROOT 2>/dev/null)
+LOCAL_CONTEXT ?= k3d-wallet-accountant
 IMAGE        ?= wallet-accountant-ui:local
 # The backend release whose contract src/api/openapi.yaml is; images carry it.
 CONTRACT_VERSION := $(shell cat src/api/CONTRACT_VERSION)
@@ -26,7 +33,7 @@ DOCKER_NODE  = docker run --rm $(TTY) \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps install dev build preview generate contract-check contract-update lint actionlint format typecheck test audit image image-test check shell npm clean-deps
+.PHONY: help deps install dev dev-cert dev-config build preview generate contract-check contract-update lint actionlint format typecheck test audit image image-test check shell npm clean-deps
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-12s %s\n", $$1, $$2}'
@@ -38,8 +45,27 @@ deps:
 install: ## Reinstall dependencies from package-lock.json
 	$(call DOCKER_NODE) npm ci
 
-dev: deps ## Run the dev server on http://localhost:5173
-	$(call DOCKER_NODE,-p $(DEV_PORT):5173) npm run dev
+dev: deps ## Run the dev server on https://localhost:5173, /api forwarded to API_PROXY_TARGET
+	@test -f .certs/localhost.pem || { echo "No dev certificate: run 'make dev-cert' once."; exit 1; }
+	@test -f public/config.json || echo "No public/config.json: run 'make dev-config', or write one (docs/architecture/conventions.md)."
+	$(call DOCKER_NODE,-p $(DEV_PORT):5173 \
+		--add-host wallet.localhost:host-gateway \
+		-e API_PROXY_TARGET=$(API_PROXY_TARGET) \
+		-e NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem \
+		-v "$(MKCERT_CAROOT)/rootCA.pem":/mkcert/rootCA.pem:ro) npm run dev
+
+dev-cert: ## Make the dev server's certificate for localhost with the mkcert CA (once)
+	@test -f "$(MKCERT_CAROOT)/rootCA.pem" || { echo "No mkcert CA: run 'make local-ca' in wallet-accountant once."; exit 1; }
+	mkdir -p .certs
+	mkcert -cert-file .certs/localhost.pem -key-file .certs/localhost-key.pem localhost 127.0.0.1 ::1
+
+dev-config: ## Write public/config.json from the local cluster's OIDC ConfigMap
+	mkdir -p public
+	@kubectl --context $(LOCAL_CONTEXT) -n wallet-accountant get configmap wallet-accountant-oidc \
+		-o jsonpath='{.data.config\.json}' > public/config.json.tmp \
+		|| { rm -f public/config.json.tmp; echo "Is the local cluster up with Wallet Accountant deployed? ('make local-up' in wallet-accountant)"; exit 1; }
+	@test -s public/config.json.tmp || { rm -f public/config.json.tmp; echo "The ConfigMap has no config.json."; exit 1; }
+	mv public/config.json.tmp public/config.json
 
 build: deps ## Build the static app into dist/
 	$(call DOCKER_NODE) npm run build
