@@ -1,10 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { bookingMonthSearch } from "../../../../../lib/search";
-
-import { AccountTabStub } from "../../../../../features/accounts/tab-stub";
+import { TransactionsTab } from "../../../../../features/transactions/transactions-tab";
+import { transactionsSearch } from "../../../../../lib/search";
 
 export const Route = createFileRoute("/households/$householdId/accounts/$accountId/transactions")({
-  validateSearch: bookingMonthSearch,
-  component: () => <AccountTabStub page="transactions" />,
+  validateSearch: transactionsSearch,
+  component: function Transactions() {
+    const { householdId, accountId } = Route.useParams();
+    const { booking_month, uncategorised } = Route.useSearch();
+    return (
+      <TransactionsTab
+        householdId={householdId}
+        accountId={accountId}
+        bookingMonth={booking_month}
+        uncategorised={uncategorised === true}
+      />
+    );
+  },
 });

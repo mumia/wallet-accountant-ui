@@ -81,6 +81,7 @@ export function createHandlers(db: MockDb) {
       if (
         failures === undefined ||
         failures.remaining <= 0 ||
+        (failures.method !== undefined && failures.method !== request.method) ||
         !new URL(request.url).pathname.endsWith(failures.pathEnd)
       ) {
         return undefined;
@@ -296,6 +297,83 @@ export function createHandlers(db: MockDb) {
           },
         });
         return response(200).json(changed);
+      },
+    ),
+
+    http.get(
+      "/households/{household_id}/accounts/{account_id}/transactions",
+      async ({ params, query, response }) => {
+        const account = householdAccounts(db, params.household_id)?.find(
+          ({ account_id }) => account_id === params.account_id,
+        );
+        if (account === undefined) {
+          return response(404).json(notFound);
+        }
+        const month = query.get("booking_month");
+        const all = (db.read().transactions[params.account_id] ?? []).filter(
+          (transaction) => month === null || transaction.booking_date.startsWith(month),
+        );
+        const start = Number(query.get("cursor") ?? "0");
+        const limit = Math.min(Number(query.get("limit") ?? "50"), 200);
+        const items = all.slice(start, start + limit);
+        const next = start + limit < all.length ? String(start + limit) : undefined;
+        return response.untyped(
+          await withExactAmounts(
+            response(200).json({ items, ...(next === undefined ? {} : { next_cursor: next }) }),
+          ),
+        );
+      },
+    ),
+
+    http.patch(
+      "/households/{household_id}/transactions/{transaction_id}",
+      async ({ params, request, response }) => {
+        const state = db.read();
+        const accounts = householdAccounts(db, params.household_id) ?? [];
+        const accountId = accounts.find(({ account_id }) =>
+          (state.transactions[account_id] ?? []).some(
+            ({ transaction_id }) => transaction_id === params.transaction_id,
+          ),
+        )?.account_id;
+        const transaction =
+          accountId === undefined
+            ? undefined
+            : state.transactions[accountId]?.find(
+                ({ transaction_id }) => transaction_id === params.transaction_id,
+              );
+        if (accountId === undefined || transaction === undefined) {
+          return response(404).json(notFound);
+        }
+        const { category_id } = await request.json();
+        const category = householdCategories(db, params.household_id)?.find(
+          (candidate) => candidate.category_id === category_id,
+        );
+        if (category === undefined) {
+          return response(422).json(invalidCategory("The Category isn't one of the Household's."));
+        }
+        if (category.kind === "INTERNAL" && category.name !== "Uncategorised") {
+          return response(422).json(internalCategory);
+        }
+        if (transaction.reversed_by_transaction_id !== undefined) {
+          return response(409).json({
+            type: "/problems/transaction-reversed",
+            title: "Transaction reversed",
+            status: 409,
+          });
+        }
+        const changed = { ...transaction, category_id, category_name: category.name };
+        db.write({
+          ...state,
+          transactions: {
+            ...state.transactions,
+            [accountId]: (state.transactions[accountId] ?? []).map((candidate) =>
+              candidate.transaction_id === changed.transaction_id ? changed : candidate,
+            ),
+          },
+        });
+        return response.untyped(
+          await withExactAmounts(response(200).json({ ...changed, account_id: accountId })),
+        );
       },
     ),
 

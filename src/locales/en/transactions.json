@@ -1,0 +1,28 @@
+{
+  "title": "Transactions",
+  "loading": "Loading Transactions…",
+  "columns": {
+    "date": "Booking date",
+    "description": "Description",
+    "amount": "Amount",
+    "category": "Category"
+  },
+  "transactionDate": "Transaction date: {{date}}",
+  "reversed": "Reversed",
+  "categoryFor": "Category for {{row}}",
+  "categoryFailed": "The Category of {{row}} wasn't changed",
+  "uncategorisedOnly": "Uncategorised only",
+  "uncategorisedCount": "Uncategorised only ({{count}})",
+  "chooseMonthFirst": "Choose a month first",
+  "showingSoFar_one": "Showing {{count}} Transaction so far",
+  "showingSoFar_other": "Showing {{count}} Transactions so far",
+  "showingAll_one": "{{count}} Transaction",
+  "showingAll_other": "{{count}} Transactions",
+  "empty": {
+    "none": "No Transactions yet. They appear once a Statement import's rows are Accepted.",
+    "month": "No Transactions in {{month}}",
+    "showAllMonths": "Show all months",
+    "allCategorised": "Everything in {{month}} has a Category ✓",
+    "showAllTransactions": "Show all Transactions"
+  }
+}

@@ -6,7 +6,8 @@
 // `?mock-scenario=new-user` (or `registered`, `household`) on any page starts the
 // tab's mock data over from that scenario (src/mocks/db.ts); the parameter is
 // then removed from the address. `?mock-fail=<path end>:<count>` makes the next
-// <count> API requests whose path ends that way fail with a 503.
+// <count> API requests whose path ends that way fail with a 503;
+// `?mock-fail=PATCH:<count>` (any method) fails the next <count> of that method.
 import { HttpResponse } from "msw";
 import { setupWorker } from "msw/browser";
 import { User } from "oidc-client-ts";
@@ -65,7 +66,14 @@ export async function startMockApi(): Promise<void> {
   }
   const failure = /^(.+):(\d+)$/.exec(url.searchParams.get(failureParameter) ?? "");
   if (failure?.[1] !== undefined && failure[2] !== undefined) {
-    db.write({ ...db.read(), failures: { pathEnd: failure[1], remaining: Number(failure[2]) } });
+    const remaining = Number(failure[2]);
+    const isMethod = /^(GET|POST|PUT|PATCH|DELETE)$/.test(failure[1]);
+    db.write({
+      ...db.read(),
+      failures: isMethod
+        ? { method: failure[1], pathEnd: "", remaining }
+        : { pathEnd: failure[1], remaining },
+    });
     url.searchParams.delete(failureParameter);
     window.history.replaceState(window.history.state, "", url);
   }

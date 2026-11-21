@@ -19,3 +19,7 @@ Finish the parts earlier tickets left behind a seam:
 ## Spec
 
 [spec.md](../../modern-frontend/spec.md): user story 11; Screens and routes (Accounts overview); Transactions and To review (month fields).
+
+## Notes
+
+- From ticket 10: The seam is `src/lib/account-months.ts` (`defaultBookingMonth`, `accountMonths`); replace both bodies. The Transactions empty month state should also offer "Go to To review" when the month has rows To review (needs the counts); it doesn't yet.

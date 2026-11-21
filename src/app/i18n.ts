@@ -6,10 +6,11 @@ import firstRun from "../locales/en/firstRun.json";
 import accounts from "../locales/en/accounts.json";
 import categories from "../locales/en/categories.json";
 import shell from "../locales/en/shell.json";
+import transactions from "../locales/en/transactions.json";
 
 /** The message files, by language and namespace. A new language is a new folder. */
 export const resources = {
-  en: { common, firstRun, shell, accounts, categories },
+  en: { common, firstRun, shell, accounts, categories, transactions },
 } as const;
 
 export const defaultNS = "common";

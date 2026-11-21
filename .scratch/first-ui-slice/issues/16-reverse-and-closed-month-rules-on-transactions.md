@@ -17,3 +17,7 @@ Waits on backend: yes. Needs `imported_transaction_id` on AccountTransaction and
 ## Spec
 
 [spec.md](../../modern-frontend/spec.md): user stories 36–37; Months, Month close, Reverse and Void (Reverse).
+
+## Notes
+
+- From ticket 10: The row's Category cell is in `features/transactions/transactions-table.tsx`; the Reverse menu and the closed-month rules (no Uncategorised there) go there.
