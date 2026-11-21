@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.DS_Store
+.env*
+!.env.example
+# Written by `npm run dev:config` (ticket 04) from the local cluster.
+public/config.json
+# Local Claude Code state.
+.claude/worktrees/
+.claude/settings.local.json
