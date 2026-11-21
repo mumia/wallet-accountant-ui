@@ -20,3 +20,10 @@ export function errorStatus(error: unknown): number | undefined {
 export function isNetworkError(error: unknown): boolean {
   return error instanceof TypeError;
 }
+
+/** The 403 an identity gets until it redeems an Invitation (ADR-0017). */
+export function isRegistrationRequired(error: unknown): boolean {
+  return (
+    isProblem(error) && error.status === 403 && error.type === "/problems/registration-required"
+  );
+}

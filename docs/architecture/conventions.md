@@ -169,6 +169,13 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
   - Reads are fresh for 30 s, are refetched on focus, and retry on network errors and 5xx, three attempts in all.
   - Writes retry twice, with the same key, on network errors and 502, 503 and 504 only.
   - A write's submit button is disabled while `isPending`.
+
+### Routes, forms and errors
+
+- **Router context:** the router is made at boot with `{ api, queryClient }` (`src/app/router.ts`), so a route's `beforeLoad` and `loader` can read before the screen renders: `loader: ({ context: { api, queryClient } }) => queryClient.query(api.queryOptions("get", "/currencies"))`. The screen then reads the same data with `api.useSuspenseQuery`, already in the cache.
+- **Failed loads:** a loader that throws shows the root route's `LoadError` (`src/components/load-error.tsx`): the problem's text and "Try again". A 404 becomes `notFound()`, which shows `NotFound`.
+- **Forms** use React Hook Form with a Zod schema (`zodResolver`). The schema mirrors the contract's limits per field, with messages from the message files. A field's error is linked to it with `aria-describedby` and `aria-invalid`.
+- **A form's failed write** shows `FormAlert` (`src/components/form-alert.tsx`) at the top of the form, and the input stays. `useErrorText` (`src/components/error-text.ts`) picks the words: the problem's `title` and `detail`, or ours for a network failure or a response with no problem.
 ### Boot and sign-in
 
 `src/main.tsx` calls `boot()` (`src/app/boot.tsx`), which goes in this order:
@@ -212,10 +219,13 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
 - **Mock mode** (`vite --mode mock`, `make dev-mock`, the e2e build) runs the app with no backend and no Zitadel:
   - `src/mocks/browser.ts` starts MSW's service worker with the test handlers, plus `/config.json`.
   - It puts a signed-in mock User where oidc-client-ts keeps one.
+  - **Mock data** (`src/mocks/db.ts`) is stateful: redeeming an Invitation or creating a Household changes what the next read returns. Tests keep it in memory and reset it after each test (`mockDb.reset("new-user")` picks another start). Mock mode keeps it in the tab's `sessionStorage`, so it survives a reload.
+  - **Scenarios:** `?mock-scenario=new-user` on any page starts the tab over as someone who hasn't redeemed an Invitation, `registered` as a User with no Household, `household` (the default) with one Household, "Home". The Invitation code the mock accepts is `WELCOME-2026`.
   - Vite serves and builds MSW's worker only in this mode, from the installed `msw`, into `dist-mock/`. The real build contains none of it: boot imports the mocks behind `import.meta.env.MODE === "mock"`, which Vite removes from other builds.
 - **End-to-end** (`e2e/`, `make e2e`):
   - **Where it runs:** Playwright in its official image, whose version is read from `@playwright/test` in `package.json`, against the mock build served by `vite preview`. Chromium only for now.
   - **The gate:** every test calls `expectAccessible(page)` (`e2e/axe.ts`) once per screen and state, such as a dialog open or errors shown. It runs axe's WCAG 2.2 A and AA rules and fails on any violation.
+  - **Exceptions** are passed per scan with a reason, as named sets in `e2e/axe.ts`, each backed by a test of the behaviour that makes the rule not apply. The one so far, `comboboxListOpen`: a Base UI Combobox with its list open hides the rest of the page from assistive tech (`aria-hidden-focus`), and leaving the input closes the list.
   - **Storage:** MSW keeps its own bookkeeping in `localStorage`, unguarded. So an e2e test that blocks storage refuses only the app's keys, and the unit tests cover a `localStorage` that throws on any access.
 - **Theme contrast**: `src/lib/theme/themes.test.ts` checks every token pair of all eight themes (section 11).
 - **Manual accessibility pass before each release**, on every screen, keyboard first and then VoiceOver (Safari, macOS):

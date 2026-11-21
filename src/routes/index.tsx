@@ -1,7 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { WelcomePage } from "../features/welcome/welcome-page";
+import { homeDestination } from "../features/first-run/home-destination";
 
 export const Route = createFileRoute("/")({
-  component: WelcomePage,
+  beforeLoad: async ({ context }) => {
+    throw redirect({ ...(await homeDestination(context)), replace: true });
+  },
 });

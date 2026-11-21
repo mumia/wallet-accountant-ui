@@ -9,6 +9,11 @@ describe("returnPath", () => {
       "/households/1/accounts/2/to-review?booking_month=2026-01",
     ],
     [{ returnTo: "/" }, "/"],
+    // An Invitation link survives the sign-in round trip.
+    [
+      { returnTo: "/register?invitation_code=WELCOME-2026" },
+      "/register?invitation_code=WELCOME-2026",
+    ],
   ])("comes back to %j", (state, path) => {
     expect(returnPath(state)).toBe(path);
   });

@@ -10,11 +10,19 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
+import { Route as HouseholdsHouseholdIdRouteImport } from './routes/households/$householdId'
+import { Route as HouseholdsNewRouteImport } from './routes/households/new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
@@ -22,31 +30,69 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HouseholdsHouseholdIdRoute = HouseholdsHouseholdIdRouteImport.update({
+  id: '/households/$householdId',
+  path: '/households/$householdId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HouseholdsNewRoute = HouseholdsNewRouteImport.update({
+  id: '/households/new',
+  path: '/households/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/register': typeof RegisterRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/households/$householdId': typeof HouseholdsHouseholdIdRoute
+  '/households/new': typeof HouseholdsNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/register': typeof RegisterRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/households/$householdId': typeof HouseholdsHouseholdIdRoute
+  '/households/new': typeof HouseholdsNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/register': typeof RegisterRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/households/$householdId': typeof HouseholdsHouseholdIdRoute
+  '/households/new': typeof HouseholdsNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth/callback'
+  fullPaths:
+    | '/'
+    | '/register'
+    | '/auth/callback'
+    | '/households/$householdId'
+    | '/households/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth/callback'
-  id: '__root__' | '/' | '/auth/callback'
+  to:
+    | '/'
+    | '/register'
+    | '/auth/callback'
+    | '/households/$householdId'
+    | '/households/new'
+  id:
+    | '__root__'
+    | '/'
+    | '/register'
+    | '/auth/callback'
+    | '/households/$householdId'
+    | '/households/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  RegisterRoute: typeof RegisterRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  HouseholdsHouseholdIdRoute: typeof HouseholdsHouseholdIdRoute
+  HouseholdsNewRoute: typeof HouseholdsNewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,6 +104,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/callback': {
       id: '/auth/callback'
       path: '/auth/callback'
@@ -65,12 +118,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/households/$householdId': {
+      id: '/households/$householdId'
+      path: '/households/$householdId'
+      fullPath: '/households/$householdId'
+      preLoaderRoute: typeof HouseholdsHouseholdIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/households/new': {
+      id: '/households/new'
+      path: '/households/new'
+      fullPath: '/households/new'
+      preLoaderRoute: typeof HouseholdsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  RegisterRoute: RegisterRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  HouseholdsHouseholdIdRoute: HouseholdsHouseholdIdRoute,
+  HouseholdsNewRoute: HouseholdsNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
