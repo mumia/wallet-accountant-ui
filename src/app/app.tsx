@@ -5,6 +5,7 @@ import { AuthProvider } from "react-oidc-context";
 
 import { createApi } from "../api/client";
 import { ApiContext } from "../api/context";
+import { Toaster } from "../components/toaster";
 import type { Config } from "./config";
 import { createQueryClient } from "./query-client";
 import { createAppRouter } from "./router";
@@ -36,7 +37,9 @@ export function App({ config }: { config: Config }) {
       <SignInGate>
         <ApiContext value={wiring.api}>
           <QueryClientProvider client={wiring.queryClient}>
-            <RouterProvider router={wiring.router} />
+            <Toaster>
+              <RouterProvider router={wiring.router} />
+            </Toaster>
           </QueryClientProvider>
         </ApiContext>
         <SessionEndedDialog signal={wiring.session.sessionEnded} />

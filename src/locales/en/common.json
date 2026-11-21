@@ -108,5 +108,11 @@
       "EXPENSE": "Expense",
       "INCOME": "Income"
     }
+  },
+  "monthField": {
+    "label": "Month",
+    "all": "All months",
+    "previous": "Previous month",
+    "next": "Next month"
   }
 }

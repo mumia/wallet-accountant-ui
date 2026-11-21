@@ -1,0 +1,165 @@
+// An Account's Transactions (spec, "Talking to the API": long lists): a chosen
+// month loads every page; all months load page by page as the list scrolls.
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+} from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+
+import { useApi } from "../../api/context";
+import { unwrap } from "../../api/unwrap";
+import type { components } from "../../api/schema.gen";
+import { errorText } from "../../components/error-text";
+import { useErrorToast } from "../../components/toaster";
+import type { Month } from "../../lib/month";
+
+export type AccountTransaction = components["schemas"]["AccountTransaction"];
+type Page = components["schemas"]["AccountTransactionPage"];
+
+const path = "/households/{household_id}/accounts/{account_id}/transactions";
+const pageSize = 200;
+
+/**
+ * Every Transactions read of the Account starts with this key, in the shape
+ * openapi-react-query uses, so a write elsewhere can invalidate it by path.
+ */
+export function transactionsKey(householdId: string, accountId: string) {
+  return ["get", path, { params: { path: { household_id: householdId, account_id: accountId } } }];
+}
+
+function monthKey(householdId: string, accountId: string, month: Month) {
+  const pathParams = { household_id: householdId, account_id: accountId };
+  return [
+    "get",
+    path,
+    { params: { path: pathParams, query: { booking_month: month } } },
+    "all-pages",
+  ];
+}
+
+function allKey(householdId: string, accountId: string) {
+  return [...transactionsKey(householdId, accountId), "infinite"];
+}
+
+function usePage() {
+  const { fetchClient } = useApi();
+  return async (
+    householdId: string,
+    accountId: string,
+    query: { booking_month?: Month; cursor?: string },
+  ) => {
+    return unwrap(
+      await fetchClient.GET(path, {
+        params: {
+          path: { household_id: householdId, account_id: accountId },
+          query: { ...query, limit: pageSize },
+        },
+      }),
+    );
+  };
+}
+
+/** One month, every page of it. */
+export function useMonthTransactions(householdId: string, accountId: string, month: Month) {
+  const page = usePage();
+  return useQuery({
+    queryKey: monthKey(householdId, accountId, month),
+    queryFn: async () => {
+      const items: AccountTransaction[] = [];
+      let cursor: string | undefined;
+      do {
+        const next: Page = await page(householdId, accountId, {
+          booking_month: month,
+          ...(cursor === undefined ? {} : { cursor }),
+        });
+        items.push(...next.items);
+        cursor = next.next_cursor;
+      } while (cursor !== undefined);
+      return items;
+    },
+  });
+}
+
+/** All months, oldest first, a page at a time. */
+export function useAllTransactions(householdId: string, accountId: string) {
+  const page = usePage();
+  return useInfiniteQuery({
+    queryKey: allKey(householdId, accountId),
+    queryFn: ({ pageParam }) =>
+      page(householdId, accountId, pageParam === undefined ? {} : { cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.next_cursor,
+  });
+}
+
+interface CategoryChange {
+  transaction: AccountTransaction;
+  categoryId: string;
+  categoryName: string;
+  /** How the row is named in a failure toast: "Mar 12, 2026, Albert Heijn, -€23.40". */
+  rowLabel: string;
+}
+
+type CachedTransactions = AccountTransaction[] | InfiniteData<Page> | undefined;
+
+function withCategory(cached: CachedTransactions, change: CategoryChange): CachedTransactions {
+  const update = (item: AccountTransaction) =>
+    item.transaction_id === change.transaction.transaction_id
+      ? { ...item, category_id: change.categoryId, category_name: change.categoryName }
+      : item;
+  if (cached === undefined) {
+    return cached;
+  }
+  if (Array.isArray(cached)) {
+    return cached.map(update);
+  }
+  return { ...cached, pages: cached.pages.map((p) => ({ ...p, items: p.items.map(update) })) };
+}
+
+/**
+ * Sets a Transaction's Category from its row (spec, "Transactions"): shown at
+ * once, rolled back with a toast naming the row if the save fails.
+ */
+export function useChangeCategory(householdId: string, accountId: string) {
+  const { t } = useTranslation("transactions");
+  const { t: tCommon } = useTranslation();
+  const { fetchClient } = useApi();
+  const queryClient = useQueryClient();
+  const toast = useErrorToast();
+  const key = transactionsKey(householdId, accountId);
+
+  return useMutation({
+    mutationFn: async (change: CategoryChange) => {
+      return unwrap(
+        await fetchClient.PATCH("/households/{household_id}/transactions/{transaction_id}", {
+          params: {
+            path: { household_id: householdId, transaction_id: change.transaction.transaction_id },
+          },
+          body: { category_id: change.categoryId },
+        }),
+      );
+    },
+    onMutate: async (change) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const before = queryClient.getQueriesData<CachedTransactions>({ queryKey: key });
+      queryClient.setQueriesData<CachedTransactions>({ queryKey: key }, (cached) =>
+        withCategory(cached, change),
+      );
+      return { before };
+    },
+    onError: (error, change, context) => {
+      context?.before.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+      const { title, detail } = errorText(error, tCommon);
+      toast(
+        t("categoryFailed", { row: change.rowLabel }),
+        detail === undefined ? title : `${title}: ${detail}`,
+      );
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+  });
+}

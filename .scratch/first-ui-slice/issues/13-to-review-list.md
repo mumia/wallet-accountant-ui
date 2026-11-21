@@ -24,3 +24,4 @@ Waits on backend: partly. The month field's options need the months list, and lo
 
 - From ticket 08: `…/accounts/$accountId/to-review.tsx` is a stub with `validateSearch: bookingMonthSearch`.
 - From ticket 09: The row picker is `components/category-picker.tsx` (see ticket 10's note); it starts on Uncategorised: pass the Uncategorised Category's ID, found with `isUncategorised` in `lib/categories.ts`.
+- From ticket 10: `components/month-field.tsx` is the month field (arrows, "All months"), fed by `accountMonths` from the seam; `components/toaster.tsx` has `useErrorToast` for per-row failures. Paging and optimistic patterns are in `features/transactions/transactions-query.ts`.
