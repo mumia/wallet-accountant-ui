@@ -13,13 +13,14 @@ src/
   app/                  boot (section 5): i18n, the browser check, /config.json, sign-in, the API client, the router
   routes/               TanStack Router file routes, kept thin: they import a feature's page
   features/<area>/      one folder per screen area (households, accounts, categories, …)
-  components/ui/        shadcn/ui parts (ours to edit, see section 4)
+  components/ui/        shadcn/ui parts, added with `make ui-add` (section 4)
   components/           shared parts we build: the amount input, the Category picker, the data table
   api/                  the pinned contract, generated types, the client (section 5)
-  lib/                  pure helpers; money.ts is the money module (section 6)
+  lib/                  pure helpers; money.ts is the money module (section 6), theme/ the themes (section 11)
   locales/en/*.json     message files, one namespace per feature
   test/                 test setup shared by every test, and the MSW server
-  mocks/                the mock API: MSW handlers typed by the contract (section 7)
+  mocks/                the mock API: MSW handlers typed by the contract, and mock mode (section 7)
+e2e/                    Playwright tests, run against the mock build (section 7)
 scripts/                Node scripts in TypeScript: the API generator and the contract check
 types/                  declarations for untyped dev tools
 ```
@@ -31,7 +32,7 @@ Tests sit next to the code they test, as `*.test.ts(x)`.
 | From | May import |
 |---|---|
 | `src` root files | `app`, `routes` |
-| `app` | everything |
+| `app` | everything, including `mocks` (only a mock-mode build loads them) |
 | `routes` | `app`, features, `components`, `ui`, `api`, `lib` |
 | a feature | itself, `components`, `ui`, `api`, `lib` |
 | `components` | `components`, `ui`, `api`, `lib` |
@@ -72,7 +73,9 @@ A file outside these folders fails lint (`boundaries/no-unknown-files`).
 | `make shell` | a shell in the Node container |
 | `make install` | reinstall from `package-lock.json` |
 | `make clean-deps` | drop the `node_modules` volume |
-| `make ui-add c="…"` | add shadcn/ui parts _(ticket 05)_ |
+| `make dev-mock` | dev server against the mock API, signed in as a mock User: no cluster, no backend |
+| `make e2e` | build the mock app, then run Playwright with axe in Playwright's official image |
+| `make ui-add c="…"` | add shadcn/ui parts with the pinned CLI; `o=--overwrite` to update them (section 10) |
 
 There are no git hooks: CI enforces the checks.
 
@@ -103,6 +106,10 @@ The dev server runs like the real thing: HTTPS, the API under `/api` on the same
 
 **Exceptions.** When a library makes a flag unworkable, turn off that one flag in the narrowest tsconfig and record it here with the reason. There are none yet.
 
+`tsconfig.e2e.json` covers `playwright.config.ts` and `e2e/`, which need Node and DOM types together.
+
+The `@/` path alias exists only because shadcn/ui parts import `@/components/…`; our own code uses relative imports, which the boundaries rule reads.
+
 An untyped dev tool gets a small, typed declaration in `types/` (see `types/eslint-plugin-jsx-a11y.d.ts`), never an implicit `any`. A browser feature TypeScript's lib doesn't declare yet gets one next to the code that uses it (`src/api/json-source-text.d.ts`), removed once the lib has it.
 
 ## 4. Lint and format
@@ -118,7 +125,12 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
   - `boundaries` (section 1)
 - **Prettier** with a 100-column width formats code and config. Markdown is prose and isn't formatted.
 - **Generated files** (`src/routeTree.gen.ts`, `src/api/schema.gen.ts`) and the contract copy (`src/api/openapi.yaml`) are excluded from lint and format.
-- **shadcn/ui parts** in `components/ui/` _(ticket 05)_ meet the same rules. Fix them when they are added; an `eslint-disable` line is allowed only there, each with a reason. Edit a part only when a wrapper or prop can't do the job, and mark each change `// local:`.
+- **shadcn/ui parts** in `components/ui/` meet the same ESLint rules:
+  - Fix them when they are added.
+  - An `eslint-disable` line is allowed only there, each with a reason, and marked `// local:` like any other change. Example: `label.tsx`, a generic wrapper whose uses wrap their control.
+  - Edit a part only when a wrapper in `components/` or a prop can't do the job, and mark each change `// local:`. For example, `dialog.tsx` takes its close button's name from the message files.
+  - Prettier skips `components/ui/`, so the parts keep upstream's formatting and an update's diff shows only real changes.
+- **TanStack Router's `redirect()` and `notFound()`** are thrown by design, so `@typescript-eslint/only-throw-error` allows them.
 
 ## 5. API client
 
@@ -196,10 +208,22 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
   - Handlers in `src/mocks/` are typed by openapi-msw from the contract, so a drifting mock is a type error.
   - Tests run against `src/test/server.ts`, and a request with no handler fails the test. A test adds its own handlers with `server.use(...)`.
   - A mock response with money goes through `withExactAmounts`, so amounts arrive as exact JSON numbers, as the backend sends them.
-  - The same handlers serve the browser in dev and e2e _(ticket 05)_.
-- **End-to-end**: Playwright in its official Docker image, against the built app with MSW, with an `@axe-core/playwright` scan per screen and state that fails on any violation _(ticket 05)_.
-- **Theme contrast**: a unit test of each theme's tokens _(ticket 05)_.
-- **Manual accessibility pass before each release**: keyboard only, then VoiceOver, on every screen _(the checklist arrives with ticket 05)_.
+  - The same handlers serve the browser in mock mode.
+- **Mock mode** (`vite --mode mock`, `make dev-mock`, the e2e build) runs the app with no backend and no Zitadel:
+  - `src/mocks/browser.ts` starts MSW's service worker with the test handlers, plus `/config.json`.
+  - It puts a signed-in mock User where oidc-client-ts keeps one.
+  - Vite serves and builds MSW's worker only in this mode, from the installed `msw`, into `dist-mock/`. The real build contains none of it: boot imports the mocks behind `import.meta.env.MODE === "mock"`, which Vite removes from other builds.
+- **End-to-end** (`e2e/`, `make e2e`):
+  - **Where it runs:** Playwright in its official image, whose version is read from `@playwright/test` in `package.json`, against the mock build served by `vite preview`. Chromium only for now.
+  - **The gate:** every test calls `expectAccessible(page)` (`e2e/axe.ts`) once per screen and state, such as a dialog open or errors shown. It runs axe's WCAG 2.2 A and AA rules and fails on any violation.
+  - **Storage:** MSW keeps its own bookkeeping in `localStorage`, unguarded. So an e2e test that blocks storage refuses only the app's keys, and the unit tests cover a `localStorage` that throws on any access.
+- **Theme contrast**: `src/lib/theme/themes.test.ts` checks every token pair of all eight themes (section 11).
+- **Manual accessibility pass before each release**, on every screen, keyboard first and then VoiceOver (Safari, macOS):
+  1. Tab through the whole screen. Focus is always visible, never hidden under a sticky header or a toast, and moves in reading order.
+  2. Every control works with the keyboard alone: Enter or Space activates; arrows move within radio groups, menus and comboboxes; Escape closes dialogs and popups, and focus returns to what opened them.
+  3. VoiceOver reads each control's name, role and state, and each form error as it appears, with its field.
+  4. At 200% zoom and at 320 px wide, nothing is cut off and the page doesn't scroll sideways (wide tables scroll in their own box).
+  5. With "Reduce motion" on, nothing animates.
 - No coverage threshold.
 
 ## 8. CI
@@ -215,7 +239,7 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
 | `audit` | `npm audit --omit=dev`, high | `make audit` |
 | `generated` | regenerate the API types and the route tree, then `git diff --exit-code` | `make generate` |
 | `contract` | `src/api/openapi.yaml` equals the file at `CONTRACT_VERSION` (warns while that tag doesn't exist) | `make contract-check` |
-| `e2e` | Playwright with MSW and axe _(ticket 05)_ | |
+| `e2e` | the mock build, Playwright with axe in Playwright's image; the report is uploaded on failure | `make e2e` |
 
 ## 9. The image and releases
 
@@ -272,6 +296,28 @@ cosign verify ghcr.io/mumia/wallet-accountant-ui:v1.2.3 \
 
 - Exact versions only (`save-exact=true` in `.npmrc`), with `package-lock.json` committed. Install with `make npm a="install -E <package>"`.
 - **Renovate** (`renovate.json`) runs weekly. It groups npm minor and patch updates, GitHub Actions, Node, and the tools pinned by a `# renovate:` comment. It holds ESLint below 10, TypeScript below 7, and `@types/node` on the Node major in `.node-version`.
-- shadcn/ui parts are updated by hand: `--overwrite`, then review the diff and re-apply the `// local:` changes _(ticket 05)_.
-- Fonts are bundled from Fontsource variable packages, never loaded from Google Fonts _(ticket 05)_.
+- **shadcn/ui parts:**
+  - **Updated by hand**, when an upstream fix is worth having: `make ui-add c="<parts>" o=--overwrite`, then review the diff and put back the `// local:` changes. Renovate bumps only the CLI.
+  - **`cn` package:** the registry's parts import `cn` from shadcn's own npm package `cn`, which replaced `clsx` and `tailwind-merge`, so there is no `lib/utils.ts`.
+  - **Adding:** `make ui-add` runs with no terminal attached, so the CLI never waits at a hidden prompt.
+- **Fonts** are bundled from Fontsource variable packages (`@fontsource-variable/*`), never loaded from Google Fonts. The browser downloads only the active preset's font.
+- **Playwright:** its image version follows `@playwright/test`, so Renovate's npm update moves both.
 - TanStack Table v9.
+
+## 11. Look and feel
+
+- **Stack:** shadcn/ui on Base UI (the `base-nova` style) with Tailwind 4. The static CSS is `src/app/theme/index.css`. The prototype on branch `prototype/look-and-feel` is the visual reference, not code to copy.
+- **Themes:** four presets (Ledger, Teal, Ink, Warm) × light and dark make eight token profiles, in `src/lib/theme/themes.ts`. Each profile starts from its scheme's neutral base and overrides what its preset changes.
+  - `applyAppearance` sets the tokens, the preset's font and radius, `color-scheme` and the `dark` class on `<html>`. So the contrast test reads exactly the values the browser uses.
+  - **Contrast rules:**
+    - text needs 4.5:1, including muted text on every surface and destructive text on its tinted button;
+    - a control's edge (`input`), a checked fill (`primary`) and the focus ring (`ring`) need 3:1 on what they sit on;
+    - `border` draws decorative lines only, and is exempt.
+  - **Changing a token** means running `make test`. If tuning visibly changes a preset's character, the User looks at it.
+- **The User's choice:** a preset, plus Light, Dark or System. The default is Ledger in Dark.
+  - It is set in the Appearance dialog (`src/components/appearance-dialog.tsx`) and applied live.
+  - It is saved in `localStorage` under `wallet-accountant.appearance`, applied before the first render, and follows the system's setting under System.
+  - Storage that is missing or throws is ignored: the app works and just doesn't remember.
+- **Density:** comfortable only.
+- **Motion:** with "reduce motion", animations and transitions are cut to nothing (`index.css`).
+- **Tables:** amounts use the `tabular` class for equal-width digits.

@@ -19,6 +19,10 @@ LOCAL_CONTEXT ?= k3d-wallet-accountant
 IMAGE        ?= wallet-accountant-ui:local
 # The backend release whose contract src/api/openapi.yaml is; images carry it.
 CONTRACT_VERSION := $(shell cat src/api/CONTRACT_VERSION)
+# Playwright's image runs the e2e tests; its version is @playwright/test's in
+# package.json, so the two can't drift apart.
+PLAYWRIGHT_VERSION := $(shell sed -n 's/.*"@playwright\/test": "\(.*\)".*/\1/p' package.json)
+PLAYWRIGHT_IMAGE   := mcr.microsoft.com/playwright:v$(PLAYWRIGHT_VERSION)-noble
 # actionlint checks .github/workflows. The `# renovate:` comment lets Renovate bump it.
 # renovate: datasource=docker depName=rhysd/actionlint
 ACTIONLINT_VERSION := 1.7.12
@@ -33,7 +37,7 @@ DOCKER_NODE  = docker run --rm $(TTY) \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps install dev dev-cert dev-config build preview generate contract-check contract-update lint actionlint format typecheck test audit image image-test check shell npm clean-deps
+.PHONY: help deps install dev dev-mock dev-cert dev-config ui-add e2e build preview generate contract-check contract-update lint actionlint format typecheck test audit image image-test check shell npm clean-deps
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-12s %s\n", $$1, $$2}'
@@ -54,6 +58,9 @@ dev: deps ## Run the dev server on https://localhost:5173, /api forwarded to API
 		-e NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem \
 		-v "$(MKCERT_CAROOT)/rootCA.pem":/mkcert/rootCA.pem:ro) npm run dev
 
+dev-mock: deps ## Run the dev server against the mock API, signed in, no cluster needed
+	$(call DOCKER_NODE,-p $(DEV_PORT):5173) npm run dev:mock
+
 dev-cert: ## Make the dev server's certificate for localhost with the mkcert CA (once)
 	@test -f "$(MKCERT_CAROOT)/rootCA.pem" || { echo "No mkcert CA: run 'make local-ca' in wallet-accountant once."; exit 1; }
 	mkdir -p .certs
@@ -66,6 +73,18 @@ dev-config: ## Write public/config.json from the local cluster's OIDC ConfigMap
 		|| { rm -f public/config.json.tmp; echo "Is the local cluster up with Wallet Accountant deployed? ('make local-up' in wallet-accountant)"; exit 1; }
 	@test -s public/config.json.tmp || { rm -f public/config.json.tmp; echo "The ConfigMap has no config.json."; exit 1; }
 	mv public/config.json.tmp public/config.json
+
+# No terminal, so the CLI never waits at a prompt nobody can see; --yes answers
+# the rest. Pass o=--overwrite to update parts, then review the diff.
+ui-add: TTY :=
+ui-add: deps ## Add shadcn/ui parts with the pinned CLI, e.g. make ui-add c="button dialog"
+	$(call DOCKER_NODE) npx shadcn add $(c) --yes $(o)
+
+e2e: deps ## Build the mock app and run the Playwright and axe tests in Playwright's image
+	$(call DOCKER_NODE) npm run build:mock
+	docker run --rm $(TTY) --ipc=host \
+		-v "$(CURDIR)":/app -v $(NODE_VOLUME):/app/node_modules -w /app \
+		$(PLAYWRIGHT_IMAGE) npm run e2e
 
 build: deps ## Build the static app into dist/
 	$(call DOCKER_NODE) npm run build
@@ -109,6 +128,7 @@ image-test: image ## Run the image as the chart does and check the UI contract
 
 check: deps actionlint ## Every CI check
 	$(call DOCKER_NODE) sh -c 'npm run check && npm run audit && npm run contract:check'
+	$(MAKE) e2e
 	$(MAKE) image-test
 
 shell: deps ## A shell in the Node container

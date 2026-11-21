@@ -22,11 +22,31 @@
   "sessionEnded": {
     "title": "Your session has ended",
     "body": "Sign in again to carry on. You'll come back to this page; anything typed in an open form is lost.",
-    "signIn": "Sign in again",
-    "close": "Not now"
+    "signIn": "Sign in again"
   },
   "configProblem": {
     "title": "Wallet Accountant can't start",
     "body": "Its configuration file, /config.json, is missing or wrong. Whoever runs Wallet Accountant needs to fix it. The details:"
+  },
+  "appearance": {
+    "open": "Appearance…",
+    "title": "Appearance",
+    "description": "Choose how Wallet Accountant looks. It's saved in this browser only.",
+    "theme": "Theme",
+    "mode": "Mode",
+    "presets": {
+      "ledger": "Ledger",
+      "teal": "Teal",
+      "ink": "Ink",
+      "warm": "Warm"
+    },
+    "schemes": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    }
+  },
+  "dialog": {
+    "close": "Close"
   }
 }

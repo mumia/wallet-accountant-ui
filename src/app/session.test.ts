@@ -48,6 +48,9 @@ describe("userManagerSettings", () => {
       automaticSilentRenew: true,
     });
     expect(settings.scope?.split(" ")).toContain("offline_access");
+    // Never localStorage, which may be blocked: the app would not start.
+    expect(settings.userStore).toBeDefined();
+    expect(settings.stateStore).toBeDefined();
   });
 });
 

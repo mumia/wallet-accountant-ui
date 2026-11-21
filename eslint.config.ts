@@ -15,6 +15,9 @@ import tseslint from "typescript-eslint";
 export default defineConfig(
   globalIgnores([
     "dist/",
+    "dist-mock/",
+    "playwright-report/",
+    "test-results/",
     "coverage/",
     "src/routeTree.gen.ts",
     "src/api/schema.gen.ts",
@@ -43,6 +46,7 @@ export default defineConfig(
           devDependencies: [
             "*.config.ts",
             "scripts/**",
+            "e2e/**",
             "src/test/**",
             "src/mocks/**",
             "**/*.test.{ts,tsx}",
@@ -135,6 +139,7 @@ export default defineConfig(
                       "api",
                       "lib",
                       "locales",
+                      "mocks",
                     ],
                   },
                 },
@@ -198,7 +203,7 @@ export default defineConfig(
   },
 
   {
-    files: ["*.config.ts", "scripts/**/*.ts"],
+    files: ["*.config.ts", "scripts/**/*.ts", "e2e/**/*.ts"],
     languageOptions: { globals: globals.node },
   },
 

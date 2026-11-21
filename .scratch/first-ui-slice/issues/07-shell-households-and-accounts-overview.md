@@ -22,3 +22,7 @@ The app shell and the Household's home.
 ## Spec
 
 [spec.md](../../modern-frontend/spec.md): user stories 8–12, 16; Screens and routes (Shell, Accounts overview).
+
+## Notes
+
+- From ticket 05: `components/appearance-dialog.tsx` is ready, with `open` and `onOpenChange`. Wire "Appearance…" in the User menu to it, and remove the placeholder welcome page's button with the page itself.

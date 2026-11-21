@@ -1,7 +1,16 @@
-import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "react-oidc-context";
 
+import { Button } from "../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 import { currentPage, type SessionEndedSignal } from "./session";
 
 /**
@@ -53,27 +62,27 @@ export function SignInGate({ children }: { children: ReactNode }) {
 export function SessionEndedDialog({ signal }: { signal: SessionEndedSignal }) {
   const { t } = useTranslation();
   const auth = useAuth();
-  const dialog = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
-  const bodyId = useId();
   const ended = useSyncExternalStore(signal.subscribe, signal.ended);
-
-  useEffect(() => {
-    if (ended && dialog.current?.open === false) {
-      dialog.current.showModal();
-    }
-  }, [ended]);
+  const [dismissed, setDismissed] = useState(false);
 
   return (
-    <dialog ref={dialog} aria-labelledby={titleId} aria-describedby={bodyId}>
-      <h2 id={titleId}>{t("sessionEnded.title")}</h2>
-      <p id={bodyId}>{t("sessionEnded.body")}</p>
-      <button type="button" onClick={() => void auth.signinRedirect({ state: currentPage() })}>
-        {t("sessionEnded.signIn")}
-      </button>
-      <button type="button" onClick={() => dialog.current?.close()}>
-        {t("sessionEnded.close")}
-      </button>
-    </dialog>
+    <Dialog
+      open={ended && !dismissed}
+      onOpenChange={(open) => {
+        setDismissed(!open);
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("sessionEnded.title")}</DialogTitle>
+          <DialogDescription>{t("sessionEnded.body")}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button onClick={() => void auth.signinRedirect({ state: currentPage() })}>
+            {t("sessionEnded.signIn")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

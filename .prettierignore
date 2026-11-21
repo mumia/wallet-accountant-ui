@@ -3,8 +3,13 @@ src/routeTree.gen.ts
 src/api/schema.gen.ts
 src/api/openapi.yaml
 dist/
+dist-mock/
+playwright-report/
+test-results/
 coverage/
 # Prose is not formatted; Prettier is for code and config.
 **/*.md
 .scratch/
 prototypes/
+# shadcn/ui parts keep upstream's formatting, so an update's diff shows only real changes.
+src/components/ui/
