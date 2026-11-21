@@ -1,0 +1,9 @@
+# Exact money in the browser: amounts are decimal text, never JS numbers
+
+The API sends `Money.amount` as a JSON number with `format: decimal` (backend ADR-0007, ADR-0012), and the contract keeps it that way. In the UI, an amount is never a JS `number`. The generator maps `format: decimal` to a plain decimal-string type. One API-client middleware parses every response with a `JSON.parse` reviver that reads each number's source text, so `1.000000000000000001` ETH and `100.00` EUR arrive exactly, trailing zeros included. Requests are serialised with `JSON.rawJSON`, so amounts leave as exact JSON numbers. Only the money module touches an amount's raw value. It formats amounts with `Intl.NumberFormat` from the decimal string, and it uses `big.js` only for figures shown to the User, never for anything sent. A currency's decimal places come from the backend's `GET /currencies`. Amounts are typed into our own text-based amount input, never into `type="number"`.
+
+We rejected sending amounts as strings. That would have changed the contract against the Zalando guidelines it follows, and the backend already refuses string amounts. We also rejected integer minor units with a scale. A JSON integer is still a float in the browser, exact only to about 9 × 10¹⁵, so ETH above roughly 0.009 would lose digits, and Go's `int64` overflows at about 9.2 ETH. That overflow is why the backend ruled out minor units in the first place.
+
+The cost is browser support. Reading JSON source text is Baseline 2025 (Chrome and Edge 114, Firefox 135, Safari 18.4). The UI detects the feature at start-up and shows an "unsupported browser" screen without it, so it never risks showing a wrong amount. Tests pin `1.000000000000000001` ETH and `100.00` EUR in both directions.
+
+Decided in `.scratch/modern-frontend/issues/06-grilling-exact-money-in-the-browser.md`, on the research in ticket 02.
