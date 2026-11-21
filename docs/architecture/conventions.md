@@ -207,6 +207,7 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
   - refuses more places than the currency has;
   - keeps canonical decimal text;
   - formats only on blur, so the caret never moves while typing.
+- **Dates** (`format: date`, `YYYY-MM-DD`) go through `src/lib/date.ts`, with "today" in the browser's zone. They are typed into `components/date-input.tsx`: a text field in the locale's order (`11/01/2026` in en-US) that also reads `2026-11-01`, formats on blur, and has a calendar popover (react-day-picker through shadcn's Calendar) whose days are named with the full date ("Sunday, November 1, 2026").
 - **Display rules:** no colour for income or expense; colour marks only differences, always with text or an icon. Table amounts are right-aligned with tabular digits.
 - Backend problem text (`title`, `detail`) is shown as sent and isn't translated.
 

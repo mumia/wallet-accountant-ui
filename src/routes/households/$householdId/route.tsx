@@ -36,7 +36,11 @@ export const Route = createFileRoute("/households/$householdId")({
         <HouseholdShell householdId={householdId}>
           <Outlet />
         </HouseholdShell>
-        <AddAccountDialog open={addingAccount} onOpenChange={setAddingAccount} />
+        <AddAccountDialog
+          householdId={householdId}
+          open={addingAccount}
+          onOpenChange={setAddingAccount}
+        />
       </AddAccountProvider>
     );
   },

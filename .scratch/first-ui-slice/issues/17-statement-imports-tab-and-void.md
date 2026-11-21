@@ -16,3 +16,7 @@ Waits on backend: yes. Needs `void_blocked_by` on StatementImport.
 ## Spec
 
 [spec.md](../../modern-frontend/spec.md): user story 43; Months, Month close, Reverse and Void (Statement imports tab).
+
+## Notes
+
+- From ticket 08: `…/accounts/$accountId/statement-imports/index.tsx` is a stub.

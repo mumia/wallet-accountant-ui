@@ -74,10 +74,8 @@
     "nameRequired": "Give the Household a name",
     "nameTooLong": "A name has at most 200 characters",
     "baseCurrency": "Base currency",
-    "baseCurrencyPlaceholder": "Search by code or name",
     "baseCurrencyHelp": "The currency your Household's totals are shown in. It can't be changed later.",
     "baseCurrencyRequired": "Choose a Base currency",
-    "noCurrency": "No currency matches",
     "create": "Create Household",
     "creating": "Creating…"
   },
@@ -94,5 +92,13 @@
     "title": "Navigation",
     "description": "Your Household's Accounts, Categories and settings.",
     "toggle": "Show or hide navigation"
+  },
+  "currencyCombobox": {
+    "placeholder": "Search by code or name",
+    "noMatch": "No currency matches"
+  },
+  "dateInput": {
+    "choose": "Choose a date",
+    "today": "Today, {{day}}"
   }
 }

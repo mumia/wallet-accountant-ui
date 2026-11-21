@@ -1,31 +1,17 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useId, useMemo } from "react";
+import { useId } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 
 import { useApi } from "../api/context";
-import { currencyName } from "../lib/currency";
 import { FormAlert } from "./form-alert";
 import { Button } from "./ui/button";
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "./ui/combobox";
+import { CurrencyCombobox } from "./currency-combobox";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
-
-interface CurrencyOption {
-  code: string;
-  /** "EUR — Euro", or just the code when Intl has no name for it. */
-  label: string;
-}
 
 /**
  * A new Household's name and Base currency (spec, "First run"): the currency has
@@ -42,14 +28,6 @@ export function HouseholdForm({ onCreated }: { onCreated?: () => void }) {
   const currencyId = useId();
 
   const currencies = api.useQuery("get", "/currencies");
-  const options = useMemo(
-    () =>
-      (currencies.data?.items ?? []).map(({ code }): CurrencyOption => {
-        const name = currencyName(code);
-        return { code, label: name === undefined ? code : t("currencyLabel", { code, name }) };
-      }),
-    [currencies.data, t],
-  );
 
   const schema = z.object({
     name: z
@@ -118,36 +96,16 @@ export function HouseholdForm({ onCreated }: { onCreated?: () => void }) {
           render={({ field }) => (
             <Field data-invalid={currencyError !== undefined}>
               <FieldLabel htmlFor={currencyId}>{t("householdForm.baseCurrency")}</FieldLabel>
-              <Combobox
-                disabled={!currencies.isSuccess}
-                items={options}
-                value={options.find(({ code }) => code === field.value) ?? null}
-                onValueChange={(option: CurrencyOption | null) => {
-                  field.onChange(option?.code ?? "");
-                }}
-                itemToStringLabel={(option: CurrencyOption) => option.label}
-                isItemEqualToValue={(a: CurrencyOption, b: CurrencyOption) => a.code === b.code}
-              >
-                <ComboboxInput
-                  id={currencyId}
-                  ref={field.ref}
-                  name={field.name}
-                  onBlur={field.onBlur}
-                  placeholder={t("householdForm.baseCurrencyPlaceholder")}
-                  aria-invalid={currencyError !== undefined}
-                  aria-describedby={describedBy(currencyId, currencyError, `${currencyId}-help`)}
-                />
-                <ComboboxContent>
-                  <ComboboxEmpty>{t("householdForm.noCurrency")}</ComboboxEmpty>
-                  <ComboboxList>
-                    {(option: CurrencyOption) => (
-                      <ComboboxItem key={option.code} value={option}>
-                        {option.label}
-                      </ComboboxItem>
-                    )}
-                  </ComboboxList>
-                </ComboboxContent>
-              </Combobox>
+              <CurrencyCombobox
+                id={currencyId}
+                value={field.value}
+                onValueChange={field.onChange}
+                onBlur={field.onBlur}
+                name={field.name}
+                inputRef={field.ref}
+                aria-invalid={currencyError !== undefined}
+                aria-describedby={describedBy(currencyId, currencyError, `${currencyId}-help`)}
+              />
               <FieldDescription id={`${currencyId}-help`}>
                 {t("householdForm.baseCurrencyHelp")}
               </FieldDescription>

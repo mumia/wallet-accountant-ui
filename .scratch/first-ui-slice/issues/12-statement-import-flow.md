@@ -18,3 +18,7 @@ Waits on backend: mostly no. The Connection radio list shows Connection names, w
 ## Spec
 
 [spec.md](../../modern-frontend/spec.md): user stories 24–28; Statement import flow.
+
+## Notes
+
+- From ticket 08: `…/accounts/$accountId/statement-imports/new.tsx` is a stub with `validateSearch` for `connection_id`; the Account header's "Import statement" and the checklist's step 2 link to it.

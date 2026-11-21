@@ -5,12 +5,15 @@ import type { components } from "../api/schema.gen";
 
 type Household = components["schemas"]["Household"];
 type Account = components["schemas"]["Account"];
+type Connection = components["schemas"]["Connection"];
 
 export interface MockState {
   registered: boolean;
   households: Household[];
   /** Each Household's Accounts, by Household ID, in the order they were added. */
   accounts: Record<string, Account[]>;
+  /** Each Account's Connections, by Account ID. */
+  connections: Record<string, Connection[]>;
   /** The next `remaining` requests whose path ends with `pathEnd` fail with a 503. */
   failures?: { pathEnd: string; remaining: number };
 }
@@ -51,18 +54,26 @@ export const seededAccounts: Account[] = [
   },
 ];
 
+/** Credit card has a Connection but no Statement import yet. */
+export const seededConnection: Connection = {
+  connection_id: "0190f5f2-7c00-7000-8000-000000000201",
+  account_id: "0190f5f2-7c00-7000-8000-000000000102",
+  kind: "STATEMENT_FILE_IMPORT",
+};
+
 /**
  * Where a session starts: `new-user` has signed in but not redeemed an
  * Invitation, `registered` has no Household yet, `household` (the default) has
  * "Home" with two Accounts and "Cabin" with none.
  */
 export const scenarios = {
-  "new-user": () => ({ registered: false, households: [], accounts: {} }),
-  registered: () => ({ registered: true, households: [], accounts: {} }),
+  "new-user": () => ({ registered: false, households: [], accounts: {}, connections: {} }),
+  registered: () => ({ registered: true, households: [], accounts: {}, connections: {} }),
   household: () => ({
     registered: true,
     households: [seededHousehold, secondHousehold],
     accounts: { [seededHousehold.household_id]: seededAccounts },
+    connections: { [seededConnection.account_id]: [seededConnection] },
   }),
 } satisfies Record<string, () => MockState>;
 

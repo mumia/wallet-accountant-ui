@@ -17,3 +17,7 @@ Waits on backend: yes. Needs one open month per Account, Reopen with `reopen_blo
 ## Spec
 
 [spec.md](../../modern-frontend/spec.md): user stories 34, 39–42; Months, Month close, Reverse and Void.
+
+## Notes
+
+- From ticket 08: `…/accounts/$accountId/months.tsx` is a stub.

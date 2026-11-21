@@ -19,3 +19,7 @@ Waits on backend: partly. The month field's options need the months list, and lo
 ## Spec
 
 [spec.md](../../modern-frontend/spec.md): user stories 29–33; To review; Accessibility (Bulk selection).
+
+## Notes
+
+- From ticket 08: `…/accounts/$accountId/to-review.tsx` is a stub with `validateSearch: bookingMonthSearch`.

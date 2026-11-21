@@ -1,12 +1,58 @@
 {
   "addAccount": "Add Account",
-  "addAccountStub": "Adding an Account arrives with the next build of Wallet Accountant.",
-  "accountStub": "This Account's statements, rows and months arrive with the next build.",
   "overview": {
     "title": "Accounts",
     "empty": "Add your first Account. Each bank account or card you want to track is one Account.",
     "account": "Account",
     "currency": "Currency",
     "balance": "Balance"
+  },
+  "add": {
+    "title": "Add Account",
+    "description": "An Account is one bank account, card, loan or wallet whose money you track.",
+    "name": "Name",
+    "namePlaceholder": "Main",
+    "nameRequired": "Give the Account a name",
+    "nameTooLong": "A name has at most 200 characters",
+    "kind": "Kind",
+    "currency": "Account currency",
+    "currencyRequired": "Choose the Account currency",
+    "currencyHelp": "The currency of this Account's statements. It can't be changed later.",
+    "startDate": "Start date",
+    "startDateInvalid": "Type a date, such as {{example}}",
+    "startDateTooLate": "The start date can't be later than today",
+    "startDateHelp": "The day this Account's history begins. Your first statement file must cover from this day to today; rows booked before it are ignored. It can't be changed later.",
+    "submit": "Add Account",
+    "adding": "Adding…"
+  },
+  "area": {
+    "importStatement": "Import statement",
+    "tabs": "Account",
+    "toReview": "To review",
+    "transactions": "Transactions",
+    "months": "Months",
+    "statementImports": "Statement imports",
+    "connections": "Connections"
+  },
+  "gettingStarted": {
+    "title": "Get started",
+    "doneSuffix": " (done)",
+    "connection": {
+      "title": "Create a Connection",
+      "body": "Tell us how your bank's statement files are laid out.",
+      "action": "Create a Connection",
+      "done": "Connection created."
+    },
+    "statement": {
+      "title": "Import the first statement",
+      "body": "Use a file covering everything from {{start}} to today. Its Export balance sets the Opening balance.",
+      "action": "Import the first statement",
+      "blocked": "Create a Connection first."
+    }
+  },
+  "stub": {
+    "newConnection": "New Connection",
+    "newStatementImport": "Import statement",
+    "body": "This arrives with a later build of Wallet Accountant."
   }
 }
