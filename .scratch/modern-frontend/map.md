@@ -41,6 +41,7 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 - [Grilling: the Statement import flow](issues/16-grilling-the-statement-import-flow.md): stepper as prototyped; Connection preselected from the latest import, `?connection_id=` deep link; any file type, only empty refused; Export balance help per glossary (booked, no pending card payments); second entry blocks paste; preview adds file/Connection and zero-row/ignored-rows notes; refusals rendered by the problem's fields; result links to To review. No backend changes.
 - [Grilling: Month close, Reverse and Void](issues/17-grilling-month-close-reverse-and-void.md): **⚠️ backend** one open month per Account, closed in order, Reopen for the latest; closed months lock money but not Category; four-state month screen with blockers up front and a live difference; Reverse only in the open month with exact wording; Void disabled by `void_blocked_by`.
 - [Grilling: registration, first run and the theme setting](issues/18-grilling-registration-first-run-and-the-theme-setting.md): `/register` and `/households/new` as centred cards with Sign out; invalid code shown as the backend's problem; `?invitation_code=` prefills; Base currency with no default and "can't be changed later"; empty Accounts overview; two-step getting-started checklist; Appearance dialog in the User menu with Light / Dark / System. No backend changes.
+- [Grilling: overview reads the backend must serve](issues/11-grilling-overview-reads-the-backend-must-serve.md): **⚠️ backend** new `GET …/months` list (every month, unpaged, from creation); `pending`, `suspected_duplicates` and required `open_month` on `Account`; `NOT_OPEN_YET` month state; sidebar and overview read only `GET …/accounts`.
 
 ## Backend changes
 
@@ -58,6 +59,10 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 - Void refused when the import touches a closed month; `void_blocked_by` on `StatementImport`: [Grilling: Month close, Reverse and Void](issues/17-grilling-month-close-reverse-and-void.md).
 - `unchecked_statement_imports` on `AccountMonth`: [Grilling: Month close, Reverse and Void](issues/17-grilling-month-close-reverse-and-void.md).
 - `imported_transaction_id` on `AccountTransaction`: [Grilling: Month close, Reverse and Void](issues/17-grilling-month-close-reverse-and-void.md).
+- New `GET …/accounts/{account_id}/months`: every Booking month as `AccountMonth`, newest first, unpaged, from the start date's month to the later of the current month and the last booked row, answering from creation: [Grilling: overview reads the backend must serve](issues/11-grilling-overview-reads-the-backend-must-serve.md).
+- `pending` and `suspected_duplicates` counts on `Account`, over the whole Account: [Grilling: overview reads the backend must serve](issues/11-grilling-overview-reads-the-backend-must-serve.md).
+- Required `open_month` on `Account` (the start date's month at creation): [Grilling: overview reads the backend must serve](issues/11-grilling-overview-reads-the-backend-must-serve.md).
+- `NOT_OPEN_YET` in `AccountMonth.state`: [Grilling: overview reads the backend must serve](issues/11-grilling-overview-reads-the-backend-must-serve.md).
 
 ## Not yet specified
 

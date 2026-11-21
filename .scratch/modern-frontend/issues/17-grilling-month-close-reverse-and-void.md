@@ -18,6 +18,8 @@ How do the one-month screen and the two corrective actions work in detail?
 
 **2026-11-20, from the user while grilling this ticket (⚠️ backend):** a closed month is fully closed and accepts no further entries; only one month is open at a time, and the next one (or January of the next year) opens only once the previous one is closed. This replaces the backend's "a closed month can still be edited, but any change is flagged". Added to the map's Backend changes; its detail is settled in this ticket's Answer.
 
+**2026-11-21, from [Grilling: overview reads the backend must serve](11-grilling-overview-reads-the-backend-must-serve.md) (amendment):** `AccountMonth.state` gains `NOT_OPEN_YET`, which the month screen's Not open yet state reads. A future month holding booked rows is a real Not open yet month, not "not a month of this Account"; months after the later of the current month and the last booked row still show "not a month of this Account".
+
 ## Answer
 
 Decided with the user on 2026-11-20, against `../wallet-accountant/api/openapi.yaml`. The user changed the Month close rules during the grilling; they replace the backend's "a closed month can still be edited, but any change is flagged".
