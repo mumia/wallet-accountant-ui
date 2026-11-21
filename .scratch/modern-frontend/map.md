@@ -18,7 +18,8 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
   - English only at launch, but adding a language must be easy: every user-facing string is in message files from day one, and numbers, dates and money are formatted for the locale.
   - Look and feel uses a ready-made design system, chosen by reacting to rough prototypes.
 - **Backend changes must be obvious**: a ticket whose resolution needs a change in `wallet-accountant` writes it under a `## Backend changes` heading in its Answer, tags its Decisions-so-far line with **⚠️ backend**, and adds a line to the Backend changes section below.
-- **Backend grilling prompt**: the handoff ([Task: assemble the handoff](issues/19-task-assemble-the-handoff.md)) gathers every Backend change into one prompt for the `grilling` skill in `wallet-accountant`.
+- **Backend grilling prompt**: [backend-handoff.md](backend-handoff.md) gathers every open Backend change into one prompt for the `grilling` skill in `wallet-accountant` ([Task: assemble the handoff](issues/19-task-assemble-the-handoff.md)). Keep it in step when a ticket adds a Backend change.
+- **The spec**: [spec.md](spec.md) is the destination. A ticket that changes a decision also updates the spec section that links it.
 
 ## Decisions so far
 
@@ -42,6 +43,7 @@ A spec ready to hand off for the frontend's first UI slice: the stack, design sy
 - [Grilling: Month close, Reverse and Void](issues/17-grilling-month-close-reverse-and-void.md): **⚠️ backend** one open month per Account, closed in order, Reopen for the latest; closed months lock money but not Category; four-state month screen with blockers up front and a live difference; Reverse only in the open month with exact wording; Void disabled by `void_blocked_by`.
 - [Grilling: registration, first run and the theme setting](issues/18-grilling-registration-first-run-and-the-theme-setting.md): `/register` and `/households/new` as centred cards with Sign out; invalid code shown as the backend's problem; `?invitation_code=` prefills; Base currency with no default and "can't be changed later"; empty Accounts overview; two-step getting-started checklist; Appearance dialog in the User menu with Light / Dark / System. No backend changes.
 - [Grilling: overview reads the backend must serve](issues/11-grilling-overview-reads-the-backend-must-serve.md): **⚠️ backend** new `GET …/months` list (every month, unpaged, from creation); `pending`, `suspected_duplicates` and required `open_month` on `Account`; `NOT_OPEN_YET` month state; sidebar and overview read only `GET …/accounts`.
+- [Task: assemble the handoff](issues/19-task-assemble-the-handoff.md): [spec](spec.md) (draft, two **Open** markers), ADR-0001 Application stack and ADR-0002 Exact money in `docs/adr/`, and the [backend handoff](backend-handoff.md) prompt; only `GET /currencies` is done in the backend; two gaps sent back as tickets.
 
 ## Backend changes
 
