@@ -1,6 +1,6 @@
 # Spec: the first UI slice (Statement import → Accept → Month close)
 
-Status: draft, fully decided: no section is marked **Open**.
+Status: final (2026-11-21): fully decided, ready to hand off. The backend changes it depends on are tracked in [backend-handoff.md](backend-handoff.md).
 
 The first slice of the Wallet Accountant UI, matching the backend's first slice (`../wallet-accountant/.scratch/statement-import-to-month-close/spec.md`). A User signs in, redeems an Invitation, creates a Household, adds Accounts and Categories, describes a bank's CSV file in a Connection, imports Statement files, works through what is To review, and closes each month. It also builds the frontend's walking skeleton: the stack, the API client with exact money, sign-in, the theme system, the Caddy image that meets the backend's UI contract, and CI.
 

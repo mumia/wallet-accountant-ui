@@ -1,6 +1,7 @@
 # Map: A modern frontend for Wallet Accountant
 
 Label: wayfinder:map
+Status: done (2026-11-21): destination reached, every ticket resolved and the [spec](spec.md) final. Next: the backend grilling from [backend-handoff.md](backend-handoff.md), then building the UI as a new effort.
 
 ## Destination
 
