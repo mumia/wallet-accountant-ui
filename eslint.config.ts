@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import pluginQuery from "@tanstack/eslint-plugin-query";
 import pluginRouter from "@tanstack/eslint-plugin-router";
 import prettier from "eslint-config-prettier";
 import boundaries from "eslint-plugin-boundaries";
@@ -12,7 +13,14 @@ import tseslint from "typescript-eslint";
 
 // The rules are explained in docs/architecture/conventions.md ("Lint and format").
 export default defineConfig(
-  globalIgnores(["dist/", "coverage/", "src/routeTree.gen.ts", ".scratch/", "prototypes/"]),
+  globalIgnores([
+    "dist/",
+    "coverage/",
+    "src/routeTree.gen.ts",
+    "src/api/schema.gen.ts",
+    ".scratch/",
+    "prototypes/",
+  ]),
 
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
@@ -31,7 +39,15 @@ export default defineConfig(
     rules: {
       "import/no-extraneous-dependencies": [
         "error",
-        { devDependencies: ["*.config.ts", "src/test/**", "**/*.test.{ts,tsx}"] },
+        {
+          devDependencies: [
+            "*.config.ts",
+            "scripts/**",
+            "src/test/**",
+            "src/mocks/**",
+            "**/*.test.{ts,tsx}",
+          ],
+        },
       ],
     },
   },
@@ -43,6 +59,7 @@ export default defineConfig(
       reactHooks.configs.flat["recommended-latest"],
       jsxA11y.flatConfigs.strict,
       pluginRouter.configs["flat/recommended"],
+      pluginQuery.configs["flat/recommended"],
       i18next.configs["flat/recommended"],
     ],
     languageOptions: { globals: globals.browser },
@@ -74,6 +91,7 @@ export default defineConfig(
         { type: "lib", pattern: "src/lib", partialMatch: false },
         { type: "locales", pattern: "src/locales", partialMatch: false },
         { type: "test", pattern: "src/test", partialMatch: false },
+        { type: "mocks", pattern: "src/mocks", partialMatch: false },
         { type: "root", pattern: "src", partialMatch: false },
       ],
       "boundaries/files": [{ pattern: "**/*.test.{ts,tsx}", category: "test" }],
@@ -149,11 +167,16 @@ export default defineConfig(
             // Tests set the app up the way it boots.
             {
               from: { file: { categories: "test" } },
-              allow: { to: { element: { types: ["app", "test"] } } },
+              allow: { to: { element: { types: ["app", "test", "mocks"] } } },
             },
             {
               from: { element: { type: "test" } },
-              allow: { to: { element: { types: ["app", "lib"] } } },
+              allow: { to: { element: { types: ["app", "lib", "mocks"] } } },
+            },
+            // The mock API is built from the contract's types.
+            {
+              from: { element: { type: "mocks" } },
+              allow: { to: { element: { types: ["mocks", "api", "lib"] } } },
             },
           ],
         },
@@ -162,7 +185,7 @@ export default defineConfig(
   },
 
   {
-    files: ["*.config.ts"],
+    files: ["*.config.ts", "scripts/**/*.ts"],
     languageOptions: { globals: globals.node },
   },
 

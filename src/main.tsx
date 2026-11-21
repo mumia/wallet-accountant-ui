@@ -1,9 +1,8 @@
-import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import { App } from "./app/app";
 import { initI18n } from "./app/i18n";
-import { router } from "./app/router";
 
 const root = document.getElementById("root");
 if (root === null) {
@@ -14,6 +13,6 @@ await initI18n();
 
 createRoot(root).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <App />
   </StrictMode>,
 );

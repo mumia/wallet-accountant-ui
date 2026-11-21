@@ -63,6 +63,44 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  # The route tree and the API types are generated and committed; they must
+  # match what their sources generate.
+  generated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run generate
+      - name: Check the generated code is committed
+        run: |
+          if ! git diff --exit-code || [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            echo "::error::Generated code is out of date. Run 'make generate' and commit the result."
+            exit 1
+          fi
+
+  # src/api/openapi.yaml must be the backend's contract at the release named in
+  # src/api/CONTRACT_VERSION. Warns, without failing, until that tag exists.
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm run contract:check
+
   # The same build as `make image`, then `make image-test`: the image run as the
   # backend's chart runs it, checked against the UI contract.
   image:
@@ -72,8 +110,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - id: node
-        run: echo "version=$(cat .node-version)" >> "$GITHUB_OUTPUT"
+      - id: versions
+        run: |
+          echo "node=$(cat .node-version)" >> "$GITHUB_OUTPUT"
+          echo "contract=$(cat src/api/CONTRACT_VERSION)" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -81,7 +121,8 @@ jobs:
           push: false
           load: true
           tags: wallet-accountant-ui:ci
-          build-args: NODE_VERSION=${{ steps.node.outputs.version }}
+          build-args: NODE_VERSION=${{ steps.versions.outputs.node }}
+          labels: wallet-accountant.min-api-version=${{ steps.versions.outputs.contract }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - run: docker/test-image.sh wallet-accountant-ui:ci

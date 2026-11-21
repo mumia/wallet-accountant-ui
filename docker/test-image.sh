@@ -37,6 +37,13 @@ case $uid in
 *) pass "runs as uid $uid" ;;
 esac
 
+# Every release states the backend contract it needs.
+api_version=$(docker image inspect --format '{{index .Config.Labels "wallet-accountant.min-api-version"}}' "$image")
+case $api_version in
+v[0-9]*) pass "min-api-version $api_version" ;;
+*) fail "label wallet-accountant.min-api-version is '$api_version'; want a backend release tag" ;;
+esac
+
 printf '{"apiBaseUrl":"/api","oidc":{"issuer":"https://auth.example.test","clientId":"test","audience":"wallet-accountant","redirectPath":"/auth/callback","postLogoutRedirectPath":"/"}}\n' >"$work/config.json"
 chmod 644 "$work/config.json"
 
