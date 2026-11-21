@@ -6,6 +6,7 @@ import type { components } from "../api/schema.gen";
 type Household = components["schemas"]["Household"];
 type Account = components["schemas"]["Account"];
 type Connection = components["schemas"]["Connection"];
+type Category = components["schemas"]["Category"];
 
 export interface MockState {
   registered: boolean;
@@ -14,6 +15,8 @@ export interface MockState {
   accounts: Record<string, Account[]>;
   /** Each Account's Connections, by Account ID. */
   connections: Record<string, Connection[]>;
+  /** Each Household's Categories, by Household ID, flat with `parent_id`. */
+  categories: Record<string, Category[]>;
   /** The next `remaining` requests whose path ends with `pathEnd` fail with a 503. */
   failures?: { pathEnd: string; remaining: number };
 }
@@ -54,6 +57,33 @@ export const seededAccounts: Account[] = [
   },
 ];
 
+let nextId = 0x300;
+const id = () => `0190f5f2-7c00-7000-8000-${(nextId++).toString(16).padStart(12, "0")}`;
+
+/** The Internal Categories every Household is created with. */
+export function internalCategories(): Category[] {
+  return ["Household transfer", "Opening balance", "Uncategorised"].map((name) => ({
+    category_id: id(),
+    name,
+    kind: "INTERNAL",
+  }));
+}
+
+function homeCategories(): Category[] {
+  const food = id();
+  const housing = id();
+  return [
+    ...internalCategories(),
+    { category_id: food, name: "Food", kind: "EXPENSE" },
+    { category_id: id(), name: "Groceries", kind: "EXPENSE", parent_id: food },
+    { category_id: id(), name: "Eating out", kind: "EXPENSE", parent_id: food },
+    { category_id: housing, name: "Housing", kind: "EXPENSE" },
+    { category_id: id(), name: "Rent", kind: "EXPENSE", parent_id: housing },
+    { category_id: id(), name: "Transport", kind: "EXPENSE" },
+    { category_id: id(), name: "Salary", kind: "INCOME" },
+  ];
+}
+
 /** Credit card has a Connection but no Statement import yet. */
 export const seededConnection: Connection = {
   connection_id: "0190f5f2-7c00-7000-8000-000000000201",
@@ -67,13 +97,29 @@ export const seededConnection: Connection = {
  * "Home" with two Accounts and "Cabin" with none.
  */
 export const scenarios = {
-  "new-user": () => ({ registered: false, households: [], accounts: {}, connections: {} }),
-  registered: () => ({ registered: true, households: [], accounts: {}, connections: {} }),
+  "new-user": () => ({
+    registered: false,
+    households: [],
+    accounts: {},
+    connections: {},
+    categories: {},
+  }),
+  registered: () => ({
+    registered: true,
+    households: [],
+    accounts: {},
+    connections: {},
+    categories: {},
+  }),
   household: () => ({
     registered: true,
     households: [seededHousehold, secondHousehold],
     accounts: { [seededHousehold.household_id]: seededAccounts },
     connections: { [seededConnection.account_id]: [seededConnection] },
+    categories: {
+      [seededHousehold.household_id]: homeCategories(),
+      [secondHousehold.household_id]: internalCategories(),
+    },
   }),
 } satisfies Record<string, () => MockState>;
 

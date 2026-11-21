@@ -23,3 +23,4 @@ Waits on backend: partly. The open-month default needs `open_month` on Account, 
 ## Notes
 
 - From ticket 08: `routes/households/$householdId/accounts/$accountId/transactions.tsx` is a stub with `validateSearch: bookingMonthSearch` (`lib/search.ts`); the Account area's tabs already carry `booking_month` between To review and Transactions.
+- From ticket 09: The row picker is `components/category-picker.tsx`; give it `label={{ text: "Category for 12 Mar, Albert Heijn, −23.40 EUR" }}` (a row has no visible label). `lib/categories.ts` flattens the tree and knows Uncategorised.

@@ -95,9 +95,12 @@ export function HouseholdForm({ onCreated }: { onCreated?: () => void }) {
           name="baseCurrency"
           render={({ field }) => (
             <Field data-invalid={currencyError !== undefined}>
-              <FieldLabel htmlFor={currencyId}>{t("householdForm.baseCurrency")}</FieldLabel>
+              <FieldLabel id={`${currencyId}-label`} htmlFor={currencyId}>
+                {t("householdForm.baseCurrency")}
+              </FieldLabel>
               <CurrencyCombobox
                 id={currencyId}
+                label={{ id: `${currencyId}-label` }}
                 value={field.value}
                 onValueChange={field.onChange}
                 onBlur={field.onBlur}

@@ -1,4 +1,43 @@
 {
   "title": "Categories",
-  "stub": "The Category tree arrives with a later build of Wallet Accountant."
+  "sections": {
+    "EXPENSE": "Expense",
+    "INCOME": "Income",
+    "INTERNAL": "Internal"
+  },
+  "newCategory": "New Category",
+  "internalNote": "Created by Wallet Accountant. Can't be renamed or moved.",
+  "empty": "No {{kind}} Categories yet.",
+  "expand": "Show the sub-Categories of {{name}}",
+  "collapse": "Hide the sub-Categories of {{name}}",
+  "actions": "Actions for {{name}}",
+  "addSub": "Add sub-Category",
+  "rename": "Rename…",
+  "move": "Move…",
+  "dialogs": {
+    "name": "Name",
+    "nameRequired": "Give the Category a name",
+    "nameTooLong": "A name has at most 100 characters",
+    "create": "Create Category",
+    "createRoot": {
+      "title": "New {{kind}} Category",
+      "description": "It goes at the top level; add sub-Categories under it later."
+    },
+    "createSub": {
+      "title": "New sub-Category",
+      "description": "Under: {{parent}}"
+    },
+    "rename": {
+      "title": "Rename Category",
+      "description": "Renaming {{category}}.",
+      "submit": "Rename"
+    },
+    "move": {
+      "title": "Move Category",
+      "description": "Moving {{category}}, with its sub-Categories.",
+      "to": "Move to",
+      "topLevel": "Top level",
+      "submit": "Move"
+    }
+  }
 }
