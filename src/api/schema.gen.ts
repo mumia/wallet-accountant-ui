@@ -782,7 +782,7 @@ export interface components {
        * @description What the Category is for; Internal Categories belong to the system
        * @example INTERNAL
        */
-      kind: "INCOME" | "EXPENSE" | "INTERNAL" | (string & {});
+      kind: "INCOME" | "EXPENSE" | "INTERNAL" | `${string}`;
       /**
        * Format: uuid
        * @description The parent Category's ID; absent for a root Category
@@ -805,7 +805,7 @@ export interface components {
        * @description What the Category is for; Internal Categories belong to the system
        * @example EXPENSE
        */
-      kind: "INCOME" | "EXPENSE" | "INTERNAL" | (string & {});
+      kind: "INCOME" | "EXPENSE" | "INTERNAL" | `${string}`;
       /**
        * Format: uuid
        * @description The parent Category's ID; absent for a root Category
@@ -831,7 +831,7 @@ export interface components {
        *     takes its parent's kind.
        * @example EXPENSE
        */
-      kind?: "INCOME" | "EXPENSE" | (string & {});
+      kind?: "INCOME" | "EXPENSE" | `${string}`;
       /**
        * Format: uuid
        * @description The Category to create it under; absent for a root Category
@@ -900,12 +900,12 @@ export interface components {
      * @description What sort of place the Account is. `CASH` is not supported yet and is refused.
      * @example BANK_ACCOUNT
      */
-    AccountKind: "BANK_ACCOUNT" | "CREDIT_CARD" | "LOAN" | "CRYPTO_WALLET" | (string & {});
+    AccountKind: "BANK_ACCOUNT" | "CREDIT_CARD" | "LOAN" | "CRYPTO_WALLET" | `${string}`;
     /**
      * @description Where the Connection's transactions come from. `BANK_FEED` is not supported yet and is refused.
      * @example STATEMENT_FILE_IMPORT
      */
-    ConnectionKind: "STATEMENT_FILE_IMPORT" | (string & {});
+    ConnectionKind: "STATEMENT_FILE_IMPORT" | `${string}`;
     /** @description A new Connection */
     ConnectionCreation: {
       kind: components["schemas"]["ConnectionKind"];
@@ -986,12 +986,12 @@ export interface components {
        * @description One signed amount column, or separate debit (money out) and credit (money in) columns
        * @example SIGNED
        */
-      amount_layout?: "SIGNED" | "DEBIT_CREDIT" | (string & {});
+      amount_layout?: "SIGNED" | "DEBIT_CREDIT" | `${string}`;
       /**
        * @description For a signed amount, whether a positive amount is money in or money out; some banks invert the sign
        * @example MONEY_IN
        */
-      positive_amount_means?: "MONEY_IN" | "MONEY_OUT" | (string & {});
+      positive_amount_means?: "MONEY_IN" | "MONEY_OUT" | `${string}`;
       columns?: components["schemas"]["CsvColumns"];
     };
     /** @description Which column holds each field */
@@ -1131,7 +1131,7 @@ export interface components {
        *     `FAILED`
        * @example PASSED
        */
-      balance_check: "PASSED" | "WAITING" | "FAILED" | (string & {});
+      balance_check: "PASSED" | "WAITING" | "FAILED" | `${string}`;
       /**
        * Format: date-time
        * @description When the import was recorded
@@ -1165,7 +1165,7 @@ export interface components {
        * @description What the Notification is about
        * @example SUSPECTED_DUPLICATES_FOUND
        */
-      kind: "SUSPECTED_DUPLICATES_FOUND" | (string & {});
+      kind: "SUSPECTED_DUPLICATES_FOUND" | `${string}`;
       /**
        * Format: uuid
        * @description The Statement import the Notification links to
@@ -1420,7 +1420,7 @@ export interface components {
        * @description Where it is in its review
        * @example PENDING
        */
-      state: "PENDING" | "SUSPECTED_DUPLICATE" | "ACCEPTED" | "DISCARDED" | (string & {});
+      state: "PENDING" | "SUSPECTED_DUPLICATE" | "ACCEPTED" | "DISCARDED" | `${string}`;
       /**
        * Format: int32
        * @description Its line in the statement file
@@ -1479,7 +1479,7 @@ export interface components {
        * @description Where it is in its review
        * @example ACCEPTED
        */
-      state: "PENDING" | "SUSPECTED_DUPLICATE" | "ACCEPTED" | "DISCARDED" | (string & {});
+      state: "PENDING" | "SUSPECTED_DUPLICATE" | "ACCEPTED" | "DISCARDED" | `${string}`;
       /**
        * Format: date
        * @description The date the bank recorded it on the Account
@@ -1524,7 +1524,7 @@ export interface components {
        * @description Whether the month is closed
        * @example OPEN
        */
-      state: "OPEN" | "CLOSED" | (string & {});
+      state: "OPEN" | "CLOSED" | `${string}`;
       statement_balance?: components["schemas"]["Money"];
       /**
        * Format: date-time
@@ -1596,7 +1596,7 @@ export interface components {
         | "UNCATEGORISED"
         | "BALANCE_CHECK_NOT_PASSED"
         | "BALANCE_MISMATCH"
-        | (string & {})
+        | `${string}`
       )[];
       /**
        * Format: int32
@@ -1633,7 +1633,7 @@ export interface components {
        * @description Its Balance check
        * @example WAITING
        */
-      balance_check: "WAITING" | "FAILED" | (string & {});
+      balance_check: "WAITING" | "FAILED" | `${string}`;
     };
     /**
      * @description An amount of money: an exact decimal in its currency, with that
@@ -2343,7 +2343,7 @@ export interface operations {
     parameters: {
       query?: {
         /** @description Only Imported transactions in this state */
-        state?: "PENDING" | "SUSPECTED_DUPLICATE" | "ACCEPTED" | "DISCARDED" | (string & {});
+        state?: "PENDING" | "SUSPECTED_DUPLICATE" | "ACCEPTED" | "DISCARDED" | `${string}`;
         /** @description Only this Booking month, written YYYY-MM */
         booking_month?: components["parameters"]["BookingMonth"];
         /** @description Where the page starts, the `next_cursor` of the previous page; absent for the first page */

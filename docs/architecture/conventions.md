@@ -39,7 +39,7 @@ Tests sit next to the code they test, as `*.test.ts(x)`.
 | `components/ui` | `ui`, `lib` |
 | `api`, `lib` | `api`, `lib` |
 | `mocks` | `mocks`, `api`, `lib` |
-| tests | additionally `app`, `test` and `mocks` |
+| tests | additionally `app`, `test` and `mocks`; `src/test/` may also read `api` (the contract) |
 
 A file outside these folders fails lint (`boundaries/no-unknown-files`).
 
@@ -147,7 +147,9 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
 
 - `scripts/generate-api.ts` writes `src/api/schema.gen.ts` with openapi-typescript (`make generate`). It adds two mappings:
   - `format: decimal` (only `Money.amount`) becomes `Decimal`: exact decimal text, typed `` `${number}` ``.
-  - An `x-extensible-enum` becomes its known values plus any other string: `"INCOME" | "EXPENSE" | "INTERNAL" | (string & {})`. A `switch` gets the known cases, and an unknown value still type-checks, as the contract promises more may come. Always handle the unknown case.
+  - An `x-extensible-enum` becomes its known values plus any other string: ``"INCOME" | "EXPENSE" | "INTERNAL" | `${string}` ``. TypeScript folds the known values into the string, so the type is a plain string with the values as documentation, and an unknown value type-checks, as the contract promises more may come. Always handle the unknown case.
+    - Not `string & {}`, which keeps the literals: openapi-fetch's `Readable` maps that intersection as an object, so a response's value stops being a string.
+    - Code that names the values keeps its own list and tests it against the contract with `extensibleEnum("AccountKind")` (`src/test/contract.ts`), as `components/account-labels.test.ts` does.
 - The `generated` CI job regenerates and fails on any difference.
 - openapi-typescript 7.13 declares only TypeScript 5 as a peer. TypeScript 6 keeps the same compiler API, so an `overrides` entry in `package.json` gives it our TypeScript.
 
@@ -173,7 +175,8 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
 ### Routes, forms and errors
 
 - **Router context:** the router is made at boot with `{ api, queryClient }` (`src/app/router.ts`), so a route's `beforeLoad` and `loader` can read before the screen renders: `loader: ({ context: { api, queryClient } }) => queryClient.query(api.queryOptions("get", "/currencies"))`. The screen then reads the same data with `api.useSuspenseQuery`, already in the cache.
-- **Failed loads:** a loader that throws shows the root route's `LoadError` (`src/components/load-error.tsx`): the problem's text and "Try again". A 404 becomes `notFound()`, which shows `NotFound`.
+- **Failed loads:** a loader that throws shows `LoadError` (`src/components/load-error.tsx`): the problem's text and "Try again". A 404 becomes `notFound()`, which shows `NotFound`. Both are the router's defaults for every route, so a failure inside a Household shows in the shell's content area and the sidebar stays. They render their own `<main>` only outside the shell (`components/main-landmark.tsx`).
+- **The shell** (`features/shell/`) is the layout route `routes/households/$householdId/route.tsx`. Its loader reads the Household, the Households and `GET …/accounts`, and every screen inside reads them from the cache. Opening Add Account from the sidebar or a screen goes through `useOpenAddAccount()` (`components/add-account.tsx`), which the layout provides next to the dialog, so no feature imports another.
 - **Forms** use React Hook Form with a Zod schema (`zodResolver`). The schema mirrors the contract's limits per field, with messages from the message files. A field's error is linked to it with `aria-describedby` and `aria-invalid`.
 - **A form's failed write** shows `FormAlert` (`src/components/form-alert.tsx`) at the top of the form, and the input stays. `useErrorText` (`src/components/error-text.ts`) picks the words: the problem's `title` and `detail`, or ours for a network failure or a response with no problem.
 ### Boot and sign-in
@@ -220,7 +223,8 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
   - `src/mocks/browser.ts` starts MSW's service worker with the test handlers, plus `/config.json`.
   - It puts a signed-in mock User where oidc-client-ts keeps one.
   - **Mock data** (`src/mocks/db.ts`) is stateful: redeeming an Invitation or creating a Household changes what the next read returns. Tests keep it in memory and reset it after each test (`mockDb.reset("new-user")` picks another start). Mock mode keeps it in the tab's `sessionStorage`, so it survives a reload.
-  - **Scenarios:** `?mock-scenario=new-user` on any page starts the tab over as someone who hasn't redeemed an Invitation, `registered` as a User with no Household, `household` (the default) with one Household, "Home". The Invitation code the mock accepts is `WELCOME-2026`.
+  - **Scenarios:** `?mock-scenario=new-user` on any page starts the tab over as someone who hasn't redeemed an Invitation, `registered` as a User with no Household, `household` (the default) with "Home" (Accounts Main and Credit card) and "Cabin" (no Accounts). The Invitation code the mock accepts is `WELCOME-2026`.
+  - **Failures:** `?mock-fail=<path end>:<count>` makes the next `<count>` API requests whose path ends that way fail with a 503, for testing "Try again". A read makes three attempts, so `:3` fails a load once.
   - Vite serves and builds MSW's worker only in this mode, from the installed `msw`, into `dist-mock/`. The real build contains none of it: boot imports the mocks behind `import.meta.env.MODE === "mock"`, which Vite removes from other builds.
 - **End-to-end** (`e2e/`, `make e2e`):
   - **Where it runs:** Playwright in its official image, whose version is read from `@playwright/test` in `package.json`, against the mock build served by `vite preview`. Chromium only for now.

@@ -28,7 +28,11 @@ describe("homeDestination", () => {
   });
 
   it("goes back to the Household last opened, else the first", async () => {
-    mockDb.write({ registered: true, households: [household("h-1"), household("h-2")] });
+    mockDb.write({
+      registered: true,
+      households: [household("h-1"), household("h-2")],
+      accounts: {},
+    });
 
     await expect(destination("h-2")).resolves.toMatchObject({ params: { householdId: "h-2" } });
     await expect(destination("gone")).resolves.toMatchObject({ params: { householdId: "h-1" } });

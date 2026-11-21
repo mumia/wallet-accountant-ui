@@ -1,13 +1,14 @@
 // Retry rules (spec, "Talking to the API"). TanStack Query calls these with the
-// number of failures so far and the last error.
+// number of failures before this one (0 after the first) and the last error.
 import { errorStatus, isNetworkError } from "./problem";
 
-const readAttempts = 3;
+/** Three attempts in all. */
+const readRetries = 2;
 const writeRetries = 2;
 
 /** Reads retry on network errors and 5xx, never on 4xx. */
 export function shouldRetryRead(failureCount: number, error: unknown): boolean {
-  if (failureCount >= readAttempts) {
+  if (failureCount >= readRetries) {
     return false;
   }
   const status = errorStatus(error);

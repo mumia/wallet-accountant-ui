@@ -10,17 +10,6 @@
   },
   "createHousehold": {
     "title": "Create your Household",
-    "welcome": "Welcome to Wallet Accountant. A Household holds the Accounts and Categories you track, shared with everyone in it.",
-    "name": "Name",
-    "namePlaceholder": "Home",
-    "nameRequired": "Give the Household a name",
-    "nameTooLong": "A name has at most 200 characters",
-    "baseCurrency": "Base currency",
-    "baseCurrencyPlaceholder": "Search by code or name",
-    "baseCurrencyHelp": "The currency your Household's totals are shown in. It can't be changed later.",
-    "baseCurrencyRequired": "Choose a Base currency",
-    "noCurrency": "No currency matches",
-    "create": "Create Household",
-    "creating": "Creating…"
+    "welcome": "Welcome to Wallet Accountant. A Household holds the Accounts and Categories you track, shared with everyone in it."
   }
 }

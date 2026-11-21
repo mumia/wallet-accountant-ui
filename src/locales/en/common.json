@@ -67,5 +67,32 @@
   "combobox": {
     "showOptions": "Show options",
     "clear": "Clear"
+  },
+  "householdForm": {
+    "name": "Name",
+    "namePlaceholder": "Home",
+    "nameRequired": "Give the Household a name",
+    "nameTooLong": "A name has at most 200 characters",
+    "baseCurrency": "Base currency",
+    "baseCurrencyPlaceholder": "Search by code or name",
+    "baseCurrencyHelp": "The currency your Household's totals are shown in. It can't be changed later.",
+    "baseCurrencyRequired": "Choose a Base currency",
+    "noCurrency": "No currency matches",
+    "create": "Create Household",
+    "creating": "Creating…"
+  },
+  "account": {
+    "awaiting": "Awaiting first Statement import",
+    "kinds": {
+      "BANK_ACCOUNT": "Bank account",
+      "CREDIT_CARD": "Credit card",
+      "LOAN": "Loan",
+      "CRYPTO_WALLET": "Crypto wallet"
+    }
+  },
+  "sidebar": {
+    "title": "Navigation",
+    "description": "Your Household's Accounts, Categories and settings.",
+    "toggle": "Show or hide navigation"
   }
 }

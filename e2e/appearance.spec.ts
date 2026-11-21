@@ -5,14 +5,15 @@ import { expectAccessible } from "./axe";
 const html = (page: Page) => page.locator("html");
 
 async function openAppearance(page: Page) {
-  await page.getByRole("button", { name: "Appearance…" }).click();
+  await page.getByRole("button", { name: /^Sam Example/ }).click();
+  await page.getByRole("menuitem", { name: "Appearance…" }).click();
   return page.getByRole("dialog", { name: "Appearance" });
 }
 
 test("starts on Ledger in dark, in the mock Household", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Accounts" })).toBeVisible();
   await expect(html(page)).toHaveAttribute("data-preset", "ledger");
   await expect(html(page)).toHaveClass(/\bdark\b/);
   await expectAccessible(page);
@@ -31,7 +32,7 @@ test("changes the theme live and keeps it after a reload", async ({ page }) => {
   await expect(dialog).toBeHidden();
 
   await page.reload();
-  await expect(page.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Accounts" })).toBeVisible();
   await expect(html(page)).toHaveAttribute("data-preset", "ink");
   await expect(html(page)).not.toHaveClass(/\bdark\b/);
 });
@@ -88,7 +89,7 @@ test("works when browser storage refuses the app's data, without remembering", a
   await expect(html(page)).toHaveAttribute("data-preset", "teal");
 
   await page.reload();
-  await expect(page.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Accounts" })).toBeVisible();
   await expect(html(page)).toHaveAttribute("data-preset", "ledger");
   expect(errors).toEqual([]);
 });

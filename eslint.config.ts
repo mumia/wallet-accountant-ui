@@ -189,7 +189,7 @@ export default defineConfig(
             },
             {
               from: { element: { type: "test" } },
-              allow: { to: { element: { types: ["app", "lib", "mocks"] } } },
+              allow: { to: { element: { types: ["app", "api", "lib", "mocks"] } } },
             },
             // The mock API is built from the contract's types.
             {

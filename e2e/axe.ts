@@ -13,6 +13,10 @@ export async function expectAccessible(
   page: Page,
   except: Record<string, string> = {},
 ): Promise<void> {
+  // A part still fading or sliding in has its colours mid-way.
+  await page.waitForFunction(() =>
+    document.getAnimations().every((animation) => animation.playState !== "running"),
+  );
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
     .disableRules(Object.keys(except))

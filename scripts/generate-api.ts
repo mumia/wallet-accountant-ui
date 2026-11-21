@@ -4,8 +4,10 @@
 // Two mappings on top of openapi-typescript's defaults:
 // - `format: decimal` (Money.amount) becomes `Decimal`, exact decimal text,
 //   never a JS number (ADR-0002);
-// - `x-extensible-enum` becomes its known values plus any other string, so a
-//   switch gets autocompletion and an unknown value still type-checks.
+// - `x-extensible-enum` becomes its known values plus any other string. The
+//   known values document the field; TypeScript folds them into the string, so
+//   code that names them keeps its own list, tested against the contract
+//   (src/test/contract.ts).
 import { writeFile } from "node:fs/promises";
 
 import openapiTS, { astToString } from "openapi-typescript";
@@ -16,10 +18,13 @@ const target = new URL("../src/api/schema.gen.ts", import.meta.url);
 
 const { factory } = ts;
 const decimal = factory.createTypeReferenceNode("Decimal");
-// `string & {}` keeps the literals from collapsing into plain `string`.
-const anyOtherString = factory.createIntersectionTypeNode([
-  factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
-  factory.createTypeLiteralNode([]),
+// `${string}`, not `string & {}`: openapi-fetch's `Readable` maps that
+// intersection as an object, so a response's value would stop being a string.
+const anyOtherString = factory.createTemplateLiteralType(factory.createTemplateHead(""), [
+  factory.createTemplateLiteralTypeSpan(
+    factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+    factory.createTemplateTail(""),
+  ),
 ]);
 
 function isStringArray(value: unknown): value is string[] {

@@ -17,3 +17,9 @@ Waits on backend: none
 ## Spec
 
 [spec.md](../../modern-frontend/spec.md): user stories 15, 17; First run (Getting-started); Categories, Add Account and the Transaction list (Add Account); Screens and routes (Account area).
+
+## Notes
+
+- From ticket 07: `features/accounts/add-account-dialog.tsx` is a stub with `open` and `onOpenChange`, opened through `useOpenAddAccount()` from the sidebar (when the Household has no Accounts) and the overview. Replace its body with the form. After adding, invalidate `["get", "/households/{household_id}/accounts"]` so the sidebar and overview update.
+- `routes/households/$householdId/accounts/$accountId.tsx` and `features/accounts/account-page.tsx` are a stub that loads `GET …/accounts/{id}` (a 404 shows "Not found" inside the shell). Replace them with the Account area. `components/account-labels.ts` has the kind labels and the balance or "Awaiting first Statement import".
+- The mock API has `GET …/accounts` and `GET …/accounts/{id}` over `mocks/db.ts`; add `POST …/accounts`.
