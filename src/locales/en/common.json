@@ -2,5 +2,16 @@
   "appName": "Wallet Accountant",
   "welcome": {
     "tagline": "Import your bank statements, decide each row and close every month."
+  },
+  "unsupportedBrowser": {
+    "title": "This browser is too old for Wallet Accountant",
+    "body": "Wallet Accountant needs a browser from 2025 or later to show every amount exactly: Chrome or Edge 114, Firefox 135, or Safari 18.4. Update your browser, then open this page again."
+  },
+  "amountInput": {
+    "label": "{{label}} ({{currency}})",
+    "invalid": "Type an amount, such as {{example}}",
+    "tooManyPlaces_zero": "{{currency}} amounts have no decimal places",
+    "tooManyPlaces_one": "{{currency}} amounts have at most {{count}} decimal place",
+    "tooManyPlaces_other": "{{currency}} amounts have at most {{count}} decimal places"
   }
 }

@@ -1,5 +1,7 @@
 package-lock.json
 src/routeTree.gen.ts
+src/api/schema.gen.ts
+src/api/openapi.yaml
 dist/
 coverage/
 # Prose is not formatted; Prettier is for code and config.
