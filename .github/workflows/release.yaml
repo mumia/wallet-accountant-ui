@@ -1,0 +1,160 @@
+# Publishes the UI image to GHCR, as the backend does
+# (docs/architecture/conventions.md, "Releases"):
+# - a semver tag (v1.2.3) publishes ghcr.io/mumia/wallet-accountant-ui:v1.2.3,
+#   then creates the GitHub Release;
+# - a push to main publishes ghcr.io/mumia/wallet-accountant-ui:main-<sha> for
+#   testing. Production never follows it.
+# Every published image gets a build provenance attestation and a keyless
+# cosign signature from this workflow's identity.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+# Never cancel a release half-way through publishing.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  IMAGE: ghcr.io/mumia/wallet-accountant-ui
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      image-tag: ${{ steps.version.outputs.image-tag }}
+      node-version: ${{ steps.version.outputs.node-version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # All branches, to check that a tag points into main.
+          fetch-depth: 0
+      # A tag must be vMAJOR.MINOR.PATCH[-PRERELEASE] (semver 2.0.0, no build
+      # metadata: "+" is not allowed in an OCI tag), as in the backend.
+      - id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          echo "node-version=$(cat .node-version)" | tee -a "$GITHUB_OUTPUT"
+          if [ "$REF_TYPE" = branch ]; then
+            echo "image-tag=main-$(printf '%s' "$SHA" | cut -c1-7)" | tee -a "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          number='(0|[1-9][0-9]*)'
+          identifier='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+          semver="v$number\.$number\.$number(-$identifier(\.$identifier)*)?"
+          if ! printf '%s\n' "$REF_NAME" | grep -Eqx "$semver"; then
+            echo "::error::$REF_NAME is not a release tag (vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-PRERELEASE)"
+            exit 1
+          fi
+          echo "image-tag=$REF_NAME" | tee -a "$GITHUB_OUTPUT"
+      # A release is a commit that already passed CI on main.
+      - name: Check the tag points into main
+        if: github.ref_type == 'tag'
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME does not point to a commit on main. Tag a commit of main."
+            exit 1
+          fi
+      # The tag's message starts the release notes, so it must have one.
+      - name: Check the tag is annotated
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          type=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq .object.type)
+          if [ "$type" != tag ]; then
+            echo "::error::$GITHUB_REF_NAME is a lightweight tag. Tag with git tag -a and write the release notes in its message."
+            exit 1
+          fi
+
+  image:
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # linux/amd64 only, as the backend: the production VM is x86-64, and
+      # local clusters build the image from source for the host's architecture.
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE }}:${{ needs.version.outputs.image-tag }}
+          build-args: NODE_VERSION=${{ needs.version.outputs.node-version }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.version.outputs.image-tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+      - name: Sign the image (cosign keyless)
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "$IMAGE@$DIGEST"
+
+  github-release:
+    needs: [version, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.ref_type == 'tag'
+    permissions:
+      contents: write
+    steps:
+      # The notes are the tag's message, the published image, then GitHub's list
+      # of the pull requests merged since the previous release.
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_TAG: ${{ needs.version.outputs.image-tag }}
+          IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          tag_object=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq .object.sha)
+          gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq .message > notes.md
+          {
+            echo
+            echo "## Artifacts"
+            echo
+            echo "- Image: \`$IMAGE:$IMAGE_TAG\` (\`$IMAGE_DIGEST\`)"
+            echo
+            echo "It carries a build provenance attestation and a cosign keyless signature from \`.github/workflows/release.yaml\`. docs/architecture/conventions.md (\"Releases\") shows how to verify them."
+          } >> notes.md
+          prerelease=
+          case $GITHUB_REF_NAME in *-*) prerelease=--prerelease ;; esac
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "$GITHUB_REF_NAME" --notes-file notes.md --generate-notes $prerelease
