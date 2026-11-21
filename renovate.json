@@ -1,6 +1,60 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Keeps every pinned version current, as in the backend: npm packages, Node (.node-version), GitHub Actions, the Dockerfile's Caddy image and the tools the Makefile and workflows pin.",
   "extends": [
-    "config:recommended"
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    ":semanticCommitsDisabled",
+    "schedule:weekly"
+  ],
+  "ignorePaths": ["**/node_modules/**", "prototypes/**"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "A `# renovate: datasource=<d> depName=<name>` comment pins the version on the next line: the value after its first `:=`, `=` or `:`.",
+      "managerFilePatterns": ["/(^|/)Makefile$/", "/\\.ya?ml$/"],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)[ \\t]*\\r?\\n[^\\n]*?(?::=|=|:)[ \\t]*[\"']?(?<currentValue>[^\\s\"'@]+)[\"']?"
+      ]
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "npm packages, minor and patch, in one PR",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm packages"
+    },
+    {
+      "description": "Node: .node-version (which the Makefile, the Dockerfile and CI read), and the node image, in one PR",
+      "matchPackageNames": ["node"],
+      "groupName": "Node"
+    },
+    {
+      "description": "@types/node follows the Node major in .node-version",
+      "matchPackageNames": ["@types/node"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "ESLint stays on 9 until eslint-plugin-jsx-a11y supports 10 (spec, Repo conventions)",
+      "matchPackageNames": ["eslint", "@eslint/js"],
+      "allowedVersions": "<10"
+    },
+    {
+      "description": "TypeScript moves to 7 only once typescript-eslint and openapi-typescript support it (ADR-0001)",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
+    },
+    {
+      "description": "GitHub Actions in one PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "The tools the Makefile and the workflows pin by comment, in one PR",
+      "matchManagers": ["custom.regex"],
+      "groupName": "pinned tools"
+    }
   ]
 }

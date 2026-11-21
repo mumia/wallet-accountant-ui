@@ -1,0 +1,11 @@
+.git
+.github
+.claude
+.scratch
+docs
+prototypes
+node_modules
+dist
+coverage
+public/config.json
+*.md

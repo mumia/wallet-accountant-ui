@@ -51,12 +51,16 @@ A file outside these folders fails lint (`boundaries/no-unknown-files`).
 | `make dev` | dev server on http://localhost:5173 (HTTPS and the `/api` proxy arrive in ticket 04) |
 | `make build` | static build into `dist/` |
 | `make preview` | serve the build on http://localhost:4173 |
-| `make lint` | ESLint, then the Prettier check |
+| `make lint` | ESLint, the Prettier check, then actionlint |
+| `make actionlint` | check `.github/workflows` |
 | `make format` | Prettier, then ESLint fixes |
 | `make typecheck` | `tsc -b` |
 | `make test` | Vitest |
 | `make generate` | regenerate the route tree |
-| `make check` | every CI check, in CI's order |
+| `make audit` | `npm audit` of the runtime dependencies, high and above |
+| `make image` | build the UI image (`IMAGE`, default `wallet-accountant-ui:local`) |
+| `make image-test` | build it, run it as the chart does, check the UI contract |
+| `make check` | every CI check |
 | `make npm a="…"` | any npm command, e.g. `make npm a="install -E zod@4"` |
 | `make shell` | a shell in the Node container |
 | `make install` | reinstall from `package-lock.json` |
@@ -123,32 +127,76 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
 - **Manual accessibility pass before each release**: keyboard only, then VoiceOver, on every screen _(the checklist arrives with ticket 05)_.
 - No coverage threshold.
 
-## 8. CI _(ticket 02)_
+## 8. CI
 
-GitHub Actions on every PR and push to `main`. Each job mirrors a `make` target. Actions are pinned to SHAs.
+`.github/workflows/ci.yaml`, on every PR and push to `main`. Each job mirrors a `make` target. CI calls the npm scripts directly on the runner's Node, set from `.node-version`. Actions are pinned to SHAs.
 
-| Job | What | Lands in |
+| Job | What | Make |
 |---|---|---|
-| `lint` | ESLint, Prettier check, actionlint | 02 |
-| `typecheck` | `tsc -b` | 02 |
-| `test` | Vitest | 02 |
-| `image` | build the Caddy image, then test it as the chart runs it | 02 |
-| `audit` | `npm audit --omit=dev`, high | 02 |
-| `generated` | regenerate the API types and the route tree, then `git diff --exit-code` | 03 |
-| `contract` | `src/api/openapi.yaml` equals the file at the pinned backend tag | 03 |
-| `e2e` | Playwright with MSW and axe | 05 |
+| `lint` | ESLint, Prettier check, actionlint | `make lint` |
+| `typecheck` | `tsc -b` | `make typecheck` |
+| `test` | Vitest | `make test` |
+| `image` | build the image, then `docker/test-image.sh` | `make image-test` |
+| `audit` | `npm audit --omit=dev`, high | `make audit` |
+| `generated` | regenerate the API types and the route tree, then `git diff --exit-code` _(ticket 03)_ | |
+| `contract` | `src/api/openapi.yaml` equals the file at the pinned backend tag _(ticket 03)_ | |
+| `e2e` | Playwright with MSW and axe _(ticket 05)_ | |
 
-## 9. Releases _(ticket 02)_
+## 9. The image and releases
 
-As in the backend:
-- a `vX.Y.Z` tag publishes `ghcr.io/mumia/wallet-accountant-ui:vX.Y.Z` and a GitHub Release
-- a push to `main` publishes `main-<sha>`
-- every image gets a provenance attestation and the `wallet-accountant.min-api-version` label
+### The image
+
+`Dockerfile` builds the app in the Node image from `.node-version`, then serves `dist/` from `/srv` with Caddy (`docker/Caddyfile`). It meets the backend's UI contract (`../wallet-accountant/docs/architecture/ui-contract.md`):
+
+- **Server**: plain HTTP on 8080, Caddy's admin API and config persistence off.
+- **User**: numeric uid 10001, so Kubernetes' `runAsNonRoot` can check it.
+- **Filesystem**: a read-only root filesystem, with Caddy's files under the writable `/tmp` the chart mounts.
+- **Capabilities**: the Caddy binary's low-port capability is removed, because the chart drops every capability.
+- **Paths**: `GET /healthz` answers 200. Any other path that isn't a file returns `index.html`, except under `/assets/`, where a missing file is a 404.
+- **Caching**: `/assets/*` files get `public, max-age=31536000, immutable`; everything else gets `no-cache`.
+- **Runtime config**: `/srv/config.json` is where the chart mounts it (`ui.configPath`). The image ships none, so without the mount it's a 404.
+
+`docker/test-image.sh <image>` runs the image the way the chart does: `--read-only`, an empty `/tmp`, `--cap-drop ALL`, `no-new-privileges`, and `config.json` mounted. It then checks each point above.
+
+### Releases
+
+`.github/workflows/release.yaml` publishes to GHCR, as the backend does:
+
+| Pushed ref | Image `ghcr.io/mumia/wallet-accountant-ui` | GitHub Release |
+|---|---|---|
+| `main` | `main-<sha>` (7 characters), for testing | no |
+| Tag `v1.2.3` | `v1.2.3` | yes |
+| Tag `v1.2.3-rc.1` | `v1.2.3-rc.1` | yes, marked pre-release |
+
+- Any other tag fails before anything is published. A tag must be annotated and point into `main`.
+- The image is built for `linux/amd64` only.
+- Every image gets a build provenance attestation and a keyless cosign signature. It also gets the `wallet-accountant.min-api-version` label _(ticket 03)_.
+- The release notes are the tag's message, then the image and its digest, then GitHub's list of merged pull requests.
+
+To release:
+
+```sh
+git switch main && git pull
+git tag -a v1.2.3   # the editor opens for the release notes
+git push origin v1.2.3
+```
+
+- **If the workflow fails after publishing:** fix forward with the next patch version. Never move, delete or reuse a published tag.
+- **The first release** creates the GHCR package. Make it public once, in the package settings, so clusters pull it without credentials.
+
+Verify an image:
+
+```sh
+gh attestation verify oci://ghcr.io/mumia/wallet-accountant-ui:v1.2.3 --repo mumia/wallet-accountant-ui
+cosign verify ghcr.io/mumia/wallet-accountant-ui:v1.2.3 \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github\.com/mumia/wallet-accountant-ui/\.github/workflows/release\.yaml@refs/'
+```
 
 ## 10. Dependencies
 
 - Exact versions only (`save-exact=true` in `.npmrc`), with `package-lock.json` committed. Install with `make npm a="install -E <package>"`.
-- Renovate weekly, grouped _(ticket 02)_.
+- **Renovate** (`renovate.json`) runs weekly. It groups npm minor and patch updates, GitHub Actions, Node, and the tools pinned by a `# renovate:` comment. It holds ESLint below 10, TypeScript below 7, and `@types/node` on the Node major in `.node-version`.
 - shadcn/ui parts are updated by hand: `--overwrite`, then review the diff and re-apply the `// local:` changes _(ticket 05)_.
 - Fonts are bundled from Fontsource variable packages, never loaded from Google Fonts _(ticket 05)_.
 - TanStack Table v9.
