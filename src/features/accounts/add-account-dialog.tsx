@@ -181,9 +181,12 @@ function AddAccountForm({ householdId, onAdded }: { householdId: string; onAdded
           name="currency"
           render={({ field }) => (
             <Field data-invalid={errors.currency !== undefined}>
-              <FieldLabel htmlFor={currencyId}>{t("add.currency")}</FieldLabel>
+              <FieldLabel id={`${currencyId}-label`} htmlFor={currencyId}>
+                {t("add.currency")}
+              </FieldLabel>
               <CurrencyCombobox
                 id={currencyId}
+                label={{ id: `${currencyId}-label` }}
                 value={field.value}
                 onValueChange={field.onChange}
                 onBlur={field.onBlur}

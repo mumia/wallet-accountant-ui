@@ -33,6 +33,7 @@ describe("homeDestination", () => {
       households: [household("h-1"), household("h-2")],
       accounts: {},
       connections: {},
+      categories: {},
     });
 
     await expect(destination("h-2")).resolves.toMatchObject({ params: { householdId: "h-2" } });

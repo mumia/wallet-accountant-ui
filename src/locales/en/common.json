@@ -100,5 +100,13 @@
   "dateInput": {
     "choose": "Choose a date",
     "today": "Today, {{day}}"
+  },
+  "categoryPicker": {
+    "placeholder": "Search Categories",
+    "noMatch": "No Category matches",
+    "kinds": {
+      "EXPENSE": "Expense",
+      "INCOME": "Income"
+    }
   }
 }

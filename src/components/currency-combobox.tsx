@@ -23,6 +23,13 @@ interface CurrencyComboboxProps {
   /** The currency code, or "" for none. */
   value: string;
   onValueChange: (code: string) => void;
+  /**
+   * What names it: a visible label's ID, or a name of its own .
+   * A label's `htmlFor` alone isn't enough: while the list is open Base UI
+   * hides the rest of the page, label included, and the input loses its name
+   * (Base UI #6275); `aria-labelledby` still names it.
+   */
+  label: { id: string } | { text: string };
   onBlur?: () => void;
   name?: string;
   inputRef?: Ref<HTMLInputElement>;
@@ -42,6 +49,7 @@ export function CurrencyCombobox({
   onBlur,
   name,
   inputRef,
+  label,
   ...aria
 }: CurrencyComboboxProps) {
   const { t } = useTranslation();
@@ -76,6 +84,7 @@ export function CurrencyCombobox({
         name={name}
         onBlur={onBlur}
         placeholder={t("currencyCombobox.placeholder")}
+        {...("id" in label ? { "aria-labelledby": label.id } : { "aria-label": label.text })}
         {...aria}
       />
       <ComboboxContent>

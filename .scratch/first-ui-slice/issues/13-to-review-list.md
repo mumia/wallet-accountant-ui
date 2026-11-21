@@ -23,3 +23,4 @@ Waits on backend: partly. The month field's options need the months list, and lo
 ## Notes
 
 - From ticket 08: `…/accounts/$accountId/to-review.tsx` is a stub with `validateSearch: bookingMonthSearch`.
+- From ticket 09: The row picker is `components/category-picker.tsx` (see ticket 10's note); it starts on Uncategorised: pass the Uncategorised Category's ID, found with `isUncategorised` in `lib/categories.ts`.
