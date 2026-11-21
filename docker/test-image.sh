@@ -8,8 +8,6 @@
 set -eu
 
 image=${1:?usage: $0 <image>}
-port=${PORT:-18080}
-base="http://127.0.0.1:$port"
 work=$(mktemp -d)
 name="wa-ui-image-test-$$"
 failures=0
@@ -53,8 +51,10 @@ docker run -d --name "$name" \
 	--cap-drop ALL \
 	--security-opt no-new-privileges \
 	-v "$work/config.json:/srv/config.json:ro" \
-	-p "127.0.0.1:$port:8080" \
+	-p 127.0.0.1::8080 \
 	"$image" >/dev/null
+# A free port Docker picked, so the test never clashes with a local cluster.
+base="http://$(docker port "$name" 8080/tcp | head -1)"
 
 i=0
 until curl -fsS "$base/healthz" >/dev/null 2>&1; do

@@ -33,6 +33,7 @@ The spec for this effort is [../modern-frontend/spec.md](../modern-frontend/spec
 | 17 | [Statement imports tab and Void](issues/17-statement-imports-tab-and-void.md) | 08, 12 | ⚠️ waits |
 | 18 | [Rename an Account](issues/18-rename-account.md) | 08 | ⚠️ waits |
 | 19 | [Overview counts, the open month and month options](issues/19-overview-counts-open-month-and-month-options.md) | 07, 10, 13 | ⚠️ waits |
+| 20 | [Sign in against the local cluster, and make local-deploy](issues/20-sign-in-against-the-local-cluster-and-local-deploy.md) | 04 | ⚠️ waits (environment repo) |
 
 02, 03 and 05 can run in parallel after 01. 08 and 09 can run in parallel after 07.
 

@@ -64,6 +64,19 @@ export default defineConfig(
     ],
     languageOptions: { globals: globals.browser },
     rules: {
+      // TanStack Router's redirect() and notFound() are thrown by design.
+      "@typescript-eslint/only-throw-error": [
+        "error",
+        {
+          allow: [
+            {
+              from: "package",
+              package: "@tanstack/router-core",
+              name: ["Redirect", "NotFoundError"],
+            },
+          ],
+        },
+      ],
       // Every user-facing string comes from the message files.
       "i18next/no-literal-string": ["error", { mode: "jsx-text-only" }],
     },

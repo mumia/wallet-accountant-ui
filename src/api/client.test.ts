@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import { http, withExactAmounts } from "../mocks/http";
 import { server } from "../test/server";
-import { fetchClient } from "./client";
+import { createApi } from "./client";
+
+const { fetchClient } = createApi({ baseUrl: "/api" });
 
 const householdId = "0193a0b0-0000-7000-8000-000000000001";
 const accountId = "0193a0b0-0000-7000-8000-000000000002";

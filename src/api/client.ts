@@ -1,11 +1,14 @@
 // The API client (docs/architecture/conventions.md, "API client"): openapi-fetch
 // typed by the generated schema, with exact money both ways, an Idempotency-Key
-// on every write, every error as a problem, and openapi-react-query hooks on top.
+// on every write, every error as a problem, the signed-in User's bearer token,
+// and openapi-react-query hooks on top. The app makes one at boot from
+// /config.json (src/app/boot.tsx); screens get it with `useApi()`.
 // Writes are plain `api.useMutation` calls: the key and the retries (the query
 // client's defaults, src/api/retry.ts) need nothing from the screen.
 import createFetchClient, { type Middleware } from "openapi-fetch";
 import createQueryHooks from "openapi-react-query";
 
+import { bearerAuth, type ApiAuth } from "./auth";
 import { parseExactJson, stringifyExactJson } from "./exact-json";
 import { idempotencyKeys } from "./idempotency";
 import { isProblem, type Problem } from "./problem";
@@ -49,19 +52,31 @@ const exactMoneyAndProblems: Middleware = {
   },
 };
 
-/** The API's base URL: relative to the page, made absolute for fetch. */
-function apiBaseUrl(path: string): string {
-  return new URL(path, window.location.href).href.replace(/\/$/, "");
+export interface ApiOptions {
+  /** `apiBaseUrl` from /config.json: "/api", relative to the page. */
+  baseUrl: string;
+  /** The signed-in User's tokens; left out only in tests that don't sign in. */
+  auth?: ApiAuth;
 }
 
-export const fetchClient = createFetchClient<paths>({
-  baseUrl: apiBaseUrl("/api"),
-  bodySerializer: stringifyExactJson,
-  // Looked up on each call, not captured here, so MSW's patched fetch is used in tests.
-  fetch: (request) => globalThis.fetch(request),
-});
-// Order matters: the key is set on the way out, money is read on the way in.
-fetchClient.use(idempotencyKeys(), exactMoneyAndProblems);
+export function createApi({ baseUrl, auth }: ApiOptions) {
+  const fetchClient = createFetchClient<paths>({
+    baseUrl: new URL(baseUrl, window.location.href).href.replace(/\/$/, ""),
+    bodySerializer: stringifyExactJson,
+    // Looked up on each call, not captured here, so MSW's patched fetch is used in tests.
+    fetch: (request) => globalThis.fetch(request),
+  });
+  // Order matters: on the way out the key is set before the token, and on the way
+  // in a 401 is resent before money is read (responses run last to first).
+  fetchClient.use(idempotencyKeys(), exactMoneyAndProblems);
+  if (auth !== undefined) {
+    fetchClient.use(bearerAuth(auth));
+  }
+  return {
+    fetchClient,
+    /** TanStack Query hooks for every operation: `api.useQuery("get", "/currencies")`. */
+    api: createQueryHooks(fetchClient),
+  };
+}
 
-/** TanStack Query hooks for every operation: `api.useQuery("get", "/currencies")`. */
-export const api = createQueryHooks(fetchClient);
+export type Api = ReturnType<typeof createApi>;

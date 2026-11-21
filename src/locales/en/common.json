@@ -13,5 +13,20 @@
     "tooManyPlaces_zero": "{{currency}} amounts have no decimal places",
     "tooManyPlaces_one": "{{currency}} amounts have at most {{count}} decimal place",
     "tooManyPlaces_other": "{{currency}} amounts have at most {{count}} decimal places"
+  },
+  "signIn": {
+    "signingIn": "Signing in…",
+    "failedTitle": "Signing in didn't work",
+    "tryAgain": "Try again"
+  },
+  "sessionEnded": {
+    "title": "Your session has ended",
+    "body": "Sign in again to carry on. You'll come back to this page; anything typed in an open form is lost.",
+    "signIn": "Sign in again",
+    "close": "Not now"
+  },
+  "configProblem": {
+    "title": "Wallet Accountant can't start",
+    "body": "Its configuration file, /config.json, is missing or wrong. Whoever runs Wallet Accountant needs to fix it. The details:"
   }
 }
