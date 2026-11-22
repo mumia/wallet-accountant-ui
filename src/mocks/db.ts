@@ -11,14 +11,13 @@ type AccountTransaction = components["schemas"]["AccountTransaction"];
 type StatementImport = components["schemas"]["StatementImport"];
 type CsvMapping = components["schemas"]["CsvMapping"];
 
-/** A row a Statement import brought in, as the mock remembers it for repeats. */
-export interface ImportedRow {
-  statement_import_id: string;
-  booking_date: string;
-  description: string;
-  amount: string;
-  bank_transaction_id?: string;
-}
+type ImportedTransaction = components["schemas"]["ImportedTransaction"];
+
+/**
+ * A row a Statement import brought in. A Suspected duplicate names the earlier
+ * row it resembles by ID; the API shows that row as it is now.
+ */
+export type ImportedRow = Omit<ImportedTransaction, "resembles"> & { resembles_id?: string };
 
 export interface MockState {
   registered: boolean;
@@ -231,30 +230,61 @@ export const mainStatementImport: StatementImport = {
   connection_id: "0190f5f2-7c00-7000-8000-000000000202",
   account_id: mainAccountId,
   export_balance: { amount: "1234.50", currency: "EUR" },
-  rows_imported: 2,
+  rows_imported: 9,
   rows_skipped_as_certain_repeats: 0,
-  suspected_duplicates: 0,
+  suspected_duplicates: 1,
   rows_ignored_before_start_date: 0,
-  rows_total: { amount: "-61.90", currency: "EUR" },
-  balance_check: "PASSED",
-  imported_at: "2026-11-15T09:30:00Z",
+  rows_total: { amount: "-315.50", currency: "EUR" },
+  balance_check: "WAITING",
+  imported_at: "2026-11-21T09:30:00Z",
 };
 
-const mainImportedRows: ImportedRow[] = [
-  {
+function importedRow(
+  number: number,
+  bookingDate: string,
+  description: string,
+  amount: string,
+  extra: Partial<ImportedRow> = {},
+): ImportedRow {
+  return {
+    imported_transaction_id: `0190f5f2-7c00-7000-8000-0000000005${String(number).padStart(2, "0")}`,
     statement_import_id: mainStatementImport.statement_import_id,
-    booking_date: "2026-11-14",
-    description: "Albert Heijn",
-    amount: "-23.40",
+    state: "PENDING",
+    line: number + 1,
+    booking_date: bookingDate,
+    transaction_date: bookingDate,
+    amount: { amount: amount as ImportedRow["amount"]["amount"], currency: "EUR" },
+    description,
+    bank_transaction_id: `NL-${bookingDate.slice(5).replace("-", "")}-${String(number).padStart(2, "0")}`,
+    ...extra,
+  };
+}
+
+/**
+ * Main's Imported transactions: two Accepted on 2026-11-14 (Albert Heijn
+ * NL-1114-01, Shell NL-1114-02), one Pending in October, five Pending in
+ * November, and a Suspected duplicate of Shell.
+ */
+export const mainImportedRows: ImportedRow[] = [
+  importedRow(1, "2026-10-28", "Ikea", "-89.00"),
+  importedRow(2, "2026-11-14", "Albert Heijn", "-23.40", {
+    state: "ACCEPTED",
     bank_transaction_id: "NL-1114-01",
-  },
-  {
-    statement_import_id: mainStatementImport.statement_import_id,
-    booking_date: "2026-11-14",
-    description: "Shell",
-    amount: "-38.50",
+  }),
+  importedRow(3, "2026-11-14", "Shell", "-38.50", {
+    state: "ACCEPTED",
     bank_transaction_id: "NL-1114-02",
-  },
+  }),
+  importedRow(4, "2026-11-14", "Shell Station 42", "-38.50", {
+    state: "SUSPECTED_DUPLICATE",
+    payee: "Shell",
+    resembles_id: "0190f5f2-7c00-7000-8000-000000000503",
+  }),
+  importedRow(5, "2026-11-17", "Jumbo", "-12.35", { transaction_date: "2026-11-16" }),
+  importedRow(6, "2026-11-18", "Bol.com order 4471", "-4.20", { payee: "Bol.com" }),
+  importedRow(7, "2026-11-19", "Café de Jaren", "-18.00"),
+  importedRow(8, "2026-11-20", "NS Reizigers", "-6.40"),
+  importedRow(9, "2026-11-20", "Tikkie from Sam", "15.00"),
 ];
 
 /**

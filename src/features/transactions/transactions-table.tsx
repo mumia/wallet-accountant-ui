@@ -1,9 +1,10 @@
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
-import { useWindowVirtualizer } from "@tanstack/react-virtual";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CategoryPicker } from "../../components/category-picker";
+import { mediumDate, rowLabel } from "../../components/row-label";
+import { useWindowRows } from "../../components/use-window-rows";
 import {
   Table,
   TableBody,
@@ -13,26 +14,12 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { flattenCategories, isUncategorised, type CategoryNode } from "../../lib/categories";
-import type { IsoDate } from "../../lib/date";
-import { fromIsoDate } from "../../lib/date";
 import { formatMoney } from "../../lib/money";
 import { useChangeCategory, type AccountTransaction } from "./transactions-query";
 
 const features = tableFeatures({});
 const column = createColumnHelper<typeof features, AccountTransaction>();
 const rowHeight = 57;
-
-const mediumDate = (date: string) =>
-  new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(fromIsoDate(date as IsoDate));
-
-/** How a row is named: "Mar 12, 2026, Albert Heijn, -€23.40". */
-export function rowLabel(transaction: AccountTransaction): string {
-  return [
-    mediumDate(transaction.booking_date),
-    transaction.description,
-    formatMoney(transaction.amount),
-  ].join(", ");
-}
 
 /**
  * The Transaction list (spec, "Transactions"): Booking date (with the
@@ -146,31 +133,13 @@ export function TransactionsTable({
   const rows = table.getRowModel().rows;
 
   // All months: only the rows near the viewport are in the page.
-  const bodyRef = useRef<HTMLTableSectionElement>(null);
-  const [scrollMargin, setScrollMargin] = useState(0);
-  // Where the rows start on the page, measured once.
-  useEffect(() => {
-    setScrollMargin((bodyRef.current?.getBoundingClientRect().top ?? 0) + window.scrollY);
-  }, []);
-  const virtualizer = useWindowVirtualizer({
-    count: virtual ? rows.length : 0,
-    estimateSize: () => rowHeight,
-    overscan: 10,
-    scrollMargin,
+  const { bodyRef, indexes, before, after } = useWindowRows({
+    count: rows.length,
+    estimate: rowHeight,
+    virtual,
+    onNearEnd,
   });
-  const items = virtualizer.getVirtualItems();
-  const lastIndex = items.at(-1)?.index ?? -1;
-  useEffect(() => {
-    if (virtual && lastIndex >= rows.length - 20) {
-      onNearEnd?.();
-    }
-  }, [virtual, lastIndex, rows.length, onNearEnd]);
-
-  const shown = virtual
-    ? items.map((item) => rows[item.index]).filter((row) => row !== undefined)
-    : rows;
-  const before = virtual ? (items[0]?.start ?? 0) - virtualizer.options.scrollMargin : 0;
-  const after = virtual ? virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0) : 0;
+  const shown = indexes.map((index) => rows[index]).filter((row) => row !== undefined);
 
   return (
     <Table>

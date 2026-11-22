@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 
 const titles = {
-  toReview: "area.toReview",
   transactions: "area.transactions",
   months: "area.months",
+  month: "stub.month",
   statementImports: "area.statementImports",
   connections: "area.connections",
   newConnection: "stub.newConnection",
