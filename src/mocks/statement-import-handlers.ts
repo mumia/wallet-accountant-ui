@@ -4,7 +4,14 @@
 import type { components, Decimal } from "../api/schema.gen";
 import type { ImportedRow, MockDb, MockState } from "./db";
 import { http, withExactAmounts } from "./http";
-import { fingerprint, fromUnits, readStatementFile, toUnits } from "./statement-files";
+import {
+  currencyPlaces as currencyPlacesOf,
+  fingerprint,
+  fromUnits,
+  readStatementFile,
+  toUnits,
+} from "./statement-files";
+import { monthOf, voidBlockedBy } from "./months";
 
 type Problem = components["schemas"]["Problem"];
 type StatementFileProblem = components["schemas"]["StatementFileProblem"];
@@ -14,9 +21,6 @@ type Account = components["schemas"]["Account"];
 type Connection = components["schemas"]["Connection"];
 
 const notFound: Problem = { type: "about:blank", title: "Not Found", status: 404 };
-
-/** The mock's currencies' decimal places, as `GET /currencies` serves them. */
-const places: Record<string, number> = { ETH: 18, EUR: 2, GBP: 2, JPY: 0, USD: 2 };
 
 const refused = (type: string, title: string, detail: string): StatementFileProblem => ({
   type: `/problems/${type}`,
@@ -97,7 +101,7 @@ type Read =
 
 /** What preview and upload share: the Export balance, the mapping, the file. */
 function readFile({ state, account, connection }: Found, upload: Upload): Read {
-  const currencyPlaces = places[account.currency] ?? 2;
+  const currencyPlaces = currencyPlacesOf(account.currency);
   if (!/^-?\d+(\.\d+)?$/.test(upload.exportBalance)) {
     return {
       kind: "refused",
@@ -211,7 +215,10 @@ export function statementImportHandlers(db: MockDb) {
       if (found === undefined) {
         return response(404).json(notFound);
       }
-      const items = found.state.statementImports?.[params.connection_id] ?? [];
+      const items = (found.state.statementImports?.[params.connection_id] ?? []).map((item) => ({
+        ...item,
+        void_blocked_by: voidBlockedBy(found.state, item),
+      }));
       return response.untyped(await withExactAmounts(response(200).json({ items })));
     }),
 
@@ -261,6 +268,8 @@ export function statementImportHandlers(db: MockDb) {
             export_balance: money(fromUnits(exportUnits, currencyPlaces), currency),
             row_count: read.rows.length,
             rows_ignored_before_start_date: read.ignored,
+            // A first import never meets a closed month.
+            rows_ignored_in_closed_months: 0,
             rows_total: money(fromUnits(rowsTotal, currencyPlaces), currency),
           }),
         ),
@@ -308,7 +317,12 @@ export function statementImportHandlers(db: MockDb) {
       const { currencyPlaces } = read;
       const currency = account.currency;
       const earlier = state.importedRows?.[account.account_id] ?? [];
-      const repeats = read.rows.filter((row) =>
+      // Rows in a closed month are ignored, before any other test, and counted.
+      const inClosedMonths = read.rows.filter(
+        (row) => monthOf(row.bookingDate) < account.open_month,
+      );
+      const rows = read.rows.filter((row) => !inClosedMonths.includes(row));
+      const repeats = rows.filter((row) =>
         earlier.some(
           (old) =>
             row.id !== undefined &&
@@ -317,7 +331,7 @@ export function statementImportHandlers(db: MockDb) {
             old.amount.amount === row.amount,
         ),
       );
-      const fresh = read.rows.filter((row) => !repeats.includes(row));
+      const fresh = rows.filter((row) => !repeats.includes(row));
       const suspected = fresh.filter((row) =>
         earlier.some(
           (old) =>
@@ -358,6 +372,8 @@ export function statementImportHandlers(db: MockDb) {
         rows_skipped_as_certain_repeats: repeats.length,
         suspected_duplicates: suspected.length,
         rows_ignored_before_start_date: read.ignored,
+        rows_ignored_in_closed_months: inClosedMonths.length,
+        void_blocked_by: [],
         rows_total: money(fromUnits(rowsTotal, currencyPlaces), currency),
         balance_check: suspected.length > 0 ? "WAITING" : "PASSED",
         imported_at: new Date().toISOString(),

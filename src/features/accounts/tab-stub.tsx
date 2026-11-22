@@ -2,8 +2,6 @@ import { useTranslation } from "react-i18next";
 
 const titles = {
   transactions: "area.transactions",
-  months: "area.months",
-  month: "stub.month",
   statementImports: "area.statementImports",
   connections: "area.connections",
   newConnection: "stub.newConnection",

@@ -84,5 +84,6 @@
     "noSuspected": "No Suspected duplicates to review"
   },
   "awaiting": "Rows to review appear here after the first Statement import.",
-  "importFirst": "Import the first statement"
+  "importFirst": "Import the first statement",
+  "notOpenYet": "{{month}} isn't open yet"
 }

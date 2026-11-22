@@ -21,3 +21,4 @@ Waits on backend: yes. Needs `void_blocked_by` on StatementImport.
 
 - From ticket 08: `…/accounts/$accountId/statement-imports/index.tsx` is a stub.
 - From ticket 12: `statement-imports/index.tsx` validates `statementImportsSearch` (`statement_import_id`); the import flow's "See the earlier import" links with it. `useLatestImportConnection` in `features/statement-import/statement-import-query.ts` reads each Connection's imports, and the mock serves `listStatementImports`.
+- From ticket 15: The contract is pinned to v0.2.0 since ticket 15, with `void_blocked_by`. The mock computes it on `listStatementImports` (`voidBlockedBy` in `src/mocks/months.ts`). Savings (new seed Account) has one first import whose start month is closed, so it touches a closed month.

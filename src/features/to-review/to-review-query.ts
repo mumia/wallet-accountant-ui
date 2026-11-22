@@ -149,6 +149,10 @@ export function useDecide(householdId: string, accountId: string) {
         ],
       }),
       queryClient.invalidateQueries({ queryKey: notificationsKey(householdId) }),
+      // The months' counts.
+      queryClient.invalidateQueries({
+        queryKey: ["get", "/households/{household_id}/accounts/{account_id}/months", account],
+      }),
       // Deciding the last Suspected duplicate runs its import's Balance check.
       queryClient.invalidateQueries({
         queryKey: [

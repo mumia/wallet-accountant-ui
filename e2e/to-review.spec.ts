@@ -4,15 +4,15 @@ import { expectAccessible } from "./axe";
 
 // Main in the default mock scenario (src/mocks/db.ts) has, To review: one
 // Suspected duplicate (Shell Station 42, resembling the Accepted Shell row of
-// Nov 14), and six Pending rows: Ikea (Oct 28), Jumbo, Bol.com, Café de Jaren,
-// NS Reizigers and Tikkie from Sam (Nov 17–20).
+// Nov 14), and six Pending rows: Ikea (Nov 2), Jumbo, Bol.com, Café de Jaren,
+// NS Reizigers and Tikkie from Sam (Nov 17–20). November is Main's open month.
 const home = "/households/0190f5f2-7c00-7000-8000-000000000001";
 const main = `${home}/accounts/0190f5f2-7c00-7000-8000-000000000101`;
 const toReview = `${main}/to-review`;
 const cafeId = "0190f5f2-7c00-7000-8000-000000000507";
 
 const jumbo = "Nov 17, 2026, Jumbo, -€12.35";
-const ikea = "Oct 28, 2026, Ikea, -€89.00";
+const ikea = "Nov 2, 2026, Ikea, -€89.00";
 const shell = "Nov 14, 2026, Shell Station 42, -€38.50";
 const cafe = "Nov 19, 2026, Café de Jaren, -€18.00";
 
@@ -149,6 +149,9 @@ test("the state filter shows Suspected duplicates only, and the empty states", a
 
   // One month only.
   await page.goto(`${toReview}?booking_month=2026-10`);
-  await expect(section(page, "Pending").getByRole("row")).toHaveCount(2);
+  await expect(page.getByText("Nothing to review in October 2026")).toBeVisible();
+  await page.goto(`${toReview}?booking_month=2026-11`);
+  await expect(section(page, "Pending").getByRole("row")).toHaveCount(7);
+  // Discarded above.
   await expect(section(page, "Suspected duplicates")).toHaveCount(0);
 });

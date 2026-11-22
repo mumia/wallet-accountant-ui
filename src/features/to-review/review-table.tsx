@@ -1,4 +1,4 @@
-import { CopyIcon } from "lucide-react";
+import { CopyIcon, LockIcon } from "lucide-react";
 import { useEffect, useRef, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -98,6 +98,11 @@ export interface ReviewTableProps {
   onDiscard: (row: ImportedTransaction) => void;
   /** Rows being decided: their buttons wait. */
   busy?: ReadonlySet<string>;
+  /**
+   * Why a row can't be decided yet ("November 2026 isn't open yet"), or
+   * undefined when it can. A locked row has no actions and can't be selected.
+   */
+  lockOf?: (row: ImportedTransaction) => string | undefined;
   virtual?: boolean;
   onNearEnd?: () => void;
 }
@@ -120,11 +125,15 @@ export function ReviewTable({
   onKeep,
   onDiscard,
   busy = new Set(),
+  lockOf = () => undefined,
   virtual = false,
   onNearEnd,
 }: ReviewTableProps) {
   const { t } = useTranslation("toReview");
-  const ids = rows.map(({ imported_transaction_id }) => imported_transaction_id);
+  // Locked rows stay out of the selection, so bulk actions never reach them.
+  const ids = rows
+    .filter((row) => lockOf(row) === undefined)
+    .map(({ imported_transaction_id }) => imported_transaction_id);
   // The row a Shift+click range starts from.
   const anchor = useRef<string | undefined>(undefined);
   const pending = section === "pending";
@@ -178,6 +187,7 @@ export function ReviewTable({
           const id = row.imported_transaction_id;
           const label = rowLabel(row);
           const waiting = busy.has(id);
+          const lock = lockOf(row);
           return (
             <TableRow
               key={id}
@@ -192,6 +202,7 @@ export function ReviewTable({
                   aria-label={t("selectRow", { row: label })}
                   className={checkboxClass}
                   checked={selected.has(id)}
+                  disabled={lock !== undefined}
                   onClick={onRowClick(id)}
                   onChange={() => undefined}
                 />
@@ -220,7 +231,7 @@ export function ReviewTable({
               </TableCell>
               {pending && (
                 <TableCell className="align-top">
-                  {categories !== undefined && categoryOf !== undefined && (
+                  {lock === undefined && categories !== undefined && categoryOf !== undefined && (
                     <div className="min-w-56">
                       <CategoryPicker
                         id={`review-category-${id}`}
@@ -238,39 +249,46 @@ export function ReviewTable({
                 </TableCell>
               )}
               <TableCell className="pr-4 align-top">
-                <div className="flex justify-end gap-2">
-                  {pending ? (
+                {lock !== undefined ? (
+                  <p className="text-right text-sm whitespace-normal text-muted-foreground">
+                    <LockIcon aria-hidden="true" className="mr-1 inline size-3.5 align-[-2px]" />
+                    {lock}
+                  </p>
+                ) : (
+                  <div className="flex justify-end gap-2">
+                    {pending ? (
+                      <Button
+                        size="sm"
+                        disabled={waiting}
+                        aria-label={t("acceptRow", { row: label })}
+                        onClick={() => onAccept?.(row)}
+                      >
+                        {t("accept")}
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={waiting}
+                        aria-label={t("keepRow", { row: label })}
+                        onClick={() => onKeep?.(row)}
+                      >
+                        {t("keep")}
+                      </Button>
+                    )}
                     <Button
                       size="sm"
+                      variant="ghost"
                       disabled={waiting}
-                      aria-label={t("acceptRow", { row: label })}
-                      onClick={() => onAccept?.(row)}
+                      aria-label={t("discardRow", { row: label })}
+                      onClick={() => {
+                        onDiscard(row);
+                      }}
                     >
-                      {t("accept")}
+                      {t("discard")}
                     </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={waiting}
-                      aria-label={t("keepRow", { row: label })}
-                      onClick={() => onKeep?.(row)}
-                    >
-                      {t("keep")}
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={waiting}
-                    aria-label={t("discardRow", { row: label })}
-                    onClick={() => {
-                      onDiscard(row);
-                    }}
-                  >
-                    {t("discard")}
-                  </Button>
-                </div>
+                  </div>
+                )}
               </TableCell>
             </TableRow>
           );

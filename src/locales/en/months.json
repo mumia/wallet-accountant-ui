@@ -1,0 +1,81 @@
+{
+  "title": "Months",
+  "loading": "Loading…",
+  "columns": {
+    "month": "Month",
+    "state": "State",
+    "pending": "Pending",
+    "suspected": "Suspected duplicates",
+    "uncategorised": "Uncategorised"
+  },
+  "states": {
+    "OPEN": "Open",
+    "CLOSED": "Closed",
+    "NOT_OPEN_YET": "Not open yet"
+  },
+  "awaiting": "Months open once the first Statement import records the Opening balance.",
+  "importFirst": "Import the first statement",
+  "previous": "Previous month: {{month}}",
+  "next": "Next month: {{month}}",
+  "noPrevious": "No earlier month",
+  "noNext": "No later month",
+  "notAMonth": "{{month}} isn't a month of this Account.",
+  "allMonths": "See all months",
+  "blockers": {
+    "title": "Before {{month}} can close",
+    "none": "Nothing stops {{month}} closing.",
+    "pending_one": "{{count}} row to review",
+    "pending_other": "{{count}} rows to review",
+    "suspected_one": "{{count}} Suspected duplicate to decide",
+    "suspected_other": "{{count}} Suspected duplicates to decide",
+    "uncategorised_one": "{{count}} Transaction in Uncategorised",
+    "uncategorised_other": "{{count}} Transactions in Uncategorised",
+    "unchecked": "A Statement import's Balance check is {{check}}",
+    "checks": {
+      "WAITING": "waiting",
+      "FAILED": "failed"
+    }
+  },
+  "refused": {
+    "title": "{{month}} can't close yet",
+    "mismatch": "The balances differ",
+    "computed": "Computed balance",
+    "statement": "Statement balance",
+    "difference": "Difference"
+  },
+  "close": {
+    "title": "Close month",
+    "statementBalance": "Statement balance",
+    "statementBalanceHelp": "The closing balance on your bank statement for {{month}}.",
+    "required": "Type the Statement balance",
+    "computed": "Computed balance {{computed}}",
+    "difference": "Difference {{difference}}",
+    "nothingBooked": "Nothing is booked to make them meet: find and correct the wrong entry.",
+    "seeTransactions": "See {{month}}'s Transactions",
+    "submit": "Close {{month}}",
+    "closing": "Closing…",
+    "consequence": "Closing makes {{month}} read-only, except Categories, and opens {{next}}.",
+    "notEnded": "You can close {{month}} from {{date}}.",
+    "closed": "{{month}} closed. {{next}} is open."
+  },
+  "closed": {
+    "statementBalance": "Statement balance",
+    "computedBalance": "Computed balance",
+    "closedOn": "Closed on {{date}}",
+    "reopen": "Reopen {{month}}",
+    "reopenBlocked": "{{open}} has Accepted Transactions. Reverse them first.",
+    "seeOpenTransactions": "See {{open}}'s Transactions",
+    "dialogTitle": "Reopen {{month}}?",
+    "dialogBody": "{{next}} goes back to not open yet and {{month}} becomes editable again. You'll need to close {{month}} again with its Statement balance.",
+    "cancel": "Cancel",
+    "confirm": "Reopen",
+    "reopening": "Reopening…",
+    "reopened": "{{month}} is open again."
+  },
+  "notOpenYet": {
+    "body": "{{month}} opens when {{open}} closes.",
+    "closeFirst": "Close {{open}} first",
+    "pending_one": "{{count}} row is waiting in {{month}}.",
+    "pending_other": "{{count}} rows are waiting in {{month}}."
+  }
+}
