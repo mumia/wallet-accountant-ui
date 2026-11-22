@@ -140,3 +140,8 @@ export function fingerprint(text: string): string {
   }
   return (hash >>> 0).toString(16);
 }
+
+/** The mock's currencies' decimal places, as `GET /currencies` serves them. */
+export function currencyPlaces(currency: string): number {
+  return ({ ETH: 18, EUR: 2, GBP: 2, JPY: 0, USD: 2 } as Record<string, number>)[currency] ?? 2;
+}

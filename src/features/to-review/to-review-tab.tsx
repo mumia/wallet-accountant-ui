@@ -21,7 +21,7 @@ import {
 } from "../../components/ui/dialog";
 import { accountMonths, defaultBookingMonth } from "../../lib/account-months";
 import { flattenCategories, isUncategorised, type CategoryNode } from "../../lib/categories";
-import { formatMonth, type Month } from "../../lib/month";
+import { formatMonth, monthOf, type Month } from "../../lib/month";
 import { ReviewTable } from "./review-table";
 import {
   useAllRows,
@@ -109,6 +109,7 @@ export function ToReviewTab({
         key={`${month}-${String(suspectedOnly)}`}
         householdId={householdId}
         accountId={accountId}
+        openMonth={account.open_month as Month}
         month={month === "all" ? undefined : month}
         suspectedOnly={suspectedOnly}
         onShowAll={() => void show({ booking_month: "all" })}
@@ -132,12 +133,14 @@ function byBookingDate(rows: ImportedTransaction[]): ImportedTransaction[] {
 function ReviewLists({
   householdId,
   accountId,
+  openMonth,
   month,
   suspectedOnly,
   onShowAll,
 }: {
   householdId: string;
   accountId: string;
+  openMonth: Month;
   month: Month | undefined;
   suspectedOnly: boolean;
   onShowAll: () => void;
@@ -177,6 +180,14 @@ function ReviewLists({
   const [toDiscard, setToDiscard] = useState<ImportedTransaction[]>();
 
   const uncategorised = uncategorisedId(categories);
+  // A Pending row booked after the open month waits for its month to open. A
+  // Suspected duplicate there can still be kept or Discarded.
+  const lockOf = (row: ImportedTransaction) => {
+    const rowMonth = monthOf(row.booking_date);
+    return row.state === "PENDING" && rowMonth > openMonth
+      ? t("notOpenYet", { month: formatMonth(rowMonth) })
+      : undefined;
+  };
   const categoryOf = (row: ImportedTransaction) =>
     chosen.get(row.imported_transaction_id) ?? uncategorised;
 
@@ -391,6 +402,7 @@ function ReviewLists({
                 busy={busy}
                 categories={categories}
                 categoryOf={categoryOf}
+                lockOf={lockOf}
                 onCategoryChange={(row, categoryId) => {
                   setChosen(
                     (current) => new Map([...current, [row.imported_transaction_id, categoryId]]),

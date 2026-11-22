@@ -5,6 +5,7 @@
 import type { components } from "../api/schema.gen";
 import type { ImportedRow, MockDb, MockState } from "./db";
 import { http, withExactAmounts } from "./http";
+import { monthOf, monthWords } from "./months";
 
 type Problem = components["schemas"]["Problem"];
 type ImportedTransaction = components["schemas"]["ImportedTransaction"];
@@ -109,6 +110,38 @@ function save(
   return shown(changed, rows);
 }
 
+/** The 409 of a row booked in a closed month, or (`notOpen`) in one not open yet. */
+function monthRefusal(state: MockState, accountId: string, row: ImportedRow, notOpen: boolean) {
+  const account = Object.values(state.accounts)
+    .flat()
+    .find(({ account_id }) => account_id === accountId);
+  if (account === undefined) {
+    return undefined;
+  }
+  const month = monthOf(row.booking_date);
+  if (month < account.open_month) {
+    return {
+      type: "/problems/month-closed",
+      title: "Month closed",
+      status: 409,
+      detail: `${monthWords(month)} is closed. Reopen it to change its entries.`,
+      booking_month: month,
+      open_month: account.open_month,
+    };
+  }
+  if (notOpen && month > account.open_month) {
+    return {
+      type: "/problems/month-not-open-yet",
+      title: "Month not open yet",
+      status: 409,
+      detail: `${monthWords(month)} isn't open yet. Close ${monthWords(account.open_month)} first.`,
+      booking_month: month,
+      open_month: account.open_month,
+    };
+  }
+  return undefined;
+}
+
 const rowPath = "/households/{household_id}/imported-transactions/{imported_transaction_id}";
 
 export function importedTransactionHandlers(db: MockDb) {
@@ -186,6 +219,10 @@ export function importedTransactionHandlers(db: MockDb) {
           ),
         );
       }
+      const refusedForMonth = monthRefusal(state, accountId, row, true);
+      if (refusedForMonth !== undefined) {
+        return response(409).json(refusedForMonth);
+      }
       const categories = state.categories[params.household_id] ?? [];
       const category =
         body.category_id === undefined
@@ -247,6 +284,11 @@ export function importedTransactionHandlers(db: MockDb) {
           ),
         );
       }
+      // A Suspected duplicate in a month not open yet can still be kept.
+      const refusedForMonth = monthRefusal(found.state, found.accountId, found.row, false);
+      if (refusedForMonth !== undefined) {
+        return response(409).json(refusedForMonth);
+      }
       const kept = save(db, found.accountId, { ...found.row, state: "PENDING" });
       return response.untyped(await withExactAmounts(response(200).json(kept)));
     }),
@@ -273,6 +315,16 @@ export function importedTransactionHandlers(db: MockDb) {
             "The Imported transaction is booked in the Ledger: reverse its Transaction first.",
           ),
         );
+      }
+      // A Suspected duplicate in a month not open yet can still be Discarded.
+      const refusedForMonth = monthRefusal(
+        found.state,
+        found.accountId,
+        found.row,
+        found.row.state === "PENDING",
+      );
+      if (refusedForMonth !== undefined) {
+        return response(409).json(refusedForMonth);
       }
       const discarded = save(db, found.accountId, { ...found.row, state: "DISCARDED" });
       return response.untyped(await withExactAmounts(response(200).json(discarded)));

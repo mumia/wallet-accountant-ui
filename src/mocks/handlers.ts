@@ -3,7 +3,9 @@ import { HttpResponse } from "msw";
 import type { components } from "../api/schema.gen";
 import { internalCategories, validInvitationCode, type MockDb } from "./db";
 import { http, withExactAmounts } from "./http";
+import { withCounts } from "./months";
 import { importedTransactionHandlers } from "./imported-transaction-handlers";
+import { monthHandlers } from "./month-handlers";
 import { statementImportHandlers } from "./statement-import-handlers";
 
 type Problem = components["schemas"]["Problem"];
@@ -182,7 +184,11 @@ export function createHandlers(db: MockDb) {
       const accounts = householdAccounts(db, params.household_id);
       return accounts === undefined
         ? response(404).json(notFound)
-        : response.untyped(await withExactAmounts(response(200).json({ items: accounts })));
+        : response.untyped(
+            await withExactAmounts(
+              response(200).json({ items: accounts.map((item) => withCounts(db.read(), item)) }),
+            ),
+          );
     }),
 
     http.get("/households/{household_id}/categories", ({ params, response }) => {
@@ -403,6 +409,9 @@ export function createHandlers(db: MockDb) {
         currency,
         start_date,
         awaiting_first_statement_import: true,
+        open_month: start_date.slice(0, 7),
+        pending: 0,
+        suspected_duplicates: 0,
       };
       const state = db.read();
       db.write({
@@ -426,6 +435,7 @@ export function createHandlers(db: MockDb) {
 
     ...statementImportHandlers(db),
     ...importedTransactionHandlers(db),
+    ...monthHandlers(db),
 
     http.get("/households/{household_id}/accounts/{account_id}", async ({ params, response }) => {
       const account = householdAccounts(db, params.household_id)?.find(
@@ -433,7 +443,9 @@ export function createHandlers(db: MockDb) {
       );
       return account === undefined
         ? response(404).json(notFound)
-        : response.untyped(await withExactAmounts(response(200).json(account)));
+        : response.untyped(
+            await withExactAmounts(response(200).json(withCounts(db.read(), account))),
+          );
     }),
   ];
 }

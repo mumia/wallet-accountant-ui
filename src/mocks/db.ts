@@ -20,6 +20,11 @@ type Notification = components["schemas"]["Notification"];
  */
 export type ImportedRow = Omit<ImportedTransaction, "resembles"> & { resembles_id?: string };
 
+export interface MonthClose {
+  statement_balance: components["schemas"]["Money"];
+  closed_at: string;
+}
+
 export interface MockState {
   registered: boolean;
   households: Household[];
@@ -39,6 +44,8 @@ export interface MockState {
   importedRows?: Record<string, ImportedRow[]>;
   /** Each Household's Notifications, by Household ID, newest first; `read` is the mock User's. */
   notifications?: Record<string, Notification[]>;
+  /** Each Account's Month closes, by Account ID, then by month (`2026-03`). */
+  monthCloses?: Record<string, Record<string, MonthClose>>;
   /**
    * The next `remaining` requests whose path ends with `pathEnd` (and that use
    * `method`, when given) fail with a 503.
@@ -71,6 +78,9 @@ export const seededAccounts: Account[] = [
     start_date: "2026-01-01",
     awaiting_first_statement_import: false,
     balance: { amount: "1234.50", currency: "EUR" },
+    open_month: "2026-11",
+    pending: 0,
+    suspected_duplicates: 0,
   },
   {
     account_id: "0190f5f2-7c00-7000-8000-000000000102",
@@ -79,6 +89,21 @@ export const seededAccounts: Account[] = [
     currency: "EUR",
     start_date: "2026-11-01",
     awaiting_first_statement_import: true,
+    open_month: "2026-11",
+    pending: 0,
+    suspected_duplicates: 0,
+  },
+  {
+    account_id: "0190f5f2-7c00-7000-8000-000000000103",
+    name: "Savings",
+    kind: "BANK_ACCOUNT",
+    currency: "EUR",
+    start_date: "2026-08-01",
+    awaiting_first_statement_import: false,
+    balance: { amount: "1802.10", currency: "EUR" },
+    open_month: "2026-10",
+    pending: 0,
+    suspected_duplicates: 0,
   },
 ];
 
@@ -183,6 +208,7 @@ function mainTransactions(categories: Category[]): AccountTransaction[] {
  * row, ISO dates and a signed amount with a decimal point.
  */
 export const mockCsvMapping: CsvMapping = {
+  encoding: "UTF_8",
   delimiter: ";",
   has_header_row: true,
   skip_leading_lines: 0,
@@ -202,6 +228,7 @@ export const mockCsvMapping: CsvMapping = {
 /** Credit card has a Connection, with a mapping, but no Statement import yet. */
 export const seededConnection: Connection = {
   connection_id: "0190f5f2-7c00-7000-8000-000000000201",
+  name: "Card statements",
   account_id: "0190f5f2-7c00-7000-8000-000000000102",
   kind: "STATEMENT_FILE_IMPORT",
   csv_mapping: mockCsvMapping,
@@ -215,6 +242,7 @@ export const seededConnection: Connection = {
 export const mainConnections: Connection[] = [
   {
     connection_id: "0190f5f2-7c00-7000-8000-000000000202",
+    name: "ING export",
     account_id: mainAccountId,
     kind: "STATEMENT_FILE_IMPORT",
     csv_mapping: mockCsvMapping,
@@ -222,6 +250,7 @@ export const mainConnections: Connection[] = [
   },
   {
     connection_id: "0190f5f2-7c00-7000-8000-000000000203",
+    name: "Old export",
     account_id: mainAccountId,
     kind: "STATEMENT_FILE_IMPORT",
   },
@@ -237,9 +266,11 @@ export const mainStatementImport: StatementImport = {
   rows_skipped_as_certain_repeats: 0,
   suspected_duplicates: 1,
   rows_ignored_before_start_date: 0,
+  rows_ignored_in_closed_months: 0,
   rows_total: { amount: "-315.50", currency: "EUR" },
   balance_check: "WAITING",
   imported_at: "2026-11-21T09:30:00Z",
+  void_blocked_by: [],
 };
 
 function importedRow(
@@ -264,12 +295,12 @@ function importedRow(
 }
 
 /**
- * Main's Imported transactions: two Accepted on 2026-11-14 (Albert Heijn
- * NL-1114-01, Shell NL-1114-02), one Pending in October, five Pending in
- * November, and a Suspected duplicate of Shell.
+ * Main's Imported transactions, all in its open month, November 2026: two
+ * Accepted on 2026-11-14 (Albert Heijn NL-1114-01, Shell NL-1114-02), six
+ * Pending, and a Suspected duplicate of Shell.
  */
 export const mainImportedRows: ImportedRow[] = [
-  importedRow(1, "2026-10-28", "Ikea", "-89.00"),
+  importedRow(1, "2026-11-02", "Ikea", "-89.00"),
   importedRow(2, "2026-11-14", "Albert Heijn", "-23.40", {
     state: "ACCEPTED",
     bank_transaction_id: "NL-1114-01",
@@ -289,6 +320,140 @@ export const mainImportedRows: ImportedRow[] = [
   importedRow(8, "2026-11-20", "NS Reizigers", "-6.40"),
   importedRow(9, "2026-11-20", "Tikkie from Sam", "15.00"),
 ];
+
+const savingsAccountId = "0190f5f2-7c00-7000-8000-000000000103";
+
+/** Savings' one Connection, which its first import came through. */
+export const savingsConnection: Connection = {
+  connection_id: "0190f5f2-7c00-7000-8000-000000000204",
+  name: "Savings statements",
+  account_id: savingsAccountId,
+  kind: "STATEMENT_FILE_IMPORT",
+  csv_mapping: mockCsvMapping,
+  csv_mapping_version: 1,
+};
+
+const savingsImport: StatementImport = {
+  statement_import_id: "0190f5f2-7c00-7000-8000-000000000402",
+  connection_id: savingsConnection.connection_id,
+  account_id: savingsAccountId,
+  export_balance: { amount: "1802.10", currency: "EUR" },
+  rows_imported: 5,
+  rows_skipped_as_certain_repeats: 0,
+  suspected_duplicates: 0,
+  rows_ignored_before_start_date: 0,
+  rows_ignored_in_closed_months: 0,
+  rows_total: { amount: "802.10", currency: "EUR" },
+  opening_balance: { amount: "1000.00", currency: "EUR" },
+  balance_check: "PASSED",
+  imported_at: "2026-08-02T09:00:00Z",
+  void_blocked_by: [],
+};
+
+function savingsRow(
+  number: number,
+  bookingDate: string,
+  description: string,
+  amount: string,
+  extra: Partial<ImportedRow> = {},
+): ImportedRow {
+  return {
+    imported_transaction_id: `0190f5f2-7c00-7000-8000-0000000007${String(number).padStart(2, "0")}`,
+    statement_import_id: savingsImport.statement_import_id,
+    state: "PENDING",
+    line: number + 1,
+    booking_date: bookingDate,
+    transaction_date: bookingDate,
+    amount: { amount: amount as ImportedRow["amount"]["amount"], currency: "EUR" },
+    description,
+    ...extra,
+  };
+}
+
+const savingsTransactionId = (n: number) =>
+  `0190f5f2-7c00-7000-8000-0000000008${String(n).padStart(2, "0")}`;
+
+/**
+ * Savings (start 2026-08-01): August and September closed, October open
+ * (a deposit Accepted, Interest pending), November not open yet (a deposit
+ * pending). Its months are for the Month close flows.
+ */
+function savingsData(categories: Category[]) {
+  const category = (name: string) => {
+    const found = categories.find((candidate) => candidate.name === name);
+    if (found === undefined) {
+      throw new Error(`No mock Category ${name}`);
+    }
+    return { category_id: found.category_id, category_name: found.name };
+  };
+  const deposits = ["2026-08-25", "2026-09-25", "2026-10-25"];
+  const rows: ImportedRow[] = [
+    ...deposits.map((date, index) =>
+      savingsRow(index + 1, date, "Transfer from Main", "200.00", {
+        state: "ACCEPTED",
+        transaction_id: savingsTransactionId(index + 1),
+      }),
+    ),
+    savingsRow(4, "2026-10-31", "Interest", "2.10"),
+    savingsRow(5, "2026-11-05", "Transfer from Main", "200.00"),
+  ];
+  const ledger: AccountTransaction[] = [
+    {
+      transaction_id: savingsTransactionId(0),
+      booking_date: "2026-08-01",
+      transaction_date: "2026-08-01",
+      description: "Opening balance",
+      amount: { amount: "1000.00", currency: "EUR" },
+      ...category("Opening balance"),
+    },
+    ...deposits.map((date, index) => ({
+      transaction_id: savingsTransactionId(index + 1),
+      booking_date: date,
+      transaction_date: date,
+      description: "Transfer from Main",
+      amount: { amount: "200.00" as const, currency: "EUR" },
+      imported_transaction_id: rows[index]?.imported_transaction_id ?? "",
+      ...category("Salary"),
+    })),
+  ];
+  const closes: Record<string, MonthClose> = {
+    "2026-08": {
+      statement_balance: { amount: "1200.00", currency: "EUR" },
+      closed_at: "2026-09-02T18:00:00Z",
+    },
+    "2026-09": {
+      statement_balance: { amount: "1400.00", currency: "EUR" },
+      closed_at: "2026-10-03T18:00:00Z",
+    },
+  };
+  return { rows, ledger, closes };
+}
+
+/**
+ * Main's closed months, January to October 2026, each closed on the 2nd of
+ * the next month with its computed balance as the Statement balance.
+ */
+function mainCloses(ledger: AccountTransaction[]): Record<string, MonthClose> {
+  const closes: Record<string, MonthClose> = {};
+  let cents = 0;
+  for (let month = 1; month <= 10; month += 1) {
+    const mm = `2026-${String(month).padStart(2, "0")}`;
+    for (const { booking_date, amount } of ledger) {
+      if (booking_date.startsWith(mm)) {
+        cents += Math.round(Number(amount.amount) * 100);
+      }
+    }
+    const next = month === 12 ? "2027-01" : `2026-${String(month + 1).padStart(2, "0")}`;
+    closes[mm] = {
+      statement_balance: {
+        amount: (cents / 100).toFixed(2) as AccountTransaction["amount"]["amount"],
+        currency: "EUR",
+      },
+      closed_at: `${next}-02T18:00:00Z`,
+    };
+  }
+  return closes;
+}
 
 /**
  * Home's Notifications, newest first: Main's latest import found a Suspected
@@ -352,6 +517,8 @@ export const scenarios = {
   }),
   household: () => {
     const home = homeCategories();
+    const main = mainTransactions(home);
+    const savings = savingsData(home);
     return {
       registered: true,
       households: [seededHousehold, secondHousehold],
@@ -359,15 +526,20 @@ export const scenarios = {
       connections: {
         [seededConnection.account_id]: [seededConnection],
         [mainAccountId]: mainConnections,
+        [savingsAccountId]: [savingsConnection],
       },
-      statementImports: { [mainStatementImport.connection_id]: [mainStatementImport] },
-      importedRows: { [mainAccountId]: mainImportedRows },
+      statementImports: {
+        [mainStatementImport.connection_id]: [mainStatementImport],
+        [savingsConnection.connection_id]: [savingsImport],
+      },
+      importedRows: { [mainAccountId]: mainImportedRows, [savingsAccountId]: savings.rows },
       notifications: { [seededHousehold.household_id]: homeNotifications },
       categories: {
         [seededHousehold.household_id]: home,
         [secondHousehold.household_id]: internalCategories(),
       },
-      transactions: { [mainAccountId]: mainTransactions(home) },
+      transactions: { [mainAccountId]: main, [savingsAccountId]: savings.ledger },
+      monthCloses: { [mainAccountId]: mainCloses(main), [savingsAccountId]: savings.closes },
     };
   },
 } satisfies Record<string, () => MockState>;
