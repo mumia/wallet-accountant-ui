@@ -27,12 +27,19 @@
   },
   "area": {
     "importStatement": "Import statement",
+    "actions": "More Account actions",
+    "rename": "Rename…",
     "tabs": "Account",
     "toReview": "To review",
     "transactions": "Transactions",
     "months": "Months",
     "statementImports": "Statement imports",
     "connections": "Connections"
+  },
+  "rename": {
+    "title": "Rename Account",
+    "description": "Only the name can change; the kind, Account currency and start date stay as they are.",
+    "submit": "Rename"
   },
   "gettingStarted": {
     "title": "Get started",

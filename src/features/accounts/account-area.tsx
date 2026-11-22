@@ -1,18 +1,25 @@
 import { Link, useSearch } from "@tanstack/react-router";
-import { UploadIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { EllipsisIcon, UploadIcon } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useApi } from "../../api/context";
 import { useAccountLabels } from "../../components/account-labels";
-import { buttonVariants } from "../../components/ui/button";
+import { Button, buttonVariants } from "../../components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
+import { RenameAccountDialog } from "./rename-account-dialog";
 
 const tabClass =
   "inline-flex min-h-11 items-center border-b-2 border-transparent px-3 text-sm font-medium text-muted-foreground hover:text-foreground data-[status=active]:border-primary data-[status=active]:text-foreground";
 
 /**
  * An Account's area (spec, "Screens and routes"): its header with "Import
- * statement", and the tabs To review, Transactions, Months, Statement imports
+ * statement" and a small menu (Rename…), and the tabs To review, Transactions, Months, Statement imports
  * and Connections. While the Account awaits its first Statement import no tab
  * is selected and the getting-started checklist shows.
  */
@@ -38,6 +45,7 @@ export function AccountArea({
   const { booking_month } = useSearch({ strict: false });
   const params = { householdId, accountId };
   const month = { booking_month };
+  const [renaming, setRenaming] = useState(false);
 
   return (
     <div className="mx-auto grid max-w-5xl gap-4">
@@ -49,15 +57,40 @@ export function AccountArea({
             <span className="tabular-nums">{labels.balance(account)}</span>
           </p>
         </div>
-        <Link
-          to="/households/$householdId/accounts/$accountId/statement-imports/new"
-          params={params}
-          className={buttonVariants()}
-        >
-          <UploadIcon aria-hidden="true" />
-          {t("area.importStatement")}
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/households/$householdId/accounts/$accountId/statement-imports/new"
+            params={params}
+            className={buttonVariants()}
+          >
+            <UploadIcon aria-hidden="true" />
+            {t("area.importStatement")}
+          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button variant="outline" size="icon" aria-label={t("area.actions")} />}
+            >
+              <EllipsisIcon aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  setRenaming(true);
+                }}
+              >
+                {t("area.rename")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </header>
+      <RenameAccountDialog
+        householdId={householdId}
+        accountId={accountId}
+        name={account.name}
+        open={renaming}
+        onOpenChange={setRenaming}
+      />
       <nav aria-label={t("area.tabs")} className="flex overflow-x-auto border-b">
         <Link
           to="/households/$householdId/accounts/$accountId/to-review"
