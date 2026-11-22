@@ -45,5 +45,11 @@ export function useWindowRows({
     after: virtual ? virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0) : 0,
     /** Put on each row with `data-index`, so rows of any height are measured. */
     measure: virtual ? virtualizer.measureElement : undefined,
+    /** Brings a row into view; only needed for a row that may not be rendered. */
+    scrollToIndex: (index: number) => {
+      if (virtual) {
+        virtualizer.scrollToIndex(index, { align: "center" });
+      }
+    },
   };
 }

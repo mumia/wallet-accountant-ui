@@ -7,13 +7,14 @@ export const Route = createFileRoute("/households/$householdId/accounts/$account
   validateSearch: transactionsSearch,
   component: function Transactions() {
     const { householdId, accountId } = Route.useParams();
-    const { booking_month, uncategorised } = Route.useSearch();
+    const { booking_month, uncategorised, transaction_id } = Route.useSearch();
     return (
       <TransactionsTab
         householdId={householdId}
         accountId={accountId}
         bookingMonth={booking_month}
         uncategorised={uncategorised === true}
+        highlighted={transaction_id}
       />
     );
   },

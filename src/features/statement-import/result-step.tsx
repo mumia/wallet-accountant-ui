@@ -71,6 +71,12 @@ export function ResultStep({
           />
           <Stat label={t("result.suspected")} value={String(result.suspected_duplicates)} />
           <Stat label={t("result.ignored")} value={String(result.rows_ignored_before_start_date)} />
+          {result.rows_ignored_in_closed_months > 0 && (
+            <Stat
+              label={t("result.ignoredClosed")}
+              value={String(result.rows_ignored_in_closed_months)}
+            />
+          )}
           {result.opening_balance !== undefined && (
             <Stat label={t("result.opening")} value={formatMoney(result.opening_balance)} />
           )}

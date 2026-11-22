@@ -253,6 +253,7 @@ export function importedTransactionHandlers(db: MockDb) {
         amount: row.amount,
         category_id: category.category_id,
         category_name: category.name,
+        imported_transaction_id: row.imported_transaction_id,
       };
       const accepted = save(
         db,

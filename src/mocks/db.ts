@@ -149,7 +149,9 @@ const mainAccountId = "0190f5f2-7c00-7000-8000-000000000101";
 /**
  * Main's Transactions: its Opening balance on 2026-01-01, then about two dozen
  * a month to November (more than one page of all months), with rent and salary
- * each month, some rows Uncategorised, and one reversed pair in October.
+ * each month, and one reversed pair in October. Only November, the open month,
+ * has Uncategorised rows (Bol.com and Tikkie): a closed month can't. The two
+ * Accepted Imported transactions of 2026-11-14 are among them.
  */
 function mainTransactions(categories: Category[]): AccountTransaction[] {
   const byName = (name: string) => {
@@ -179,8 +181,15 @@ function mainTransactions(categories: Category[]): AccountTransaction[] {
     const mm = String(month).padStart(2, "0");
     rows.push(row(`2026-${mm}-01`, "Rent", "-1150.00", "Rent"));
     for (let day = 2; day <= 23; day += 1) {
-      const [description, category] =
+      const [description, named] =
         descriptions[(month * 3 + day) % descriptions.length] ?? descriptions[0];
+      // Closing a month needed every row to have a Category.
+      const category =
+        month === 11 || named !== "Uncategorised"
+          ? named
+          : description === "Bol.com"
+            ? "Groceries"
+            : "Eating out";
       const cents = ((month * 37 + day * 53) % 9000) + 150;
       const dd = String(day).padStart(2, "0");
       rows.push(
@@ -194,12 +203,27 @@ function mainTransactions(categories: Category[]): AccountTransaction[] {
     }
     rows.push(row(`2026-${mm}-25`, "Salary", "3200.00", "Salary"));
   }
+  // A reversal is booked on the original's date, with its description.
   const original = row("2026-10-26", "Coolblue", "-249.00", "Uncategorised");
-  const reversal = row("2026-10-27", "Reversal: Coolblue", "249.00", "Uncategorised", {
+  const reversal = row("2026-10-26", "Coolblue", "249.00", "Uncategorised", {
     reversal_of_transaction_id: original.transaction_id,
   });
   original.reversed_by_transaction_id = reversal.transaction_id;
   rows.push(original, reversal);
+  for (const accepted of mainImportedRows.filter(({ state }) => state === "ACCEPTED")) {
+    rows.push(
+      row(
+        accepted.booking_date,
+        accepted.description,
+        accepted.amount.amount,
+        accepted.description === "Shell" ? "Transport" : "Groceries",
+        {
+          transaction_id: acceptedTransactionId(accepted.imported_transaction_id),
+          imported_transaction_id: accepted.imported_transaction_id,
+        },
+      ),
+    );
+  }
   return rows.sort((a, b) => a.booking_date.localeCompare(b.booking_date));
 }
 
@@ -294,6 +318,11 @@ function importedRow(
   };
 }
 
+/** The Transaction an Accepted row of Main recorded: …0005NN becomes …0009NN. */
+function acceptedTransactionId(importedTransactionId: string): string {
+  return importedTransactionId.replace(/05(\d\d)$/, "09$1");
+}
+
 /**
  * Main's Imported transactions, all in its open month, November 2026: two
  * Accepted on 2026-11-14 (Albert Heijn NL-1114-01, Shell NL-1114-02), six
@@ -304,10 +333,12 @@ export const mainImportedRows: ImportedRow[] = [
   importedRow(2, "2026-11-14", "Albert Heijn", "-23.40", {
     state: "ACCEPTED",
     bank_transaction_id: "NL-1114-01",
+    transaction_id: acceptedTransactionId("0190f5f2-7c00-7000-8000-000000000502"),
   }),
   importedRow(3, "2026-11-14", "Shell", "-38.50", {
     state: "ACCEPTED",
     bank_transaction_id: "NL-1114-02",
+    transaction_id: acceptedTransactionId("0190f5f2-7c00-7000-8000-000000000503"),
   }),
   importedRow(4, "2026-11-14", "Shell Station 42", "-38.50", {
     state: "SUSPECTED_DUPLICATE",

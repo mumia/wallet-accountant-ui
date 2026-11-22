@@ -56,6 +56,9 @@ describe.each(profiles)("the $preset $scheme theme", ({ preset, scheme }) => {
     const percent = scheme === "light" ? 10 : 20;
     const tint = tokens.destructive.replace(")", ` / ${String(percent)}%)`);
     expect(contrast(tokens.destructive, over(tint, tokens.background))).toBeGreaterThanOrEqual(4.5);
+    // In a dialog's footer: bg-muted/50 over the popover.
+    const footer = over(tokens.muted.replace(")", " / 50%)"), tokens.popover);
+    expect(contrast(tokens.destructive, over(tint, footer))).toBeGreaterThanOrEqual(4.5);
   });
 });
 

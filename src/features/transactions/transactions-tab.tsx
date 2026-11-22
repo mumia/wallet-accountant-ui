@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, LockIcon } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -16,13 +16,15 @@ import {
   useMonthTransactions,
   type AccountTransaction,
 } from "./transactions-query";
-import { TransactionsTable } from "./transactions-table";
+import { isReversalPair, TransactionsTable } from "./transactions-table";
 
 interface TransactionsTabProps {
   householdId: string;
   accountId: string;
   bookingMonth: MonthChoice | undefined;
   uncategorised: boolean;
+  /** A Transaction to highlight. */
+  highlighted: string | undefined;
 }
 
 /**
@@ -34,6 +36,7 @@ export function TransactionsTab({
   accountId,
   bookingMonth,
   uncategorised,
+  highlighted,
 }: TransactionsTabProps) {
   const { t } = useTranslation("transactions");
   const { api } = useApi();
@@ -50,6 +53,7 @@ export function TransactionsTab({
   });
   const month = bookingMonth ?? defaultBookingMonth();
   const months = useMemo(() => accountMonths(account), [account]);
+  const openMonth = account.open_month as Month;
 
   const show = (search: { booking_month: MonthChoice; uncategorised?: true }) =>
     navigate({
@@ -90,6 +94,8 @@ export function TransactionsTab({
           householdId={householdId}
           accountId={accountId}
           categories={categories.data?.items}
+          openMonth={openMonth}
+          highlighted={highlighted}
         />
       ) : (
         <OneMonth
@@ -101,6 +107,8 @@ export function TransactionsTab({
           month={month}
           uncategorised={uncategorised}
           categories={categories.data?.items}
+          openMonth={openMonth}
+          highlighted={highlighted}
           onShowAll={() => void show({ booking_month: "all" })}
           onShowEverything={() => void show({ booking_month: month })}
         />
@@ -109,8 +117,20 @@ export function TransactionsTab({
   );
 }
 
-function uncategorisedId(categories: CategoryNode[] | undefined): string | undefined {
-  return flattenCategories(categories ?? []).find(isUncategorised)?.id;
+/**
+ * The month's Uncategorised Transactions, by the Uncategorised Category's ID:
+ * reversals and reversed originals don't count, as the backend counts them.
+ */
+function uncategorisedRows(
+  transactions: readonly AccountTransaction[],
+  categories: CategoryNode[] | undefined,
+): AccountTransaction[] | undefined {
+  const uncategorised = flattenCategories(categories ?? []).find(isUncategorised)?.id;
+  return uncategorised === undefined
+    ? undefined
+    : transactions.filter(
+        (transaction) => transaction.category_id === uncategorised && !isReversalPair(transaction),
+      );
 }
 
 function UncategorisedChip({
@@ -165,11 +185,7 @@ function MonthChip({
   onToggle: () => void;
 }) {
   const { data } = useMonthTransactions(householdId, accountId, month);
-  const uncategorised = uncategorisedId(categories);
-  const count =
-    data === undefined || uncategorised === undefined
-      ? undefined
-      : data.filter(({ category_id }) => category_id === uncategorised).length;
+  const count = data === undefined ? undefined : uncategorisedRows(data, categories)?.length;
   return (
     <UncategorisedChip
       pressed={pressed}
@@ -185,6 +201,8 @@ function OneMonth({
   month,
   uncategorised,
   categories,
+  openMonth,
+  highlighted,
   onShowAll,
   onShowEverything,
 }: {
@@ -193,18 +211,19 @@ function OneMonth({
   month: Month;
   uncategorised: boolean;
   categories: CategoryNode[] | undefined;
+  openMonth: Month;
+  highlighted: string | undefined;
   onShowAll: () => void;
   onShowEverything: () => void;
 }) {
   const { t } = useTranslation("transactions");
   const query = useMonthTransactions(householdId, accountId, month);
-  const uncategorisedCategory = uncategorisedId(categories);
-  // Under the filter, a row given a Category stays until the filter changes or
-  // the page reloads, so it doesn't vanish under the User's pointer.
+  // Under the filter, a row given a Category (or reversed) stays until the
+  // filter changes or the page reloads, so it doesn't vanish under the User's
+  // pointer.
   const [kept, setKept] = useState<ReadonlySet<string>>(new Set());
-  const matching = (query.data ?? []).filter(
-    ({ category_id }) => category_id === uncategorisedCategory,
-  );
+  const matching = uncategorisedRows(query.data ?? [], categories) ?? [];
+  const matchingIds = new Set(matching.map(({ transaction_id }) => transaction_id));
   const unseen = matching.filter(({ transaction_id }) => !kept.has(transaction_id));
   if (uncategorised && unseen.length > 0) {
     setKept(new Set([...kept, ...unseen.map(({ transaction_id }) => transaction_id)]));
@@ -218,10 +237,10 @@ function OneMonth({
   }
   const rows: AccountTransaction[] = uncategorised
     ? query.data.filter(
-        ({ transaction_id, category_id }) =>
-          kept.has(transaction_id) || category_id === uncategorisedCategory,
+        ({ transaction_id }) => kept.has(transaction_id) || matchingIds.has(transaction_id),
       )
     : query.data;
+  const closed = month < openMonth;
 
   if (rows.length === 0) {
     return uncategorised ? (
@@ -239,16 +258,26 @@ function OneMonth({
     );
   }
   return (
-    <Card className="py-0">
-      <CardContent className="px-0">
-        <TransactionsTable
-          householdId={householdId}
-          accountId={accountId}
-          transactions={rows}
-          categories={categories}
-        />
-      </CardContent>
-    </Card>
+    <>
+      {closed && (
+        <p className="text-sm text-muted-foreground">
+          <LockIcon aria-hidden="true" className="mr-1 inline size-3.5 align-[-2px]" />
+          {t("closedNote", { month: formatMonth(month) })}
+        </p>
+      )}
+      <Card className="py-0">
+        <CardContent className="px-0">
+          <TransactionsTable
+            householdId={householdId}
+            accountId={accountId}
+            transactions={rows}
+            categories={categories}
+            openMonth={openMonth}
+            highlighted={highlighted}
+          />
+        </CardContent>
+      </Card>
+    </>
   );
 }
 
@@ -256,10 +285,14 @@ function AllMonths({
   householdId,
   accountId,
   categories,
+  openMonth,
+  highlighted,
 }: {
   householdId: string;
   accountId: string;
   categories: CategoryNode[] | undefined;
+  openMonth: Month;
+  highlighted: string | undefined;
 }) {
   const { t } = useTranslation("transactions");
   const query = useAllTransactions(householdId, accountId);
@@ -303,6 +336,8 @@ function AllMonths({
             accountId={accountId}
             transactions={rows}
             categories={categories}
+            openMonth={openMonth}
+            highlighted={highlighted}
             virtual
             onNearEnd={loadMore}
           />

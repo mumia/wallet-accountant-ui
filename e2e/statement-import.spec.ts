@@ -161,6 +161,8 @@ test("a later import chooses the Connection and reports repeats and Suspected du
       // The same Booking date and amount as Shell, another ID: a Suspected duplicate.
       "2026-11-14;Shell Express;-38.50;NL-1114-09",
       "2026-11-16;Jumbo;-10.00;NL-1116-01",
+      // Main's October is closed: ignored.
+      "2026-10-30;Jumbo;-7.00;NL-1030-01",
     ]),
   );
   await exportBalance(page).fill("1000");
@@ -175,6 +177,7 @@ test("a later import chooses the Connection and reports repeats and Suspected du
   await expect(stat(page, "Imported")).toHaveText("2");
   await expect(stat(page, "Skipped as certain repeats")).toHaveText("1");
   await expect(stat(page, "Suspected duplicates")).toHaveText("1");
+  await expect(stat(page, "Ignored, in closed months")).toHaveText("1");
   await expect(stat(page, "Opening balance recorded")).toHaveCount(0);
   await expectAccessible(page);
 
