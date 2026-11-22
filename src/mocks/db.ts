@@ -8,6 +8,17 @@ type Account = components["schemas"]["Account"];
 type Connection = components["schemas"]["Connection"];
 type Category = components["schemas"]["Category"];
 type AccountTransaction = components["schemas"]["AccountTransaction"];
+type StatementImport = components["schemas"]["StatementImport"];
+type CsvMapping = components["schemas"]["CsvMapping"];
+
+/** A row a Statement import brought in, as the mock remembers it for repeats. */
+export interface ImportedRow {
+  statement_import_id: string;
+  booking_date: string;
+  description: string;
+  amount: string;
+  bank_transaction_id?: string;
+}
 
 export interface MockState {
   registered: boolean;
@@ -20,6 +31,12 @@ export interface MockState {
   categories: Record<string, Category[]>;
   /** Each Account's Transactions, by Account ID, in Booking date order. */
   transactions: Record<string, AccountTransaction[]>;
+  /** Each Connection's Statement imports, by Connection ID, in the order recorded. */
+  statementImports?: Record<string, StatementImport[]>;
+  /** The fingerprint of each Statement import's file, by Statement import ID. */
+  statementFiles?: Record<string, string>;
+  /** Each Account's Imported transactions, by Account ID. */
+  importedRows?: Record<string, ImportedRow[]>;
   /**
    * The next `remaining` requests whose path ends with `pathEnd` (and that use
    * `method`, when given) fail with a 503.
@@ -159,12 +176,86 @@ function mainTransactions(categories: Category[]): AccountTransaction[] {
   return rows.sort((a, b) => a.booking_date.localeCompare(b.booking_date));
 }
 
-/** Credit card has a Connection but no Statement import yet. */
+/**
+ * The mapping of the mock bank's files: `Date;Description;Amount;Id`, a header
+ * row, ISO dates and a signed amount with a decimal point.
+ */
+export const mockCsvMapping: CsvMapping = {
+  delimiter: ";",
+  has_header_row: true,
+  skip_leading_lines: 0,
+  date_format: "YYYY-MM-DD",
+  decimal_separator: ".",
+  thousands_separator: "",
+  amount_layout: "SIGNED",
+  positive_amount_means: "MONEY_IN",
+  columns: {
+    booking_date: { header: "Date" },
+    description: { header: "Description" },
+    amount: { header: "Amount" },
+    bank_transaction_id: { header: "Id" },
+  },
+};
+
+/** Credit card has a Connection, with a mapping, but no Statement import yet. */
 export const seededConnection: Connection = {
   connection_id: "0190f5f2-7c00-7000-8000-000000000201",
   account_id: "0190f5f2-7c00-7000-8000-000000000102",
   kind: "STATEMENT_FILE_IMPORT",
+  csv_mapping: mockCsvMapping,
+  csv_mapping_version: 1,
 };
+
+/**
+ * Main has two Connections: "Connection 1", which its Statement imports came
+ * through, and "Connection 2", made through the API without a mapping.
+ */
+export const mainConnections: Connection[] = [
+  {
+    connection_id: "0190f5f2-7c00-7000-8000-000000000202",
+    account_id: mainAccountId,
+    kind: "STATEMENT_FILE_IMPORT",
+    csv_mapping: mockCsvMapping,
+    csv_mapping_version: 3,
+  },
+  {
+    connection_id: "0190f5f2-7c00-7000-8000-000000000203",
+    account_id: mainAccountId,
+    kind: "STATEMENT_FILE_IMPORT",
+  },
+];
+
+/** Main's latest Statement import, through Connection 1, which brought `mainImportedRows`. */
+export const mainStatementImport: StatementImport = {
+  statement_import_id: "0190f5f2-7c00-7000-8000-000000000401",
+  connection_id: "0190f5f2-7c00-7000-8000-000000000202",
+  account_id: mainAccountId,
+  export_balance: { amount: "1234.50", currency: "EUR" },
+  rows_imported: 2,
+  rows_skipped_as_certain_repeats: 0,
+  suspected_duplicates: 0,
+  rows_ignored_before_start_date: 0,
+  rows_total: { amount: "-61.90", currency: "EUR" },
+  balance_check: "PASSED",
+  imported_at: "2026-11-15T09:30:00Z",
+};
+
+const mainImportedRows: ImportedRow[] = [
+  {
+    statement_import_id: mainStatementImport.statement_import_id,
+    booking_date: "2026-11-14",
+    description: "Albert Heijn",
+    amount: "-23.40",
+    bank_transaction_id: "NL-1114-01",
+  },
+  {
+    statement_import_id: mainStatementImport.statement_import_id,
+    booking_date: "2026-11-14",
+    description: "Shell",
+    amount: "-38.50",
+    bank_transaction_id: "NL-1114-02",
+  },
+];
 
 /**
  * Where a session starts: `new-user` has signed in but not redeemed an
@@ -194,7 +285,12 @@ export const scenarios = {
       registered: true,
       households: [seededHousehold, secondHousehold],
       accounts: { [seededHousehold.household_id]: seededAccounts },
-      connections: { [seededConnection.account_id]: [seededConnection] },
+      connections: {
+        [seededConnection.account_id]: [seededConnection],
+        [mainAccountId]: mainConnections,
+      },
+      statementImports: { [mainStatementImport.connection_id]: [mainStatementImport] },
+      importedRows: { [mainAccountId]: mainImportedRows },
       categories: {
         [seededHousehold.household_id]: home,
         [secondHousehold.household_id]: internalCategories(),

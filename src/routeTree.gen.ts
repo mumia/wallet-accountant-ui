@@ -22,6 +22,7 @@ import { Route as HouseholdsHouseholdIdAccountsAccountIdMonthsRouteImport } from
 import { Route as HouseholdsHouseholdIdAccountsAccountIdToReviewRouteImport } from './routes/households/$householdId/accounts/$accountId/to-review'
 import { Route as HouseholdsHouseholdIdAccountsAccountIdTransactionsRouteImport } from './routes/households/$householdId/accounts/$accountId/transactions'
 import { Route as HouseholdsHouseholdIdAccountsAccountIdConnectionsIndexRouteImport } from './routes/households/$householdId/accounts/$accountId/connections/index'
+import { Route as HouseholdsHouseholdIdAccountsAccountIdConnectionsConnectionIdRouteImport } from './routes/households/$householdId/accounts/$accountId/connections/$connectionId'
 import { Route as HouseholdsHouseholdIdAccountsAccountIdConnectionsNewRouteImport } from './routes/households/$householdId/accounts/$accountId/connections/new'
 import { Route as HouseholdsHouseholdIdAccountsAccountIdStatementImportsIndexRouteImport } from './routes/households/$householdId/accounts/$accountId/statement-imports/index'
 import { Route as HouseholdsHouseholdIdAccountsAccountIdStatementImportsNewRouteImport } from './routes/households/$householdId/accounts/$accountId/statement-imports/new'
@@ -100,6 +101,14 @@ const HouseholdsHouseholdIdAccountsAccountIdConnectionsIndexRoute =
     path: '/connections/',
     getParentRoute: () => HouseholdsHouseholdIdAccountsAccountIdRouteRoute,
   } as any)
+const HouseholdsHouseholdIdAccountsAccountIdConnectionsConnectionIdRoute =
+  HouseholdsHouseholdIdAccountsAccountIdConnectionsConnectionIdRouteImport.update(
+    {
+      id: '/connections/$connectionId',
+      path: '/connections/$connectionId',
+      getParentRoute: () => HouseholdsHouseholdIdAccountsAccountIdRouteRoute,
+    } as any,
+  )
 const HouseholdsHouseholdIdAccountsAccountIdConnectionsNewRoute =
   HouseholdsHouseholdIdAccountsAccountIdConnectionsNewRouteImport.update({
     id: '/connections/new',
@@ -134,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/households/$householdId/accounts/$accountId/to-review': typeof HouseholdsHouseholdIdAccountsAccountIdToReviewRoute
   '/households/$householdId/accounts/$accountId/transactions': typeof HouseholdsHouseholdIdAccountsAccountIdTransactionsRoute
   '/households/$householdId/accounts/$accountId/': typeof HouseholdsHouseholdIdAccountsAccountIdIndexRoute
+  '/households/$householdId/accounts/$accountId/connections/$connectionId': typeof HouseholdsHouseholdIdAccountsAccountIdConnectionsConnectionIdRoute
   '/households/$householdId/accounts/$accountId/connections/new': typeof HouseholdsHouseholdIdAccountsAccountIdConnectionsNewRoute
   '/households/$householdId/accounts/$accountId/statement-imports/new': typeof HouseholdsHouseholdIdAccountsAccountIdStatementImportsNewRoute
   '/households/$householdId/accounts/$accountId/connections/': typeof HouseholdsHouseholdIdAccountsAccountIdConnectionsIndexRoute
@@ -150,6 +160,7 @@ export interface FileRoutesByTo {
   '/households/$householdId/accounts/$accountId/to-review': typeof HouseholdsHouseholdIdAccountsAccountIdToReviewRoute
   '/households/$householdId/accounts/$accountId/transactions': typeof HouseholdsHouseholdIdAccountsAccountIdTransactionsRoute
   '/households/$householdId/accounts/$accountId': typeof HouseholdsHouseholdIdAccountsAccountIdIndexRoute
+  '/households/$householdId/accounts/$accountId/connections/$connectionId': typeof HouseholdsHouseholdIdAccountsAccountIdConnectionsConnectionIdRoute
   '/households/$householdId/accounts/$accountId/connections/new': typeof HouseholdsHouseholdIdAccountsAccountIdConnectionsNewRoute
   '/households/$householdId/accounts/$accountId/statement-imports/new': typeof HouseholdsHouseholdIdAccountsAccountIdStatementImportsNewRoute
   '/households/$householdId/accounts/$accountId/connections': typeof HouseholdsHouseholdIdAccountsAccountIdConnectionsIndexRoute
@@ -169,6 +180,7 @@ export interface FileRoutesById {
   '/households/$householdId/accounts/$accountId/to-review': typeof HouseholdsHouseholdIdAccountsAccountIdToReviewRoute
   '/households/$householdId/accounts/$accountId/transactions': typeof HouseholdsHouseholdIdAccountsAccountIdTransactionsRoute
   '/households/$householdId/accounts/$accountId/': typeof HouseholdsHouseholdIdAccountsAccountIdIndexRoute
+  '/households/$householdId/accounts/$accountId/connections/$connectionId': typeof HouseholdsHouseholdIdAccountsAccountIdConnectionsConnectionIdRoute
   '/households/$householdId/accounts/$accountId/connections/new': typeof HouseholdsHouseholdIdAccountsAccountIdConnectionsNewRoute
   '/households/$householdId/accounts/$accountId/statement-imports/new': typeof HouseholdsHouseholdIdAccountsAccountIdStatementImportsNewRoute
   '/households/$householdId/accounts/$accountId/connections/': typeof HouseholdsHouseholdIdAccountsAccountIdConnectionsIndexRoute
@@ -189,6 +201,7 @@ export interface FileRouteTypes {
     | '/households/$householdId/accounts/$accountId/to-review'
     | '/households/$householdId/accounts/$accountId/transactions'
     | '/households/$householdId/accounts/$accountId/'
+    | '/households/$householdId/accounts/$accountId/connections/$connectionId'
     | '/households/$householdId/accounts/$accountId/connections/new'
     | '/households/$householdId/accounts/$accountId/statement-imports/new'
     | '/households/$householdId/accounts/$accountId/connections/'
@@ -205,6 +218,7 @@ export interface FileRouteTypes {
     | '/households/$householdId/accounts/$accountId/to-review'
     | '/households/$householdId/accounts/$accountId/transactions'
     | '/households/$householdId/accounts/$accountId'
+    | '/households/$householdId/accounts/$accountId/connections/$connectionId'
     | '/households/$householdId/accounts/$accountId/connections/new'
     | '/households/$householdId/accounts/$accountId/statement-imports/new'
     | '/households/$householdId/accounts/$accountId/connections'
@@ -223,6 +237,7 @@ export interface FileRouteTypes {
     | '/households/$householdId/accounts/$accountId/to-review'
     | '/households/$householdId/accounts/$accountId/transactions'
     | '/households/$householdId/accounts/$accountId/'
+    | '/households/$householdId/accounts/$accountId/connections/$connectionId'
     | '/households/$householdId/accounts/$accountId/connections/new'
     | '/households/$householdId/accounts/$accountId/statement-imports/new'
     | '/households/$householdId/accounts/$accountId/connections/'
@@ -330,6 +345,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HouseholdsHouseholdIdAccountsAccountIdConnectionsIndexRouteImport
       parentRoute: typeof HouseholdsHouseholdIdAccountsAccountIdRouteRoute
     }
+    '/households/$householdId/accounts/$accountId/connections/$connectionId': {
+      id: '/households/$householdId/accounts/$accountId/connections/$connectionId'
+      path: '/connections/$connectionId'
+      fullPath: '/households/$householdId/accounts/$accountId/connections/$connectionId'
+      preLoaderRoute: typeof HouseholdsHouseholdIdAccountsAccountIdConnectionsConnectionIdRouteImport
+      parentRoute: typeof HouseholdsHouseholdIdAccountsAccountIdRouteRoute
+    }
     '/households/$householdId/accounts/$accountId/connections/new': {
       id: '/households/$householdId/accounts/$accountId/connections/new'
       path: '/connections/new'
@@ -359,6 +381,7 @@ interface HouseholdsHouseholdIdAccountsAccountIdRouteRouteChildren {
   HouseholdsHouseholdIdAccountsAccountIdToReviewRoute: typeof HouseholdsHouseholdIdAccountsAccountIdToReviewRoute
   HouseholdsHouseholdIdAccountsAccountIdTransactionsRoute: typeof HouseholdsHouseholdIdAccountsAccountIdTransactionsRoute
   HouseholdsHouseholdIdAccountsAccountIdIndexRoute: typeof HouseholdsHouseholdIdAccountsAccountIdIndexRoute
+  HouseholdsHouseholdIdAccountsAccountIdConnectionsConnectionIdRoute: typeof HouseholdsHouseholdIdAccountsAccountIdConnectionsConnectionIdRoute
   HouseholdsHouseholdIdAccountsAccountIdConnectionsNewRoute: typeof HouseholdsHouseholdIdAccountsAccountIdConnectionsNewRoute
   HouseholdsHouseholdIdAccountsAccountIdStatementImportsNewRoute: typeof HouseholdsHouseholdIdAccountsAccountIdStatementImportsNewRoute
   HouseholdsHouseholdIdAccountsAccountIdConnectionsIndexRoute: typeof HouseholdsHouseholdIdAccountsAccountIdConnectionsIndexRoute
@@ -375,6 +398,8 @@ const HouseholdsHouseholdIdAccountsAccountIdRouteRouteChildren: HouseholdsHouseh
       HouseholdsHouseholdIdAccountsAccountIdTransactionsRoute,
     HouseholdsHouseholdIdAccountsAccountIdIndexRoute:
       HouseholdsHouseholdIdAccountsAccountIdIndexRoute,
+    HouseholdsHouseholdIdAccountsAccountIdConnectionsConnectionIdRoute:
+      HouseholdsHouseholdIdAccountsAccountIdConnectionsConnectionIdRoute,
     HouseholdsHouseholdIdAccountsAccountIdConnectionsNewRoute:
       HouseholdsHouseholdIdAccountsAccountIdConnectionsNewRoute,
     HouseholdsHouseholdIdAccountsAccountIdStatementImportsNewRoute:

@@ -21,3 +21,4 @@ Waits on backend: yes. Needs Connection `name`, `CsvMapping.encoding`, the mappi
 ## Notes
 
 - From ticket 08: `…/accounts/$accountId/connections/index.tsx` and `connections/new.tsx` are stubs; the getting-started checklist links to `connections/new`. Its step 1 shows "Connection created." without a name until the backend adds one.
+- From ticket 12: Connection names come from one seam, `components/connection-names.ts` (`useConnectionNames`: "Connection 1", "Connection 2" by creation order). Swap its body for `name`, sorted by name. `connections/$connectionId.tsx` is a stub; the import flow links to it ("Edit" on a Connection without a mapping, "Edit the Connection's CSV mapping" on a refusal), and so does `connections/new` ("Create a Connection"). Both should return to `statement-imports/new` after Save. The Connections tab's "Import statement" row action uses `?connection_id=` (`newStatementImportSearch` in `lib/search.ts`).

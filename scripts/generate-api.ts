@@ -1,9 +1,11 @@
 // Generates src/api/schema.gen.ts from the pinned contract, src/api/openapi.yaml
 // (docs/architecture/conventions.md, "API client"). Run with `make generate`.
 //
-// Two mappings on top of openapi-typescript's defaults:
+// Three mappings on top of openapi-typescript's defaults:
 // - `format: decimal` (Money.amount) becomes `Decimal`, exact decimal text,
 //   never a JS number (ADR-0002);
+// - `format: binary` (an uploaded file) becomes `Blob`, what a multipart body
+//   carries, not openapi-typescript's `string`;
 // - `x-extensible-enum` becomes its known values plus any other string. The
 //   known values document the field; TypeScript folds them into the string, so
 //   code that names them keeps its own list, tested against the contract
@@ -18,6 +20,7 @@ const target = new URL("../src/api/schema.gen.ts", import.meta.url);
 
 const { factory } = ts;
 const decimal = factory.createTypeReferenceNode("Decimal");
+const blob = factory.createTypeReferenceNode("Blob");
 // `${string}`, not `string & {}`: openapi-fetch's `Readable` maps that
 // intersection as an object, so a response's value would stop being a string.
 const anyOtherString = factory.createTemplateLiteralType(factory.createTemplateHead(""), [
@@ -35,6 +38,9 @@ const ast = await openapiTS(source, {
   transform(schema) {
     if (schema.format === "decimal") {
       return decimal;
+    }
+    if (schema.format === "binary") {
+      return blob;
     }
     const known: unknown = (schema as Record<string, unknown>)["x-extensible-enum"];
     if (isStringArray(known)) {

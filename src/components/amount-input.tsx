@@ -1,7 +1,9 @@
-import { useId, useState } from "react";
+import { useId, useState, type ClipboardEventHandler } from "react";
 import { useTranslation } from "react-i18next";
 
 import { formatDecimal, parseAmountInput, type Decimal } from "../lib/money";
+import { Field, FieldDescription, FieldError, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
 
 interface AmountInputProps {
   /** What the amount is, such as "Export balance"; the currency is added to it. */
@@ -15,6 +17,12 @@ interface AmountInputProps {
   onValueChange: (value: Decimal | null) => void;
   /** An error from the form, such as "Required"; the field's own errors come first. */
   error?: string;
+  /** Help shown under the field and linked to it. */
+  description?: string;
+  /** Called when the field loses focus, after it formats its text. */
+  onBlur?: () => void;
+  /** Called on a paste; `event.preventDefault()` refuses it. */
+  onPaste?: ClipboardEventHandler<HTMLInputElement>;
   name?: string;
   required?: boolean;
   disabled?: boolean;
@@ -35,6 +43,9 @@ export function AmountInput({
   value,
   onValueChange,
   error,
+  description,
+  onBlur,
+  onPaste,
   name,
   required,
   disabled,
@@ -43,6 +54,7 @@ export function AmountInput({
   const { t } = useTranslation();
   const id = useId();
   const errorId = `${id}-error`;
+  const descriptionId = `${id}-description`;
   const [text, setText] = useState(() => (value === null ? "" : formatDecimal(value, locale)));
   const [touched, setTouched] = useState(false);
   // The value the text last stood for: when the form changes `value` itself
@@ -69,10 +81,17 @@ export function AmountInput({
   }
   const shownError = ownError ?? error;
 
+  const describedBy = [
+    description === undefined ? undefined : descriptionId,
+    shownError === undefined ? undefined : errorId,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div>
-      <label htmlFor={id}>{t("amountInput.label", { label, currency })}</label>
-      <input
+    <Field data-invalid={shownError !== undefined}>
+      <FieldLabel htmlFor={id}>{t("amountInput.label", { label, currency })}</FieldLabel>
+      <Input
         id={id}
         name={name}
         type="text"
@@ -82,8 +101,9 @@ export function AmountInput({
         required={required}
         disabled={disabled}
         value={text}
+        className="max-w-60 text-right tabular-nums"
         aria-invalid={shownError !== undefined}
-        aria-describedby={shownError === undefined ? undefined : errorId}
+        aria-describedby={describedBy === "" ? undefined : describedBy}
         onChange={(event) => {
           const next = event.target.value;
           setText(next);
@@ -97,9 +117,14 @@ export function AmountInput({
           if (parsed.kind === "ok") {
             setText(formatDecimal(parsed.amount, locale));
           }
+          onBlur?.();
         }}
+        onPaste={onPaste}
       />
-      {shownError !== undefined && <p id={errorId}>{shownError}</p>}
-    </div>
+      {description !== undefined && (
+        <FieldDescription id={descriptionId}>{description}</FieldDescription>
+      )}
+      {shownError !== undefined && <FieldError id={errorId}>{shownError}</FieldError>}
+    </Field>
   );
 }

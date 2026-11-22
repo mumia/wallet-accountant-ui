@@ -7,7 +7,7 @@ const titles = {
   statementImports: "area.statementImports",
   connections: "area.connections",
   newConnection: "stub.newConnection",
-  newStatementImport: "stub.newStatementImport",
+  editConnection: "stub.editConnection",
 } as const;
 
 /** A tab or page of the Account area that a later ticket builds. */
