@@ -7,6 +7,7 @@ import { withCounts } from "./months";
 import { importedTransactionHandlers } from "./imported-transaction-handlers";
 import { monthHandlers } from "./month-handlers";
 import { statementImportHandlers } from "./statement-import-handlers";
+import { transactionHandlers } from "./transaction-handlers";
 
 type Problem = components["schemas"]["Problem"];
 
@@ -333,58 +334,6 @@ export function createHandlers(db: MockDb) {
       },
     ),
 
-    http.patch(
-      "/households/{household_id}/transactions/{transaction_id}",
-      async ({ params, request, response }) => {
-        const state = db.read();
-        const accounts = householdAccounts(db, params.household_id) ?? [];
-        const accountId = accounts.find(({ account_id }) =>
-          (state.transactions[account_id] ?? []).some(
-            ({ transaction_id }) => transaction_id === params.transaction_id,
-          ),
-        )?.account_id;
-        const transaction =
-          accountId === undefined
-            ? undefined
-            : state.transactions[accountId]?.find(
-                ({ transaction_id }) => transaction_id === params.transaction_id,
-              );
-        if (accountId === undefined || transaction === undefined) {
-          return response(404).json(notFound);
-        }
-        const { category_id } = await request.json();
-        const category = householdCategories(db, params.household_id)?.find(
-          (candidate) => candidate.category_id === category_id,
-        );
-        if (category === undefined) {
-          return response(422).json(invalidCategory("The Category isn't one of the Household's."));
-        }
-        if (category.kind === "INTERNAL" && category.name !== "Uncategorised") {
-          return response(422).json(internalCategory);
-        }
-        if (transaction.reversed_by_transaction_id !== undefined) {
-          return response(409).json({
-            type: "/problems/transaction-reversed",
-            title: "Transaction reversed",
-            status: 409,
-          });
-        }
-        const changed = { ...transaction, category_id, category_name: category.name };
-        db.write({
-          ...state,
-          transactions: {
-            ...state.transactions,
-            [accountId]: (state.transactions[accountId] ?? []).map((candidate) =>
-              candidate.transaction_id === changed.transaction_id ? changed : candidate,
-            ),
-          },
-        });
-        return response.untyped(
-          await withExactAmounts(response(200).json({ ...changed, account_id: accountId })),
-        );
-      },
-    ),
-
     http.post("/households/{household_id}/accounts", async ({ params, request, response }) => {
       const accounts = householdAccounts(db, params.household_id);
       if (accounts === undefined) {
@@ -435,6 +384,7 @@ export function createHandlers(db: MockDb) {
 
     ...statementImportHandlers(db),
     ...importedTransactionHandlers(db),
+    ...transactionHandlers(db),
     ...monthHandlers(db),
 
     http.get("/households/{household_id}/accounts/{account_id}", async ({ params, response }) => {

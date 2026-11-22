@@ -108,6 +108,13 @@ export function PreviewStep({
             })}
           </p>
         )}
+        {/* Always 0 on a first import, by the contract; shown if that changes. */}
+        {preview.rows_ignored_in_closed_months > 0 && (
+          <p className="flex items-start gap-2 text-sm text-muted-foreground">
+            <InfoIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            {t("preview.closedNote", { count: preview.rows_ignored_in_closed_months })}
+          </p>
+        )}
       </CardContent>
       <CardFooter className="justify-between gap-2">
         <Button variant="ghost" onClick={onBack}>

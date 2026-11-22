@@ -5,7 +5,8 @@
     "date": "Booking date",
     "description": "Description",
     "amount": "Amount",
-    "category": "Category"
+    "category": "Category",
+    "actions": "Actions"
   },
   "transactionDate": "Transaction date: {{date}}",
   "reversed": "Reversed",
@@ -24,5 +25,23 @@
     "showAllMonths": "Show all months",
     "allCategorised": "Everything in {{month}} has a Category ✓",
     "showAllTransactions": "Show all Transactions"
+  },
+  "reversalOf": "Reversal of {{row}}",
+  "reversalOfUnknown": "Reversal",
+  "actionsFor": "Actions for {{row}}",
+  "closed": "{{month}} is closed",
+  "closedNote": "{{month}} is closed: amounts and descriptions are locked. Categories can still change, but not to Uncategorised.",
+  "reverse": {
+    "menu": "Reverse…",
+    "title": "Reverse \"{{description}}\", {{amount}} on {{date}}?",
+    "body": "A reversal with the opposite amount is recorded on the same date; both stay in the list.",
+    "bodyImported": "Its Imported transaction goes back to To review, to be Accepted again or Discarded.",
+    "cancel": "Cancel",
+    "confirm": "Reverse",
+    "reversing": "Reversing…",
+    "done": "Reversed.",
+    "backToReview": "Its Imported transaction is back in To review.",
+    "open": "Open",
+    "failed": "{{row}} wasn't reversed"
   }
 }

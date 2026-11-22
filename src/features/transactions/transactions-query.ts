@@ -14,6 +14,7 @@ import { unwrap } from "../../api/unwrap";
 import type { components } from "../../api/schema.gen";
 import { errorText } from "../../components/error-text";
 import { useErrorToast } from "../../components/toaster";
+import { useRefetchAccountReads } from "../../lib/account-query";
 import type { Month } from "../../lib/month";
 
 export type AccountTransaction = components["schemas"]["AccountTransaction"];
@@ -161,5 +162,31 @@ export function useChangeCategory(householdId: string, accountId: string) {
       );
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+  });
+}
+
+/**
+ * Reverses a Transaction (spec, "Reverse"): not optimistic. Afterwards the
+ * list, the months, the Account and To review are read again, since an
+ * Accepted row's Imported transaction goes back to pending.
+ */
+export function useReverse(householdId: string, accountId: string) {
+  const { fetchClient } = useApi();
+  const queryClient = useQueryClient();
+  const refetchAccount = useRefetchAccountReads(householdId, accountId);
+  return useMutation({
+    mutationFn: async (transaction: AccountTransaction) =>
+      unwrap(
+        await fetchClient.POST("/households/{household_id}/transactions/{transaction_id}/reverse", {
+          params: {
+            path: { household_id: householdId, transaction_id: transaction.transaction_id },
+          },
+        }),
+      ),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: transactionsKey(householdId, accountId) }),
+        refetchAccount(),
+      ]),
   });
 }

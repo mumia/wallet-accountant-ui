@@ -40,9 +40,9 @@ const toLinear = (gamma: number) =>
   gamma <= 0.04045 ? gamma / 12.92 : ((gamma + 0.055) / 1.055) ** 2.4;
 
 /** A translucent colour painted over an opaque one, blended in sRGB as browsers do. */
-export function over(top: string, bottom: string): Rgba {
+export function over(top: string, bottom: string | Rgba): Rgba {
   const t = parseOklch(top);
-  const u = parseOklch(bottom);
+  const u = typeof bottom === "string" ? parseOklch(bottom) : bottom;
   const mix = (x: number, y: number) => toLinear(toGamma(x) * t.a + toGamma(y) * (1 - t.a));
   return { r: mix(t.r, u.r), g: mix(t.g, u.g), b: mix(t.b, u.b), a: 1 };
 }

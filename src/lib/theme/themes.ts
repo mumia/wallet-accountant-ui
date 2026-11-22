@@ -98,7 +98,7 @@ const neutral: Record<Scheme, Tokens> = {
     "muted-foreground": "oklch(0.74 0 0)",
     accent: "oklch(0.269 0 0)",
     "accent-foreground": "oklch(0.985 0 0)",
-    destructive: "oklch(0.72 0.17 22)",
+    destructive: "oklch(0.74 0.16 22)",
     positive: "oklch(0.75 0.14 150)",
     border: "oklch(1 0 0 / 10%)",
     input: "oklch(0.55 0 0)",
