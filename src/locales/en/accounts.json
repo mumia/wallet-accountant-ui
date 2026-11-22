@@ -53,6 +53,7 @@
   "stub": {
     "newConnection": "New Connection",
     "editConnection": "Connection",
+    "month": "Month",
     "body": "This arrives with a later build of Wallet Accountant."
   }
 }

@@ -23,3 +23,4 @@ Finish the parts earlier tickets left behind a seam:
 ## Notes
 
 - From ticket 10: The seam is `src/lib/account-months.ts` (`defaultBookingMonth`, `accountMonths`); replace both bodies. The Transactions empty month state should also offer "Go to To review" when the month has rows To review (needs the counts); it doesn't yet.
+- From ticket 13: To review uses the same seam for its month field and default month (`features/to-review/to-review-tab.tsx`). Its month field should offer only months with `pending + suspected_duplicates` above zero.

@@ -21,3 +21,4 @@ Waits on backend: yes. Needs one open month per Account, Reopen with `reopen_blo
 ## Notes
 
 - From ticket 08: `…/accounts/$accountId/months.tsx` is a stub.
+- From ticket 13: `months.tsx` moved to `months/index.tsx`, and `months/$bookingMonth.tsx` is a stub; To review's empty month links to it ("Go to March 2026"). Rows booked in a month not open yet should show no Accept, Keep or Discard, with "February 2026 isn't open yet": the row actions are in `features/to-review/review-table.tsx`, and the checkbox should leave those rows out of the bulk actions too. `useDecide` should also refetch the month reads.

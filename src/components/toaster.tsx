@@ -35,6 +35,9 @@ function ToastList() {
     >
       <Toast.Title className="font-medium" />
       <Toast.Description className="text-muted-foreground" />
+      <Toast.Action
+        render={<Button variant="outline" size="sm" className="mt-1 justify-self-start" />}
+      />
       <Toast.Close
         render={<Button variant="ghost" size="icon-sm" className="absolute top-2 right-2" />}
         aria-label={t("dialog.close")}
@@ -50,5 +53,28 @@ export function useErrorToast(): (title: string, description?: string) => void {
   const { add } = Toast.useToastManager();
   return (title, description) => {
     add({ title, ...(description === undefined ? {} : { description }), timeout: 0 });
+  };
+}
+
+/**
+ * Says something went through, with an optional way on ("View in
+ * Transactions"). It goes after 8 s, paused while hovered or focused (F6);
+ * what it offers is always available elsewhere too.
+ */
+export function useInfoToast(): (
+  title: string,
+  action?: { label: string; onClick: () => void },
+  description?: string,
+) => void {
+  const { add } = Toast.useToastManager();
+  return (title, action, description) => {
+    add({
+      title,
+      ...(description === undefined ? {} : { description }),
+      timeout: 8000,
+      ...(action === undefined
+        ? {}
+        : { actionProps: { children: action.label, onClick: action.onClick } }),
+    });
   };
 }

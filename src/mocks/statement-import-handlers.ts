@@ -84,7 +84,13 @@ type Read =
   | { kind: "conflict"; problem: StatementImportConflictProblem }
   | {
       kind: "read";
-      rows: { bookingDate: string; description: string; amount: string; id?: string }[];
+      rows: {
+        line: number;
+        bookingDate: string;
+        description: string;
+        amount: string;
+        id?: string;
+      }[];
       ignored: number;
       currencyPlaces: number;
     };
@@ -168,6 +174,7 @@ function readFile({ state, account, connection }: Found, upload: Upload): Read {
   return {
     kind: "read",
     rows: kept.map((row) => ({
+      line: row.line,
       bookingDate: row.bookingDate,
       description: row.description,
       amount: row.amount,
@@ -209,11 +216,12 @@ export function statementImportHandlers(db: MockDb) {
     }),
 
     http.post(`${importsPath}/previews`, async ({ params, request, response }) => {
+      // Read the body first: the state read after it is the current one.
+      const upload = await readUpload(request);
       const found = find(db, params.household_id, params.connection_id);
       if (found === undefined) {
         return response(404).json(notFound);
       }
-      const upload = await readUpload(request);
       if (!found.account.awaiting_first_statement_import) {
         return response(409).json(openingBalanceAlreadyRecorded);
       }
@@ -260,12 +268,13 @@ export function statementImportHandlers(db: MockDb) {
     }),
 
     http.post(importsPath, async ({ params, request, response }) => {
+      // Read the body first: the state read after it is the current one.
+      const upload = await readUpload(request);
       const found = find(db, params.household_id, params.connection_id);
       if (found === undefined) {
         return response(404).json(notFound);
       }
       const { state, account, connection } = found;
-      const upload = await readUpload(request);
       const first = account.awaiting_first_statement_import;
       if (!first && upload.previewId !== undefined) {
         return response(409).json(openingBalanceAlreadyRecorded);
@@ -305,12 +314,17 @@ export function statementImportHandlers(db: MockDb) {
             row.id !== undefined &&
             old.bank_transaction_id === row.id &&
             old.booking_date === row.bookingDate &&
-            old.amount === row.amount,
+            old.amount.amount === row.amount,
         ),
       );
       const fresh = read.rows.filter((row) => !repeats.includes(row));
       const suspected = fresh.filter((row) =>
-        earlier.some((old) => old.booking_date === row.bookingDate && old.amount === row.amount),
+        earlier.some(
+          (old) =>
+            old.state !== "DISCARDED" &&
+            old.booking_date === row.bookingDate &&
+            old.amount.amount === row.amount,
+        ),
       );
       const rowsTotal = total(
         fresh.map((row) => row.amount),
@@ -349,13 +363,28 @@ export function statementImportHandlers(db: MockDb) {
         imported_at: new Date().toISOString(),
         ...(first ? { opening_balance: money(fromUnits(opening, currencyPlaces), currency) } : {}),
       };
-      const newRows: ImportedRow[] = fresh.map((row) => ({
-        statement_import_id: statementImportId,
-        booking_date: row.bookingDate,
-        description: row.description,
-        amount: row.amount,
-        ...(row.id === undefined ? {} : { bank_transaction_id: row.id }),
-      }));
+      const newRows: ImportedRow[] = fresh.map((row) => {
+        const resembled = suspected.includes(row)
+          ? earlier.find(
+              (old) =>
+                old.state !== "DISCARDED" &&
+                old.booking_date === row.bookingDate &&
+                old.amount.amount === row.amount,
+            )
+          : undefined;
+        return {
+          imported_transaction_id: crypto.randomUUID(),
+          statement_import_id: statementImportId,
+          state: resembled === undefined ? "PENDING" : "SUSPECTED_DUPLICATE",
+          line: row.line,
+          booking_date: row.bookingDate,
+          transaction_date: row.bookingDate,
+          amount: money(row.amount, currency),
+          description: row.description,
+          ...(row.id === undefined ? {} : { bank_transaction_id: row.id }),
+          ...(resembled === undefined ? {} : { resembles_id: resembled.imported_transaction_id }),
+        };
+      });
       const changedAccount: Account = {
         ...account,
         awaiting_first_statement_import: false,

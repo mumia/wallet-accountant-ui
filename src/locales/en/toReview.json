@@ -1,0 +1,88 @@
+{
+  "title": "To review",
+  "loading": "Loading…",
+  "sections": {
+    "suspected": "Suspected duplicates",
+    "pending": "Pending"
+  },
+  "suspectedHelp": "Each looks like an earlier row. Keep the ones that really happened twice; Discard the repeats.",
+  "columns": {
+    "date": "Booking date",
+    "description": "Payee and description",
+    "amount": "Amount",
+    "category": "Category",
+    "actions": "Actions"
+  },
+  "transactionDate": "Transaction date: {{date}}",
+  "selectRow": "Select {{row}}",
+  "selectAll": {
+    "suspected": "Select all Suspected duplicates",
+    "pending": "Select all Pending rows"
+  },
+  "categoryFor": "Category for {{row}}",
+  "accept": "Accept",
+  "acceptRow": "Accept {{row}}",
+  "keep": "Keep",
+  "keepRow": "Keep {{row}}",
+  "discard": "Discard",
+  "discardRow": "Discard {{row}}",
+  "resembles": "Resembles:",
+  "differs": "(differs)",
+  "states": {
+    "PENDING": "Pending",
+    "SUSPECTED_DUPLICATE": "Suspected duplicate",
+    "ACCEPTED": "Accepted",
+    "DISCARDED": "Discarded"
+  },
+  "selected_one": "{{count}} selected",
+  "selected_other": "{{count}} selected",
+  "bulk": {
+    "label": "Selected rows",
+    "acceptAs": "Accept as",
+    "categoryForSelected": "Category for the selected rows",
+    "accept": "Accept",
+    "keep": "Keep",
+    "discard": "Discard",
+    "clear": "Clear selection"
+  },
+  "outcome": {
+    "accept_one": "{{count}} Accepted",
+    "accept_other": "{{count}} Accepted",
+    "keep_one": "{{count}} kept",
+    "keep_other": "{{count}} kept",
+    "discard_one": "{{count}} Discarded",
+    "discard_other": "{{count}} Discarded",
+    "failed_one": "{{count}} failed",
+    "failed_other": "{{count}} failed",
+    "conflict_one": "{{count}} already decided by someone else",
+    "conflict_other": "{{count}} already decided by someone else"
+  },
+  "viewInTransactions": "View in Transactions",
+  "failed": {
+    "accept": "{{row}} wasn't Accepted",
+    "keep": "{{row}} wasn't kept",
+    "discard": "{{row}} wasn't Discarded"
+  },
+  "discardDialog": {
+    "title_one": "Discard this row?",
+    "title_other": "Discard {{count}} rows?",
+    "description": "Discarded rows never reach your books, and this can't be undone.",
+    "confirm": "Discard",
+    "cancel": "Cancel"
+  },
+  "suspectedOnly": "Showing Suspected duplicates only.",
+  "showEverything": "Show everything",
+  "showingSoFar": "Showing {{count}} Pending rows so far",
+  "showingAll_one": "{{count}} Pending row",
+  "showingAll_other": "{{count}} Pending rows",
+  "empty": {
+    "none": "Nothing to review",
+    "goToTransactions": "Go to Transactions",
+    "month": "Nothing to review in {{month}}",
+    "showAllMonths": "Show all months",
+    "goToMonth": "Go to {{month}}",
+    "noSuspected": "No Suspected duplicates to review"
+  },
+  "awaiting": "Rows to review appear here after the first Statement import.",
+  "importFirst": "Import the first statement"
+}
