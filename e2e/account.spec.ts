@@ -140,10 +140,10 @@ test("an Account with statements opens on Transactions, and tabs keep the month"
   await tabs.getByRole("link", { name: "Months" }).click();
   await expect(page).toHaveURL(`${main}/months`);
 
-  for (const tab of ["Statement imports", "Connections"]) {
-    await tabs.getByRole("link", { name: tab }).click();
-    await expect(page.getByRole("heading", { level: 2, name: tab })).toBeVisible();
-  }
+  await tabs.getByRole("link", { name: "Statement imports" }).click();
+  await expect(page.getByRole("region", { name: "Statement imports" })).toBeVisible();
+  await tabs.getByRole("link", { name: "Connections" }).click();
+  await expect(page.getByRole("heading", { level: 2, name: "Connections" })).toBeVisible();
   await page.getByRole("link", { name: "Import statement" }).click();
   await expect(page).toHaveURL(`${main}/statement-imports/new`);
 });

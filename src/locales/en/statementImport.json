@@ -98,5 +98,47 @@
     "balanceHint": "Likely causes: the Export balance was mistyped; a card payment still pending was counted in; the file leaves a gap since the last import; or the mapping reads the amounts with the wrong sign.",
     "statementImports": "See the Statement imports",
     "earlierImport": "See the earlier import"
+  },
+  "list": {
+    "title": "Statement imports",
+    "empty": "No Statement imports yet. Import a statement file to bring in its rows.",
+    "columns": {
+      "imported": "Imported",
+      "connection": "Connection",
+      "exportBalance": "Export balance",
+      "rows": "Rows",
+      "balanceCheck": "Balance check",
+      "actions": "Actions"
+    },
+    "rows": "{{imported}} imported · {{skipped}} skipped · {{suspected}} suspected",
+    "ignored": "{{count}} ignored",
+    "checks": {
+      "PASSED": "Passed",
+      "WAITING": "Waiting",
+      "FAILED": "Failed"
+    },
+    "failedHint": "Void it and import a corrected file.",
+    "voidedOn": "Voided on {{date}}",
+    "openingBalance": "Opening balance {{amount}}",
+    "void": "Void…",
+    "voidFor": "Void the import of {{date}}",
+    "blocked": {
+      "NOT_LATEST": "Only the latest import can be voided.",
+      "HAS_ACCEPTED_ROWS": "Some of its rows are Accepted.",
+      "HAS_ACCEPTED_ROWS_fix": "Reverse them in Transactions",
+      "TOUCHES_CLOSED_MONTH": "It has rows in a closed month.",
+      "TOUCHES_CLOSED_MONTH_fix": "Reopen {{month}}"
+    }
+  },
+  "void": {
+    "title_one": "Void the import of {{date}} ({{count}} row)?",
+    "title_other": "Void the import of {{date}} ({{count}} rows)?",
+    "body": "Its Imported transactions become Discarded and the file can be imported again.",
+    "bodyFirst": "It's this Account's first import, so its Opening balance is reversed too and the Account will await its first Statement import again.",
+    "cancel": "Cancel",
+    "confirm": "Void",
+    "voiding": "Voiding…",
+    "done": "Statement import voided.",
+    "importStatement": "Import statement"
   }
 }
