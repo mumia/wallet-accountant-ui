@@ -1,4 +1,5 @@
-// The mock API's Imported transactions: the list, Accept, Keep and Discard,
+// The mock API's Imported transactions (the list, Accept, Keep and Discard)
+// and Notifications (the list, mark read),
 // with the backend's rules and its problems word for word
 // (../wallet-accountant/internal/ingestion/adapters/http/importedtransactions.go).
 import type { components } from "../api/schema.gen";
@@ -276,5 +277,37 @@ export function importedTransactionHandlers(db: MockDb) {
       const discarded = save(db, found.accountId, { ...found.row, state: "DISCARDED" });
       return response.untyped(await withExactAmounts(response(200).json(discarded)));
     }),
+
+    http.get("/households/{household_id}/notifications", ({ params, response }) => {
+      const state = db.read();
+      return isMember(state, params.household_id)
+        ? response(200).json({ items: state.notifications?.[params.household_id] ?? [] })
+        : response(404).json(notFound);
+    }),
+
+    http.post(
+      "/households/{household_id}/notifications/{notification_id}/read",
+      ({ params, response }) => {
+        const state = db.read();
+        const all = state.notifications?.[params.household_id] ?? [];
+        const notification = isMember(state, params.household_id)
+          ? all.find(({ notification_id }) => notification_id === params.notification_id)
+          : undefined;
+        if (notification === undefined) {
+          return response(404).json(notFound);
+        }
+        const read = { ...notification, read: true };
+        db.write({
+          ...state,
+          notifications: {
+            ...state.notifications,
+            [params.household_id]: all.map((item) =>
+              item.notification_id === read.notification_id ? read : item,
+            ),
+          },
+        });
+        return response(200).json(read);
+      },
+    ),
   ];
 }

@@ -24,6 +24,7 @@ import {
 } from "../../components/ui/sidebar";
 import { saveLastHousehold } from "../../lib/last-household";
 import { HouseholdSwitcher } from "./household-switcher";
+import { NotificationsBell } from "./notifications-bell";
 import { UserMenu } from "./user-menu";
 
 /**
@@ -56,7 +57,7 @@ export function HouseholdShell({
         <SidebarHeader>
           <div className="flex items-center gap-1">
             <HouseholdSwitcher current={household} households={households.items} />
-            {/* The Notifications bell goes here (ticket 14). */}
+            <NotificationsBell householdId={householdId} />
           </div>
         </SidebarHeader>
         <SidebarContent>

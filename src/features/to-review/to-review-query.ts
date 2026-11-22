@@ -7,6 +7,7 @@ import { errorStatus } from "../../api/problem";
 import type { components } from "../../api/schema.gen";
 import { unwrap } from "../../api/unwrap";
 import type { Month } from "../../lib/month";
+import { notificationsKey } from "../../lib/notifications";
 import { settleEach } from "../../lib/pool";
 
 export type ImportedTransaction = components["schemas"]["ImportedTransaction"];
@@ -147,6 +148,7 @@ export function useDecide(householdId: string, accountId: string) {
           { params: { path: { household_id: householdId } } },
         ],
       }),
+      queryClient.invalidateQueries({ queryKey: notificationsKey(householdId) }),
       // Deciding the last Suspected duplicate runs its import's Balance check.
       queryClient.invalidateQueries({
         queryKey: [
