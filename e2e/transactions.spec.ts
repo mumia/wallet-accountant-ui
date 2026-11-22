@@ -142,7 +142,10 @@ test("the Uncategorised toggle narrows a month, and keeps rows given a Category"
     /Nov 21, 2026, Bol/,
     /Nov 22, 2026, Tikkie/,
   ]) {
+    // Each save lands before the reload reads them back.
+    const saved = page.waitForResponse((response) => response.request().method() === "PATCH");
     await pick(page, name, "Transport");
+    await saved;
   }
   await page.reload();
   await expect(page.getByText("Everything in November 2026 has a Category ✓")).toBeVisible();

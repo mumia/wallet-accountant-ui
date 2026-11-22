@@ -387,6 +387,54 @@ export function createHandlers(db: MockDb) {
     ...transactionHandlers(db),
     ...monthHandlers(db),
 
+    http.patch(
+      "/households/{household_id}/accounts/{account_id}",
+      async ({ params, request, response }) => {
+        const accounts = householdAccounts(db, params.household_id);
+        const account = accounts?.find(({ account_id }) => account_id === params.account_id);
+        if (accounts === undefined || account === undefined) {
+          return response(404).json(notFound);
+        }
+        const { name } = await request.json();
+        // The request schema's bounds (1–200) come before the blank check, as in the backend.
+        if (name.length === 0 || name.length > 200) {
+          return response.untyped(
+            Response.json(
+              {
+                type: "about:blank",
+                title: "Bad Request",
+                status: 400,
+                detail: "name must be 1 to 200 characters.",
+              },
+              { status: 400, headers: { "Content-Type": "application/problem+json" } },
+            ),
+          );
+        }
+        if (name.trim() === "") {
+          return response(422).json({
+            type: "/problems/invalid-account",
+            title: "Invalid Account",
+            status: 422,
+            detail: "The name must not be blank.",
+          });
+        }
+        const renamed = { ...account, name: name.trim() };
+        const state = db.read();
+        db.write({
+          ...state,
+          accounts: {
+            ...state.accounts,
+            [params.household_id]: accounts.map((a) =>
+              a.account_id === account.account_id ? renamed : a,
+            ),
+          },
+        });
+        return response.untyped(
+          await withExactAmounts(response(200).json(withCounts(db.read(), renamed))),
+        );
+      },
+    ),
+
     http.get("/households/{household_id}/accounts/{account_id}", async ({ params, response }) => {
       const account = householdAccounts(db, params.household_id)?.find(
         ({ account_id }) => account_id === params.account_id,
