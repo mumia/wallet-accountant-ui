@@ -100,11 +100,9 @@ export function TransactionsTable({
     () => new Map(flattenCategories(categories ?? []).map((category) => [category.id, category])),
     [categories],
   );
-  const byId = useMemo(
-    () => new Map(transactions.map((transaction) => [transaction.transaction_id, transaction])),
-    [transactions],
-  );
-
+  // flexRender renders each `cell` as a component type, so new columns remount
+  // every cell, losing what is being typed in a picker. They must not depend on
+  // the rows: a cell reads other rows through its `table`.
   const columns = useMemo(
     () =>
       column.columns([
@@ -123,10 +121,13 @@ export function TransactionsTable({
         }),
         column.accessor("description", {
           header: () => t("columns.description"),
-          cell: ({ row: { original } }) => {
+          cell: ({ row: { original }, table: current }) => {
             const reversedBy = original.reversed_by_transaction_id;
             const reversalOf = original.reversal_of_transaction_id;
-            const originalRow = reversalOf === undefined ? undefined : byId.get(reversalOf);
+            const originalRow =
+              reversalOf === undefined
+                ? undefined
+                : current.getRowModel().rowsById[reversalOf]?.original;
             return (
               <div className="grid justify-items-start gap-0.5">
                 <span className="whitespace-normal">{original.description}</span>
@@ -251,7 +252,7 @@ export function TransactionsTable({
           },
         }),
       ]),
-    [accountId, byId, categories, changeCategory, householdId, kinds, openMonth, t],
+    [accountId, categories, changeCategory, householdId, kinds, openMonth, t],
   );
 
   const table = useTable({
