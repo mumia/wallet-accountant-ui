@@ -433,6 +433,27 @@ export function statementImportHandlers(db: MockDb) {
         },
         statementFiles: { ...state.statementFiles, [statementImportId]: fingerprint(upload.text) },
         importedRows: { ...state.importedRows, [account.account_id]: [...earlier, ...newRows] },
+        // The backend raises it a little later; the mock at once.
+        ...(suspected.length > 0
+          ? {
+              notifications: {
+                ...state.notifications,
+                [householdId]: [
+                  {
+                    notification_id: crypto.randomUUID(),
+                    kind: "SUSPECTED_DUPLICATES_FOUND",
+                    statement_import_id: statementImportId,
+                    connection_id: connection.connection_id,
+                    account_id: account.account_id,
+                    suspected_duplicates: suspected.length,
+                    created_at: new Date().toISOString(),
+                    read: false,
+                  },
+                  ...(state.notifications?.[householdId] ?? []),
+                ],
+              },
+            }
+          : {}),
       });
       return response.untyped(await withExactAmounts(response(201).json(recorded)));
     }),

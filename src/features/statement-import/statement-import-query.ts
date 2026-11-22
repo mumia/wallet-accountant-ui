@@ -9,6 +9,7 @@ import type { components } from "../../api/schema.gen";
 import { unwrap } from "../../api/unwrap";
 import type { Connection } from "../../components/connection-names";
 import type { Decimal } from "../../lib/money";
+import { pollNotificationsSoon } from "../../lib/notifications";
 
 export type StatementImport = components["schemas"]["StatementImport"];
 export type StatementImportPreview = components["schemas"]["StatementImportPreview"];
@@ -85,7 +86,10 @@ export function useUpload(householdId: string, accountId: string) {
           bodySerializer: (body) => multipart(body),
         }),
       ),
-    onSuccess: () => invalidateAfterImport(queryClient, householdId, accountId),
+    onSuccess: () => {
+      pollNotificationsSoon(queryClient, householdId);
+      return invalidateAfterImport(queryClient, householdId, accountId);
+    },
     // A refusal may mean the Account changed under the flow (its Opening balance
     // recorded since the page opened): the Account read decides first or later.
     onError: () => invalidateAccount(queryClient, householdId, accountId),

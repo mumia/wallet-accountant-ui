@@ -12,5 +12,18 @@
   "createHousehold": {
     "title": "Create Household",
     "description": "A Household keeps its own Accounts and Categories, shared with everyone in it."
+  },
+  "notifications": {
+    "bell": "Notifications",
+    "bellUnread_one": "Notifications, {{count}} unread",
+    "bellUnread_other": "Notifications, {{count}} unread",
+    "title": "Notifications",
+    "loading": "Loading…",
+    "empty": "No Notifications yet.",
+    "unread": "Unread:",
+    "suspected_one": "{{count}} Suspected duplicate to review in {{account}}",
+    "suspected_other": "{{count}} Suspected duplicates to review in {{account}}",
+    "unknownAccount": "an Account",
+    "markFailed": "The Notification wasn't marked read"
   }
 }

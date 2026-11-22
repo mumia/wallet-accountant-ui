@@ -12,6 +12,7 @@ type StatementImport = components["schemas"]["StatementImport"];
 type CsvMapping = components["schemas"]["CsvMapping"];
 
 type ImportedTransaction = components["schemas"]["ImportedTransaction"];
+type Notification = components["schemas"]["Notification"];
 
 /**
  * A row a Statement import brought in. A Suspected duplicate names the earlier
@@ -36,6 +37,8 @@ export interface MockState {
   statementFiles?: Record<string, string>;
   /** Each Account's Imported transactions, by Account ID. */
   importedRows?: Record<string, ImportedRow[]>;
+  /** Each Household's Notifications, by Household ID, newest first; `read` is the mock User's. */
+  notifications?: Record<string, Notification[]>;
   /**
    * The next `remaining` requests whose path ends with `pathEnd` (and that use
    * `method`, when given) fail with a 503.
@@ -288,6 +291,44 @@ export const mainImportedRows: ImportedRow[] = [
 ];
 
 /**
+ * Home's Notifications, newest first: Main's latest import found a Suspected
+ * duplicate (unread), a kind this build doesn't know (unread), and an older
+ * one already read.
+ */
+export const homeNotifications: Notification[] = [
+  {
+    notification_id: "0190f5f2-7c00-7000-8000-000000000601",
+    kind: "SUSPECTED_DUPLICATES_FOUND",
+    statement_import_id: mainStatementImport.statement_import_id,
+    connection_id: mainStatementImport.connection_id,
+    account_id: mainAccountId,
+    suspected_duplicates: 1,
+    created_at: "2026-11-21T09:30:01Z",
+    read: false,
+  },
+  {
+    notification_id: "0190f5f2-7c00-7000-8000-000000000602",
+    kind: "BALANCE_CHECK_FAILED",
+    statement_import_id: mainStatementImport.statement_import_id,
+    connection_id: mainStatementImport.connection_id,
+    account_id: mainAccountId,
+    suspected_duplicates: 0,
+    created_at: "2026-11-20T08:00:00Z",
+    read: false,
+  },
+  {
+    notification_id: "0190f5f2-7c00-7000-8000-000000000603",
+    kind: "SUSPECTED_DUPLICATES_FOUND",
+    statement_import_id: "0190f5f2-7c00-7000-8000-000000000400",
+    connection_id: mainStatementImport.connection_id,
+    account_id: mainAccountId,
+    suspected_duplicates: 2,
+    created_at: "2026-10-15T09:30:01Z",
+    read: true,
+  },
+];
+
+/**
  * Where a session starts: `new-user` has signed in but not redeemed an
  * Invitation, `registered` has no Household yet, `household` (the default) has
  * "Home" with two Accounts and "Cabin" with none.
@@ -321,6 +362,7 @@ export const scenarios = {
       },
       statementImports: { [mainStatementImport.connection_id]: [mainStatementImport] },
       importedRows: { [mainAccountId]: mainImportedRows },
+      notifications: { [seededHousehold.household_id]: homeNotifications },
       categories: {
         [seededHousehold.household_id]: home,
         [secondHousehold.household_id]: internalCategories(),
