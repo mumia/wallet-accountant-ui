@@ -1031,7 +1031,7 @@ export interface components {
        * Format: binary
        * @description The statement file, as the bank exported it
        */
-      file: string;
+      file: Blob;
       export_balance: components["schemas"]["DecimalText"];
       export_balance_confirmation: components["schemas"]["DecimalText"];
     };
@@ -1041,7 +1041,7 @@ export interface components {
        * Format: binary
        * @description The statement file, as the bank exported it
        */
-      file: string;
+      file: Blob;
       export_balance: components["schemas"]["DecimalText"];
       /** @description The preview's ID; required for the Account's first Statement import */
       preview_id?: string;

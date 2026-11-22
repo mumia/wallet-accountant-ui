@@ -145,8 +145,9 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
 
 ### Generated types
 
-- `scripts/generate-api.ts` writes `src/api/schema.gen.ts` with openapi-typescript (`make generate`). It adds two mappings:
+- `scripts/generate-api.ts` writes `src/api/schema.gen.ts` with openapi-typescript (`make generate`). It adds three mappings:
   - `format: decimal` (only `Money.amount`) becomes `Decimal`: exact decimal text, typed `` `${number}` ``.
+  - `format: binary` (an uploaded statement file) becomes `Blob`. A multipart write passes its own `bodySerializer` that builds a `FormData` (`features/statement-import/statement-import-query.ts`).
   - An `x-extensible-enum` becomes its known values plus any other string: ``"INCOME" | "EXPENSE" | "INTERNAL" | `${string}` ``. TypeScript folds the known values into the string, so the type is a plain string with the values as documentation, and an unknown value type-checks, as the contract promises more may come. Always handle the unknown case.
     - Not `string & {}`, which keeps the literals: openapi-fetch's `Readable` maps that intersection as an object, so a response's value stops being a string.
     - Code that names the values keeps its own list and tests it against the contract with `extensibleEnum("AccountKind")` (`src/test/contract.ts`), as `components/account-labels.test.ts` does.
@@ -165,6 +166,7 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
   - the same request sent again after an error reuses its key;
   - a changed input gets a new key;
   - after a success the key is forgotten.
+  - A multipart body is identified by its parts (names, values, file names, types and bytes), not its raw bytes: each send of a `FormData` gets a new random boundary.
 - **Problems** (`src/api/problem.ts`): every error response reaches the caller as an RFC 9457 problem with a `status`. When the server sent none (an empty 503, say), one is made with `type: "about:blank"`. A network failure is a thrown `TypeError`. Screens show a problem's `title` and `detail` as sent. Problems with extra fields (`rows`, `reasons`, `statement_import_id`) are rendered by the screens that own them, by which fields they carry; there is no list of problem types.
 - **The bearer token** (`src/api/auth.ts`): every request carries the signed-in User's access token. A 401 renews the token once and resends the request once. Concurrent 401s share one renewal, because refresh tokens rotate. If renewing fails, or the new token is refused too, the session has ended (see "Boot and sign-in").
 - **Freshness and retries** are the Query client's defaults (`src/app/query-client.ts`, `src/api/retry.ts`):
@@ -231,6 +233,7 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
   - It puts a signed-in mock User where oidc-client-ts keeps one.
   - **Mock data** (`src/mocks/db.ts`) is stateful: redeeming an Invitation or creating a Household changes what the next read returns. Tests keep it in memory and reset it after each test (`mockDb.reset("new-user")` picks another start). Mock mode keeps it in the tab's `sessionStorage`, so it survives a reload.
   - **Scenarios:** `?mock-scenario=new-user` on any page starts the tab over as someone who hasn't redeemed an Invitation, `registered` as a User with no Household, `household` (the default) with "Home" (Accounts Main and Credit card) and "Cabin" (no Accounts). The Invitation code the mock accepts is `WELCOME-2026`.
+  - **Statement files:** the mock reads uploads with the Connection's CSV mapping (`src/mocks/statement-files.ts`: plain delimited lines, `YYYY-MM-DD` or `DD/MM/YYYY`, a signed amount) and answers preview and upload with the backend's rules and problems (`src/mocks/statement-import-handlers.ts`). Its bank's layout is `Date;Description;Amount;Id` with a header row. Credit card awaits its first import; Main has Connection 1 (with its imports) and Connection 2 (no mapping).
   - **Failures:** `?mock-fail=<path end>:<count>` makes the next `<count>` API requests whose path ends that way fail with a 503, for testing "Try again". `?mock-fail=PATCH:<count>` (or another method) fails the next `<count>` requests of that method, for testing a rollback. A write retries twice on a 503, so `:3` fails it once. A read makes three attempts, so `:3` fails a load once.
   - Vite serves and builds MSW's worker only in this mode, from the installed `msw`, into `dist-mock/`. The real build contains none of it: boot imports the mocks behind `import.meta.env.MODE === "mock"`, which Vite removes from other builds.
 - **End-to-end** (`e2e/`, `make e2e`):

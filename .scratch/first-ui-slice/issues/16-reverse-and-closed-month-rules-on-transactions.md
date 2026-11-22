@@ -21,3 +21,4 @@ Waits on backend: yes. Needs `imported_transaction_id` on AccountTransaction and
 ## Notes
 
 - From ticket 10: The row's Category cell is in `features/transactions/transactions-table.tsx`; the Reverse menu and the closed-month rules (no Uncategorised there) go there.
+- From ticket 12: the preview's and result's ignored-rows note covers rows before the start date only. When the contract carries `rows_ignored_in_closed_months` (backend HEAD has it, pinned v0.1.0 doesn't), add it to `preview-step.tsx` and `result-step.tsx`.

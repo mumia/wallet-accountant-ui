@@ -7,7 +7,15 @@ import { initI18n } from "../app/i18n";
 import type { Decimal } from "../lib/money";
 import { AmountInput } from "./amount-input";
 
-function Harness({ places = 2, locale = "en-US" }: { places?: number; locale?: string }) {
+function Harness({
+  places = 2,
+  locale = "en-US",
+  noPaste = false,
+}: {
+  places?: number;
+  locale?: string;
+  noPaste?: boolean;
+}) {
   const [value, setValue] = useState<Decimal | null>(null);
   return (
     <>
@@ -18,6 +26,14 @@ function Harness({ places = 2, locale = "en-US" }: { places?: number; locale?: s
         value={value}
         onValueChange={setValue}
         locale={locale}
+        description="As your bank shows it"
+        {...(noPaste
+          ? {
+              onPaste: (event) => {
+                event.preventDefault();
+              },
+            }
+          : {})}
       />
       <output>{value ?? "none"}</output>
     </>
@@ -79,7 +95,9 @@ describe("AmountInput", () => {
     await user.type(field, "1.234");
 
     expect(field).toHaveAttribute("aria-invalid", "true");
-    expect(field).toHaveAccessibleDescription("EUR amounts have at most 2 decimal places");
+    expect(field).toHaveAccessibleDescription(
+      "As your bank shows it EUR amounts have at most 2 decimal places",
+    );
     expect(screen.getByRole("status")).toHaveTextContent("none");
   });
 
@@ -92,6 +110,21 @@ describe("AmountInput", () => {
     expect(field).toHaveAttribute("aria-invalid", "false");
 
     await user.tab();
-    expect(field).toHaveAccessibleDescription("Type an amount, such as 1,234.55");
+    expect(field).toHaveAccessibleDescription(
+      "As your bank shows it Type an amount, such as 1,234.55",
+    );
+  });
+
+  it("can refuse a paste, and still takes typing", async () => {
+    const user = userEvent.setup();
+    render(<Harness noPaste />);
+    const field = screen.getByRole("textbox", { name: "Export balance (EUR)" });
+
+    await user.click(field);
+    await user.paste("1234.50");
+    expect(field).toHaveValue("");
+
+    await user.type(field, "1234.50");
+    expect(screen.getByRole("status")).toHaveTextContent("1234.50");
   });
 });

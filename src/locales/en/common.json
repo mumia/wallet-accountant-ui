@@ -114,5 +114,6 @@
     "all": "All months",
     "previous": "Previous month",
     "next": "Next month"
-  }
+  },
+  "connectionName": "Connection {{number}}"
 }

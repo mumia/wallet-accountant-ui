@@ -21,3 +21,21 @@ export const bookingMonthSearch = z.object({
 export const transactionsSearch = bookingMonthSearch.extend({
   uncategorised: z.literal(true).optional().catch(undefined),
 });
+
+/**
+ * To review: the month, and `state=SUSPECTED_DUPLICATE` for the Suspected
+ * duplicates only.
+ */
+export const toReviewSearch = bookingMonthSearch.extend({
+  state: z.literal("SUSPECTED_DUPLICATE").optional().catch(undefined),
+});
+
+/** The Statement imports tab: `statement_import_id` highlights one import. */
+export const statementImportsSearch = z.object({
+  statement_import_id: z.string().optional().catch(undefined),
+});
+
+/** The Statement import flow: `connection_id` skips choosing the Connection. */
+export const newStatementImportSearch = z.object({
+  connection_id: z.string().optional().catch(undefined),
+});

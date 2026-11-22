@@ -17,3 +17,7 @@ Waits on backend: none
 ## Spec
 
 [spec.md](../../modern-frontend/spec.md): user stories 44–45; Notifications; Talking to the API (Freshness).
+
+## Notes
+
+- From ticket 12: poll Notifications at about 3 s and 10 s after a Statement import. The hook is `useUpload`'s `onSuccess` in `features/statement-import/statement-import-query.ts`, which already refetches the other reads an import changes.

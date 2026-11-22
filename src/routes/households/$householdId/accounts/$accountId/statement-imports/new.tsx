@@ -1,12 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
 
-import { AccountTabStub } from "../../../../../../features/accounts/tab-stub";
+import { StatementImportPage } from "../../../../../../features/statement-import/statement-import-page";
+import { newStatementImportSearch } from "../../../../../../lib/search";
 
 export const Route = createFileRoute(
   "/households/$householdId/accounts/$accountId/statement-imports/new",
 )({
-  // `connection_id` skips choosing the Connection (ticket 12).
-  validateSearch: z.object({ connection_id: z.string().optional().catch(undefined) }),
-  component: () => <AccountTabStub page="newStatementImport" />,
+  validateSearch: newStatementImportSearch,
+  loader: ({ context: { api, queryClient }, params: { householdId, accountId } }) =>
+    Promise.all([
+      queryClient.query(
+        api.queryOptions("get", "/households/{household_id}/accounts/{account_id}/connections", {
+          params: { path: { household_id: householdId, account_id: accountId } },
+        }),
+      ),
+      queryClient.query(api.queryOptions("get", "/currencies")),
+    ]),
+  component: function NewStatementImport() {
+    const { householdId, accountId } = Route.useParams();
+    const { connection_id } = Route.useSearch();
+    return (
+      // A new `connection_id` ("Change" drops it) starts the flow over.
+      <StatementImportPage
+        key={connection_id ?? ""}
+        householdId={householdId}
+        accountId={accountId}
+        linkedConnectionId={connection_id}
+      />
+    );
+  },
 });

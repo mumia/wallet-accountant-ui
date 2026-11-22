@@ -52,7 +52,7 @@
   },
   "stub": {
     "newConnection": "New Connection",
-    "newStatementImport": "Import statement",
+    "editConnection": "Connection",
     "body": "This arrives with a later build of Wallet Accountant."
   }
 }

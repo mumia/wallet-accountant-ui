@@ -3,6 +3,7 @@ import { HttpResponse } from "msw";
 import type { components } from "../api/schema.gen";
 import { internalCategories, validInvitationCode, type MockDb } from "./db";
 import { http, withExactAmounts } from "./http";
+import { statementImportHandlers } from "./statement-import-handlers";
 
 type Problem = components["schemas"]["Problem"];
 
@@ -421,6 +422,8 @@ export function createHandlers(db: MockDb) {
           : response(200).json({ items: db.read().connections[params.account_id] ?? [] });
       },
     ),
+
+    ...statementImportHandlers(db),
 
     http.get("/households/{household_id}/accounts/{account_id}", async ({ params, response }) => {
       const account = householdAccounts(db, params.household_id)?.find(

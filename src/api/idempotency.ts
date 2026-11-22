@@ -10,8 +10,30 @@ import type { Middleware } from "openapi-fetch";
 
 const writeMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+/**
+ * A request's body as bytes. A multipart body is read part by part, because each
+ * time a FormData is sent it gets a new random boundary: the same file and fields
+ * sent again must still be the same request.
+ */
+async function bodyBytes(request: Request): Promise<ArrayBuffer> {
+  if (!(request.headers.get("Content-Type") ?? "").startsWith("multipart/form-data")) {
+    return request.clone().arrayBuffer();
+  }
+  const parts: BlobPart[] = [];
+  for (const [name, value] of await request.clone().formData()) {
+    parts.push(name, "\0");
+    if (typeof value === "string") {
+      parts.push("s", value);
+    } else {
+      parts.push("f", value.name, "\0", value.type, "\0", value);
+    }
+    parts.push("\0");
+  }
+  return new Blob(parts).arrayBuffer();
+}
+
 async function fingerprint(request: Request): Promise<string> {
-  const body = await request.clone().arrayBuffer();
+  const body = await bodyBytes(request);
   const head = new TextEncoder().encode(`${request.method} ${request.url}\n`);
   const bytes = new Uint8Array(head.byteLength + body.byteLength);
   bytes.set(head);

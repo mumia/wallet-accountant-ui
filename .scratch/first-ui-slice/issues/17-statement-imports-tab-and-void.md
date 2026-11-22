@@ -20,3 +20,4 @@ Waits on backend: yes. Needs `void_blocked_by` on StatementImport.
 ## Notes
 
 - From ticket 08: `…/accounts/$accountId/statement-imports/index.tsx` is a stub.
+- From ticket 12: `statement-imports/index.tsx` validates `statementImportsSearch` (`statement_import_id`); the import flow's "See the earlier import" links with it. `useLatestImportConnection` in `features/statement-import/statement-import-query.ts` reads each Connection's imports, and the mock serves `listStatementImports`.
