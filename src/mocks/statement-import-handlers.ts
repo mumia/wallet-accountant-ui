@@ -11,7 +11,7 @@ import {
   readStatementFile,
   toUnits,
 } from "./statement-files";
-import { monthOf, voidBlockedBy } from "./months";
+import { addMonth, monthOf, monthWords, voidBlockedBy } from "./months";
 
 type Problem = components["schemas"]["Problem"];
 type StatementFileProblem = components["schemas"]["StatementFileProblem"];
@@ -19,6 +19,8 @@ type StatementImportConflictProblem = components["schemas"]["StatementImportConf
 type StatementImport = components["schemas"]["StatementImport"];
 type Account = components["schemas"]["Account"];
 type Connection = components["schemas"]["Connection"];
+type AccountTransaction = components["schemas"]["AccountTransaction"];
+type MonthProblem = components["schemas"]["MonthProblem"];
 
 const notFound: Problem = { type: "about:blank", title: "Not Found", status: 404 };
 
@@ -210,6 +212,151 @@ const importsPath = "/households/{household_id}/connections/{connection_id}/stat
 
 export function statementImportHandlers(db: MockDb) {
   return [
+    http.post(`${importsPath}/{statement_import_id}/void`, async ({ params, response }) => {
+      const found = find(db, params.household_id, params.connection_id);
+      const item = found?.state.statementImports?.[params.connection_id]?.find(
+        ({ statement_import_id }) => statement_import_id === params.statement_import_id,
+      );
+      if (found === undefined || item === undefined) {
+        return response(404).json(notFound);
+      }
+      const { state, account } = found;
+      const conflict = (type: string, title: string, detail: string): MonthProblem => ({
+        type: `/problems/${type}`,
+        title,
+        status: 409,
+        detail,
+      });
+      if (item.voided_at !== undefined) {
+        return response(409).json(
+          conflict(
+            "statement-import-already-voided",
+            "Statement import already voided",
+            "The Statement import is already voided.",
+          ),
+        );
+      }
+      const blocks = voidBlockedBy(state, item);
+      if (blocks.includes("NOT_LATEST")) {
+        return response(409).json(
+          conflict(
+            "not-the-latest-statement-import",
+            "Not the latest Statement import",
+            "Only the Account's latest Statement import can be voided: void every later one first.",
+          ),
+        );
+      }
+      if (blocks.includes("HAS_ACCEPTED_ROWS")) {
+        return response(409).json(
+          conflict(
+            "statement-import-has-accepted-rows",
+            "Statement import has Accepted rows",
+            "Some of the Statement import's Imported transactions are Accepted: reverse their Transactions first.",
+          ),
+        );
+      }
+      const allRows = state.importedRows?.[account.account_id] ?? [];
+      const rows = allRows.filter(
+        ({ statement_import_id }) => statement_import_id === item.statement_import_id,
+      );
+      if (blocks.includes("TOUCHES_CLOSED_MONTH")) {
+        const month =
+          [
+            ...rows.map(({ booking_date }) => monthOf(booking_date)),
+            ...(item.opening_balance === undefined ? [] : [monthOf(account.start_date)]),
+          ]
+            .filter((candidate) => candidate < account.open_month)
+            .sort()[0] ?? addMonth(account.open_month, -1);
+        const words = monthWords(month);
+        return response(409).json({
+          ...conflict(
+            "statement-import-touches-closed-month",
+            "Statement import touches a closed month",
+            `This import has rows in ${words}, which is closed. Reopen ${words} first.`,
+          ),
+          booking_month: month,
+          open_month: account.open_month,
+        });
+      }
+
+      const voided: StatementImport = { ...item, voided_at: new Date().toISOString() };
+      const first = item.opening_balance !== undefined;
+      const places = currencyPlacesOf(account.currency);
+      const changedAccount: Account = first
+        ? { ...account, awaiting_first_statement_import: true }
+        : {
+            ...account,
+            balance: money(
+              fromUnits(
+                toUnits(account.balance?.amount ?? "0", places) -
+                  toUnits(item.rows_total.amount, places),
+                places,
+              ),
+              account.currency,
+            ),
+          };
+      if (first) {
+        delete changedAccount.balance;
+      }
+      // The first import's Opening balance Transaction is reversed with it.
+      const ledger = (state.transactions[account.account_id] ?? []).flatMap(
+        (transaction): AccountTransaction[] => {
+          const isOpening =
+            first &&
+            transaction.description === "Opening balance" &&
+            transaction.category_name === "Opening balance" &&
+            transaction.reversed_by_transaction_id === undefined &&
+            transaction.reversal_of_transaction_id === undefined;
+          if (!isOpening) {
+            return [transaction];
+          }
+          const amount = transaction.amount.amount;
+          const reversal: AccountTransaction = {
+            ...transaction,
+            transaction_id: crypto.randomUUID(),
+            amount: {
+              ...transaction.amount,
+              amount: (amount.startsWith("-") ? amount.slice(1) : `-${amount}`) as typeof amount,
+            },
+            reversal_of_transaction_id: transaction.transaction_id,
+          };
+          return [
+            { ...transaction, reversed_by_transaction_id: reversal.transaction_id },
+            reversal,
+          ];
+        },
+      );
+      const householdId = params.household_id;
+      db.write({
+        ...state,
+        accounts: {
+          ...state.accounts,
+          [householdId]: (state.accounts[householdId] ?? []).map((candidate) =>
+            candidate.account_id === account.account_id ? changedAccount : candidate,
+          ),
+        },
+        transactions: { ...state.transactions, [account.account_id]: ledger },
+        statementImports: {
+          ...state.statementImports,
+          [params.connection_id]: (state.statementImports?.[params.connection_id] ?? []).map(
+            (candidate) =>
+              candidate.statement_import_id === item.statement_import_id ? voided : candidate,
+          ),
+        },
+        importedRows: {
+          ...state.importedRows,
+          [account.account_id]: allRows.map((row) =>
+            row.statement_import_id === item.statement_import_id
+              ? { ...row, state: "DISCARDED" as const }
+              : row,
+          ),
+        },
+      });
+      return response.untyped(
+        await withExactAmounts(response(200).json({ ...voided, void_blocked_by: [] })),
+      );
+    }),
+
     http.get(importsPath, async ({ params, response }) => {
       const found = find(db, params.household_id, params.connection_id);
       if (found === undefined) {

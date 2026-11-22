@@ -8,6 +8,7 @@ import { useApi } from "../../api/context";
 import type { components } from "../../api/schema.gen";
 import { unwrap } from "../../api/unwrap";
 import type { Connection } from "../../components/connection-names";
+import { useRefetchAccountReads } from "../../lib/account-query";
 import type { Decimal } from "../../lib/money";
 import { pollNotificationsSoon } from "../../lib/notifications";
 
@@ -168,4 +169,64 @@ export function useLatestImportConnection(
     }
   }
   return latest?.connection_id;
+}
+
+/**
+ * Every Statement import of the Account, across `connections`, newest first
+ * (spec, "Statement imports tab").
+ */
+export function useAccountStatementImports(
+  householdId: string,
+  connections: readonly Connection[],
+): StatementImport[] {
+  const { api } = useApi();
+  return useSuspenseQueries({
+    queries: connections.map((connection) =>
+      api.queryOptions("get", importsPath, {
+        params: {
+          path: { household_id: householdId, connection_id: connection.connection_id },
+        },
+      }),
+    ),
+    combine: (reads) =>
+      reads
+        .flatMap(({ data }) => data.items)
+        .sort((a, b) => b.imported_at.localeCompare(a.imported_at)),
+  });
+}
+
+/**
+ * Voids a Statement import. Afterwards everything it changes is read again:
+ * the Account (a first import's Opening balance), its months, To review, the
+ * Transactions and the Statement imports.
+ */
+export function useVoid(householdId: string, accountId: string) {
+  const { fetchClient } = useApi();
+  const queryClient = useQueryClient();
+  const refetchAccount = useRefetchAccountReads(householdId, accountId);
+  return useMutation({
+    mutationFn: async (item: StatementImport) =>
+      unwrap(
+        await fetchClient.POST(`${importsPath}/{statement_import_id}/void`, {
+          params: {
+            path: {
+              household_id: householdId,
+              connection_id: item.connection_id,
+              statement_import_id: item.statement_import_id,
+            },
+          },
+        }),
+      ),
+    onSettled: () =>
+      Promise.all([
+        refetchAccount(),
+        queryClient.invalidateQueries({
+          queryKey: [
+            "get",
+            "/households/{household_id}/accounts/{account_id}/transactions",
+            { params: { path: { household_id: householdId, account_id: accountId } } },
+          ],
+        }),
+      ]),
+  });
 }

@@ -297,6 +297,45 @@ export const mainStatementImport: StatementImport = {
   void_blocked_by: [],
 };
 
+/**
+ * Main's earlier Statement imports through Connection 1, before
+ * `mainStatementImport`: its first (the Opening balance), October's, and one
+ * of 2026-11-20 whose Balance check failed and that was voided. Their rows
+ * aren't kept.
+ */
+export const mainEarlierImports: StatementImport[] = [
+  {
+    ...mainStatementImport,
+    statement_import_id: "0190f5f2-7c00-7000-8000-000000000398",
+    export_balance: { amount: "2412.60", currency: "EUR" },
+    rows_imported: 4,
+    suspected_duplicates: 0,
+    rows_total: { amount: "-87.40", currency: "EUR" },
+    opening_balance: { amount: "2500.00", currency: "EUR" },
+    balance_check: "PASSED",
+    imported_at: "2026-01-03T10:00:00Z",
+  },
+  {
+    ...mainStatementImport,
+    statement_import_id: "0190f5f2-7c00-7000-8000-000000000400",
+    export_balance: { amount: "1550.00", currency: "EUR" },
+    rows_imported: 31,
+    rows_skipped_as_certain_repeats: 3,
+    suspected_duplicates: 2,
+    rows_total: { amount: "-612.85", currency: "EUR" },
+    balance_check: "PASSED",
+    imported_at: "2026-10-15T09:30:00Z",
+  },
+  {
+    ...mainStatementImport,
+    statement_import_id: "0190f5f2-7c00-7000-8000-000000000403",
+    export_balance: { amount: "1243.50", currency: "EUR" },
+    balance_check: "FAILED",
+    imported_at: "2026-11-20T07:45:00Z",
+    voided_at: "2026-11-20T08:10:00Z",
+  },
+];
+
 function importedRow(
   number: number,
   bookingDate: string,
@@ -560,7 +599,7 @@ export const scenarios = {
         [savingsAccountId]: [savingsConnection],
       },
       statementImports: {
-        [mainStatementImport.connection_id]: [mainStatementImport],
+        [mainStatementImport.connection_id]: [...mainEarlierImports, mainStatementImport],
         [savingsConnection.connection_id]: [savingsImport],
       },
       importedRows: { [mainAccountId]: mainImportedRows, [savingsAccountId]: savings.rows },

@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 
 const titles = {
   transactions: "area.transactions",
-  statementImports: "area.statementImports",
   connections: "area.connections",
   newConnection: "stub.newConnection",
   editConnection: "stub.editConnection",
