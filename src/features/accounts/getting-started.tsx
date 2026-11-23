@@ -4,6 +4,7 @@ import { useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useApi } from "../../api/context";
+import { connectionsByName } from "../../components/connection-names";
 import { Button, buttonVariants } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { formatDateLong, type IsoDate } from "../../lib/date";
@@ -36,7 +37,7 @@ export function GettingStarted({
     "/households/{household_id}/accounts/{account_id}/connections",
     path,
   );
-  const connection = connections.items[0];
+  const connection = connectionsByName(connections.items)[0]?.connection;
   const params = { householdId, accountId };
 
   return (
@@ -57,13 +58,14 @@ export function GettingStarted({
                 <Link
                   to="/households/$householdId/accounts/$accountId/connections/new"
                   params={params}
+                  search={{ from: "getting-started" }}
                   className={buttonVariants()}
                 >
                   {t("gettingStarted.connection.action")}
                 </Link>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  {t("gettingStarted.connection.done")}
+                  {t("gettingStarted.connection.done", { name: connection.name })}
                 </p>
               )}
             </Step>

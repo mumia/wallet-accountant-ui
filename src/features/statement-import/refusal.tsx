@@ -90,6 +90,7 @@ export function Refusal({
     <Link
       to="/households/$householdId/accounts/$accountId/connections/$connectionId"
       params={{ ...params, connectionId }}
+      search={{ from: "statement-import" }}
       className={linkClass}
     >
       {t("refusal.editMapping")}

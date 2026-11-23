@@ -43,3 +43,10 @@ export const statementImportsSearch = z.object({
 export const newStatementImportSearch = z.object({
   connection_id: z.string().optional().catch(undefined),
 });
+
+/** Where the CSV mapping editor returns after Save or Cancel: the Connections tab when absent. */
+export const connectionEditorSearch = z.object({
+  from: z.enum(["statement-import", "getting-started"]).optional().catch(undefined),
+});
+
+export type EditorFrom = NonNullable<z.infer<typeof connectionEditorSearch>["from"]>;

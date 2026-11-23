@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useApi } from "../../api/context";
-import { useConnectionNames } from "../../components/connection-names";
+import { connectionsByName } from "../../components/connection-names";
 import { cn } from "cn";
 import { ConnectionStep, NoConnection } from "./connection-step";
 import { FileStep } from "./file-step";
@@ -53,7 +53,7 @@ export function StatementImportPage({
   const decimalPlaces =
     currencies.items.find(({ code }) => code === account.currency)?.decimal_places ?? 2;
 
-  const connections = useConnectionNames(connectionList.items);
+  const connections = connectionsByName(connectionList.items);
   const usable = connections.filter(({ connection }) => connection.csv_mapping !== undefined);
   const linked = usable.find(({ connection }) => connection.connection_id === linkedConnectionId);
   const onlyOne = connections.length === 1 ? usable[0] : undefined;
