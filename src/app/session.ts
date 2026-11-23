@@ -20,6 +20,9 @@ export function userManagerSettings(config: Config, origin: string): UserManager
     // use localStorage, which may be blocked; the redirect comes back to this tab.
     stateStore: new WebStorageStateStore({ store: window.sessionStorage }),
     automaticSilentRenew: true,
+    // Zitadel's ID token carries only the subject unless the app asserts
+    // userinfo in it; the email /register shows comes from userinfo.
+    loadUserInfo: true,
   };
 }
 

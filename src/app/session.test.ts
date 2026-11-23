@@ -57,6 +57,24 @@ describe("userManagerSettings", () => {
     expect(settings.userStore).toBeDefined();
     expect(settings.stateStore).toBeDefined();
   });
+
+  it("reads the profile from userinfo, since Zitadel's ID token carries only the subject", () => {
+    const settings = userManagerSettings(
+      {
+        apiBaseUrl: "/api",
+        oidc: {
+          issuer: "https://auth.localhost:18443",
+          clientId: "web-client",
+          audience: "wallet-accountant",
+          redirectPath: "/auth/callback",
+          postLogoutRedirectPath: "/",
+        },
+      },
+      "https://localhost:5173",
+    );
+
+    expect(settings.loadUserInfo).toBe(true);
+  });
 });
 
 describe("the session-ended signal", () => {
