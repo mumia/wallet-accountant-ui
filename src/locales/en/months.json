@@ -76,6 +76,8 @@
     "body": "{{month}} opens when {{open}} closes.",
     "closeFirst": "Close {{open}} first",
     "pending_one": "{{count}} row is waiting in {{month}}.",
-    "pending_other": "{{count}} rows are waiting in {{month}}."
+    "pending_other": "{{count}} rows are waiting in {{month}}.",
+    "suspected_one": "{{count}} Suspected duplicate can be decided now",
+    "suspected_other": "{{count}} Suspected duplicates can be decided now"
   }
 }

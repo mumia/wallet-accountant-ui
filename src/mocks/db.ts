@@ -420,6 +420,30 @@ const savingsImport: StatementImport = {
   void_blocked_by: [],
 };
 
+/**
+ * Savings' second Statement import, of a file overlapping the first: its one
+ * row is a Suspected duplicate of November's deposit, so its Balance check
+ * waits. November isn't open yet, but the Suspected duplicate can be decided.
+ */
+const savingsNovemberImport: StatementImport = {
+  statement_import_id: "0190f5f2-7c00-7000-8000-000000000403",
+  connection_id: savingsConnection.connection_id,
+  account_id: savingsAccountId,
+  export_balance: { amount: "1802.10", currency: "EUR" },
+  rows_imported: 1,
+  rows_skipped_as_certain_repeats: 0,
+  suspected_duplicates: 1,
+  rows_ignored_before_start_date: 0,
+  rows_ignored_in_closed_months: 0,
+  rows_total: { amount: "200.00", currency: "EUR" },
+  balance_check: "WAITING",
+  imported_at: "2026-11-21T09:00:00Z",
+  void_blocked_by: [],
+};
+
+const savingsRowId = (n: number) =>
+  `0190f5f2-7c00-7000-8000-0000000007${String(n).padStart(2, "0")}`;
+
 function savingsRow(
   number: number,
   bookingDate: string,
@@ -428,7 +452,7 @@ function savingsRow(
   extra: Partial<ImportedRow> = {},
 ): ImportedRow {
   return {
-    imported_transaction_id: `0190f5f2-7c00-7000-8000-0000000007${String(number).padStart(2, "0")}`,
+    imported_transaction_id: savingsRowId(number),
     statement_import_id: savingsImport.statement_import_id,
     state: "PENDING",
     line: number + 1,
@@ -446,7 +470,7 @@ const savingsTransactionId = (n: number) =>
 /**
  * Savings (start 2026-08-01): August and September closed, October open
  * (a deposit Accepted, Interest pending), November not open yet (a deposit
- * pending). Its months are for the Month close flows.
+ * pending, and a Suspected duplicate of it from a second import). Its months are for the Month close flows.
  */
 function savingsData(categories: Category[]) {
   const category = (name: string) => {
@@ -466,6 +490,12 @@ function savingsData(categories: Category[]) {
     ),
     savingsRow(4, "2026-10-31", "Interest", "2.10"),
     savingsRow(5, "2026-11-05", "Transfer from Main", "200.00"),
+    savingsRow(6, "2026-11-05", "Transfer from Main", "200.00", {
+      statement_import_id: savingsNovemberImport.statement_import_id,
+      state: "SUSPECTED_DUPLICATE",
+      line: 2,
+      resembles_id: savingsRowId(5),
+    }),
   ];
   const ledger: AccountTransaction[] = [
     {
@@ -600,7 +630,7 @@ export const scenarios = {
       },
       statementImports: {
         [mainStatementImport.connection_id]: [...mainEarlierImports, mainStatementImport],
-        [savingsConnection.connection_id]: [savingsImport],
+        [savingsConnection.connection_id]: [savingsImport, savingsNovemberImport],
       },
       importedRows: { [mainAccountId]: mainImportedRows, [savingsAccountId]: savings.rows },
       notifications: { [seededHousehold.household_id]: homeNotifications },

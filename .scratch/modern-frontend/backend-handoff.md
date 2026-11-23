@@ -28,7 +28,7 @@ UI constraints (fixed):
 - **`AccountMonth.state`** gains **`NOT_OPEN_YET`**, next to `OPEN` and `CLOSED`. The backend owns this state; the UI never works it out. A future month that holds booked rows (a value date just past today) is a real Not open yet month.
 - **`flagged`** is removed from `AccountMonth`.
 - **Statement import rows outside the open month**:
-  - Rows in a month that isn't open yet land as **pending** Imported transactions. They can't be Accepted, Kept or Discarded until their month opens. The UI shows them, locked.
+  - Rows in a month that isn't open yet land as **pending** Imported transactions. They can't be Accepted, Kept or Discarded until their month opens. The UI shows them, locked. *(As built, the backend narrowed this: a Suspected duplicate there can still be Kept or Discarded; only Pending rows wait. The UI follows it.)*
   - Rows in a closed month are **ignored and counted**, like rows before the start date. The preview and the result report that count, and the UI's "ignored rows" note covers both causes.
 - **Void** is refused when any of the import's rows fall in a closed month, with a new 409 `/problems/statement-import-touches-closed-month`.
 - **`void_blocked_by`** on `StatementImport` lists the reasons Void is refused right now: `NOT_LATEST`, `HAS_ACCEPTED_ROWS` and `TOUCHES_CLOSED_MONTH`. It is empty when Void is allowed. The UI disables Void from it.
