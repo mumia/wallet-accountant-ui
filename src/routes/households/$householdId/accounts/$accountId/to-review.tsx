@@ -5,6 +5,13 @@ import { toReviewSearch } from "../../../../../lib/search";
 
 export const Route = createFileRoute("/households/$householdId/accounts/$accountId/to-review")({
   validateSearch: toReviewSearch,
+  // The month field offers months from the months list.
+  loader: ({ context: { api, queryClient }, params: { householdId, accountId } }) =>
+    queryClient.query(
+      api.queryOptions("get", "/households/{household_id}/accounts/{account_id}/months", {
+        params: { path: { household_id: householdId, account_id: accountId } },
+      }),
+    ),
   component: function ToReview() {
     const { householdId, accountId } = Route.useParams();
     const { booking_month, state } = Route.useSearch();

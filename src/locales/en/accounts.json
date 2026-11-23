@@ -5,7 +5,12 @@
     "empty": "Add your first Account. Each bank account or card you want to track is one Account.",
     "account": "Account",
     "currency": "Currency",
-    "balance": "Balance"
+    "balance": "Balance",
+    "toReview": "To review",
+    "toReviewLink_one": "{{count}} row To review in {{account}}",
+    "toReviewLink_other": "{{count}} rows To review in {{account}}",
+    "month": "Month",
+    "openMonth": "Open month: {{month}}"
   },
   "add": {
     "title": "Add Account",

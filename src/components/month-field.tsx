@@ -2,7 +2,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
-import { addMonths, formatMonth, type Month, type MonthChoice } from "../lib/month";
+import { formatMonth, nearestOffered, type Month, type MonthChoice } from "../lib/month";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
@@ -29,15 +29,10 @@ export function MonthField({
     { value: "all", label: t("monthField.all") },
     ...months.map((month) => ({ value: month, label: formatMonth(month) })),
   ];
-  const step = (count: number) => {
-    if (value === "all") {
-      return undefined;
-    }
-    const next = addMonths(value, count);
-    return months.includes(next) ? next : undefined;
-  };
-  const previous = step(-1);
-  const next = step(1);
+  // The arrows step to the nearest offered month, which in To review may be
+  // several months away.
+  const previous = value === "all" ? undefined : nearestOffered(months, value, "earlier");
+  const next = value === "all" ? undefined : nearestOffered(months, value, "later");
 
   return (
     <div role="group" aria-labelledby={labelId} className="flex items-center gap-1">

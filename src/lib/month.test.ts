@@ -7,7 +7,7 @@ import {
   hasEnded,
   isMonth,
   monthOf,
-  monthsBetween,
+  nearestOffered,
 } from "./month";
 
 describe("Booking months", () => {
@@ -21,14 +21,14 @@ describe("Booking months", () => {
     expect(addMonths("2026-01", -1)).toBe("2025-12");
   });
 
-  it("list newest first", () => {
-    expect(monthsBetween("2025-11", "2026-02")).toEqual([
-      "2026-02",
-      "2026-01",
-      "2025-12",
-      "2025-11",
-    ]);
-    expect(monthsBetween("2026-02", "2026-02")).toEqual(["2026-02"]);
+  it("step to the nearest offered month, across gaps", () => {
+    const offered = ["2026-11", "2026-08", "2026-07"] as const;
+    expect(nearestOffered(offered, "2026-08", "earlier")).toBe("2026-07");
+    expect(nearestOffered(offered, "2026-08", "later")).toBe("2026-11");
+    expect(nearestOffered(offered, "2026-10", "earlier")).toBe("2026-08");
+    expect(nearestOffered(offered, "2026-10", "later")).toBe("2026-11");
+    expect(nearestOffered(offered, "2026-07", "earlier")).toBeUndefined();
+    expect(nearestOffered(offered, "2026-11", "later")).toBeUndefined();
   });
 
   it("read as words", () => {

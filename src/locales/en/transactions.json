@@ -23,6 +23,7 @@
     "none": "No Transactions yet. They appear once a Statement import's rows are Accepted.",
     "month": "No Transactions in {{month}}",
     "showAllMonths": "Show all months",
+    "goToReview": "Go to To review",
     "allCategorised": "Everything in {{month}} has a Category ✓",
     "showAllTransactions": "Show all Transactions"
   },

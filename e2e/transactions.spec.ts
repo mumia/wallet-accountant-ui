@@ -29,10 +29,23 @@ async function pick(page: Page, row: RegExp, category: string) {
   await page.getByRole("option", { name: category, exact: true }).click();
 }
 
-test("all months load page by page; a chosen month loads in full", async ({ page }) => {
+test("the tab opens on the open month, offering every month", async ({ page }) => {
   await page.goto(main);
 
-  // Until the backend serves the open month, no month means all months.
+  await expect(page.getByRole("combobox", { name: /^Month/ })).toContainText("November 2026");
+  await expect(bodyRows(page)).toHaveCount(26);
+  await expect(page.getByRole("button", { name: "Next month" })).toBeDisabled();
+  await expectAccessible(page);
+  await page.getByRole("combobox", { name: /^Month/ }).click();
+  // January to November 2026, and All months.
+  await expect(page.getByRole("option")).toHaveCount(12);
+  await expect(page.getByRole("option").nth(1)).toHaveText("November 2026");
+  await expect(page.getByRole("option").last()).toHaveText("January 2026");
+});
+
+test("all months load page by page; a chosen month loads in full", async ({ page }) => {
+  await page.goto(`${main}?booking_month=all`);
+
   await expect(page.getByRole("combobox", { name: /^Month/ })).toContainText("All months");
   await expect(page.getByRole("status")).toHaveText("Showing 200 Transactions so far");
   const chip = page.getByRole("button", { name: "Uncategorised only" });
@@ -155,11 +168,26 @@ test("the Uncategorised toggle narrows a month, and keeps rows given a Category"
   await expect(bodyRows(page)).toHaveCount(26);
 });
 
+test("an empty month with rows To review offers To review", async ({ page }) => {
+  // Savings' November isn't open yet: a deposit waits there, To review.
+  await page.goto(`${savingsAccount}/transactions`);
+  await expect(page.getByRole("combobox", { name: /^Month/ })).toContainText("October 2026");
+  await page.getByRole("button", { name: "Next month" }).click();
+
+  await expect(page.getByText("No Transactions in November 2026")).toBeVisible();
+  await expectAccessible(page);
+  await page.getByRole("button", { name: "Go to To review" }).click();
+  await expect(page).toHaveURL(`${savingsAccount}/to-review?booking_month=2026-11`);
+  await expect(page.getByRole("region", { name: "Pending" })).toContainText("Transfer from Main");
+});
+
 test("an Account with no Transactions says so", async ({ page }) => {
   await page.goto(`${creditCard}?booking_month=2026-11`);
 
   await expect(page.getByText("No Transactions in November 2026")).toBeVisible();
   await expectAccessible(page);
+  // No rows To review there, so no way to To review.
+  await expect(page.getByRole("button", { name: "Go to To review" })).toHaveCount(0);
   await page.getByRole("button", { name: "Show all months" }).click();
 
   await expect(page).toHaveURL(`${creditCard}?booking_month=all`);

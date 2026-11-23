@@ -22,6 +22,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "../../components/ui/sidebar";
+import { toReviewCount } from "../../lib/account-months";
 import { saveLastHousehold } from "../../lib/last-household";
 import { HouseholdSwitcher } from "./household-switcher";
 import { NotificationsBell } from "./notifications-bell";
@@ -184,12 +185,20 @@ function AccountsGroup({ householdId }: { householdId: string }) {
                   />
                 }
               >
-                <span className="grid min-w-0 leading-tight">
+                <span className="grid min-w-0 flex-1 leading-tight">
                   <span className="truncate font-medium">{account.name}</span>
                   <span className="truncate text-xs text-muted-foreground tabular-nums">
                     {labels.balance(account)}
                   </span>
                 </span>
+                {toReviewCount(account) > 0 && (
+                  <span className="ml-auto rounded-md bg-sidebar-accent px-1.5 text-xs font-medium tabular-nums">
+                    <span aria-hidden="true">{toReviewCount(account)}</span>
+                    <span className="sr-only">
+                      {t("toReview", { count: toReviewCount(account) })}
+                    </span>
+                  </span>
+                )}
               </SidebarMenuButton>
             </SidebarMenuItem>
           );

@@ -15,11 +15,13 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
+import { toReviewCount } from "../../lib/account-months";
+import { formatMonth, type Month } from "../../lib/month";
 
 /**
  * The Household's home (spec, "Screens and routes"): its Accounts with their
- * balance and Account currency, from `GET …/accounts` alone. To review counts
- * and the open month come with ticket 19.
+ * Account currency, To review count, open month and balance, from
+ * `GET …/accounts` alone.
  */
 export function AccountsOverview({ householdId }: { householdId: string }) {
   const { t } = useTranslation("accounts");
@@ -59,6 +61,8 @@ export function AccountsOverview({ householdId }: { householdId: string }) {
                 <TableRow>
                   <TableHead className="pl-4">{t("overview.account")}</TableHead>
                   <TableHead>{t("overview.currency")}</TableHead>
+                  <TableHead className="text-right">{t("overview.toReview")}</TableHead>
+                  <TableHead>{t("overview.month")}</TableHead>
                   <TableHead className="pr-4 text-right">{t("overview.balance")}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -78,14 +82,38 @@ export function AccountsOverview({ householdId }: { householdId: string }) {
                       </div>
                     </TableCell>
                     <TableCell>{account.currency}</TableCell>
-                    <TableCell
-                      className={
-                        account.balance === undefined
-                          ? "pr-4 text-right text-muted-foreground"
-                          : "pr-4 text-right tabular-nums"
-                      }
-                    >
-                      {labels.balance(account)}
+                    <TableCell className="text-right tabular-nums">
+                      <ToReview householdId={householdId} account={account} />
+                    </TableCell>
+                    <TableCell>
+                      {account.awaiting_first_statement_import ? (
+                        <span className="text-muted-foreground">{labels.awaiting}</span>
+                      ) : (
+                        <Link
+                          to="/households/$householdId/accounts/$accountId/months/$bookingMonth"
+                          params={{
+                            householdId,
+                            accountId: account.account_id,
+                            bookingMonth: account.open_month,
+                          }}
+                          className="underline-offset-4 hover:underline"
+                        >
+                          {t("overview.openMonth", {
+                            month: formatMonth(account.open_month as Month),
+                          })}
+                        </Link>
+                      )}
+                    </TableCell>
+                    <TableCell className="pr-4 text-right tabular-nums">
+                      {account.balance === undefined ? (
+                        // The month column already says it awaits its first import.
+                        <span className="text-muted-foreground">
+                          <span aria-hidden="true">—</span>
+                          <span className="sr-only">{labels.awaiting}</span>
+                        </span>
+                      ) : (
+                        labels.balance(account)
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -95,5 +123,30 @@ export function AccountsOverview({ householdId }: { householdId: string }) {
         </Card>
       )}
     </div>
+  );
+}
+
+/** The Account's rows To review, linking to its To review tab when there are any. */
+function ToReview({
+  householdId,
+  account,
+}: {
+  householdId: string;
+  account: { account_id: string; name: string; pending: number; suspected_duplicates: number };
+}) {
+  const { t } = useTranslation("accounts");
+  const count = toReviewCount(account);
+  if (count === 0) {
+    return <span className="text-muted-foreground">0</span>;
+  }
+  return (
+    <Link
+      to="/households/$householdId/accounts/$accountId/to-review"
+      params={{ householdId, accountId: account.account_id }}
+      aria-label={t("overview.toReviewLink", { count, account: account.name })}
+      className="font-medium underline-offset-4 hover:underline"
+    >
+      {count}
+    </Link>
   );
 }

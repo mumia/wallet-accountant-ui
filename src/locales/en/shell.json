@@ -4,6 +4,8 @@
   "accounts": "Accounts",
   "categories": "Categories",
   "addAccount": "Add Account",
+  "toReview_one": "{{count}} row To review",
+  "toReview_other": "{{count}} rows To review",
   "switcher": {
     "household": "Household",
     "households": "Households",
