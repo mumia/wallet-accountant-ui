@@ -2,7 +2,7 @@ import { HttpResponse } from "msw";
 
 import type { components } from "../api/schema.gen";
 import { internalCategories, validInvitationCode, type MockDb } from "./db";
-import { http, withExactAmounts } from "./http";
+import { badRequest, http, withExactAmounts } from "./http";
 import { withCounts } from "./months";
 import { connectionHandlers } from "./connection-handlers";
 import { importedTransactionHandlers } from "./imported-transaction-handlers";
@@ -20,6 +20,13 @@ const registrationRequired: Problem = {
   status: 403,
   detail: "Redeem an Invitation to become a User.",
 };
+
+/** The mock's one User. `displayName` is absent for one who registered before v0.4.0. */
+const me = (displayName: string | undefined): components["schemas"]["Me"] => ({
+  user_id: "0190f5f2-7c00-7000-8000-0000000000aa",
+  is_instance_administrator: false,
+  ...(displayName === undefined ? {} : { display_name: displayName }),
+});
 
 const notFound: Problem = { type: "about:blank", title: "Not Found", status: 404 };
 
@@ -109,16 +116,24 @@ export function createHandlers(db: MockDb) {
       }),
     ),
 
-    http.get("/me", ({ response }) =>
-      db.read().registered
-        ? response(200).json({
-            user_id: "0190f5f2-7c00-7000-8000-0000000000aa",
-            is_instance_administrator: false,
-          })
-        : response(403).json(registrationRequired),
-    ),
+    http.get("/me", ({ response }) => {
+      const state = db.read();
+      return state.registered
+        ? response(200).json(me(state.displayName))
+        : response(403).json(registrationRequired);
+    }),
 
     http.post("/registrations", async ({ request, response }) => {
+      const { invitation_code, display_name } = await request.json();
+      // The request schema (display_name required, 1–64) is checked before
+      // anything else, as in the backend. A body from before v0.4.0 has none.
+      if (
+        typeof display_name !== "string" ||
+        display_name.length === 0 ||
+        display_name.length > 64
+      ) {
+        return response.untyped(badRequest("Invalid value for: display_name."));
+      }
       const state = db.read();
       if (state.registered) {
         return response(409).json({
@@ -128,7 +143,15 @@ export function createHandlers(db: MockDb) {
           detail: "This identity is already a User.",
         });
       }
-      const { invitation_code } = await request.json();
+      const displayName = display_name.trim();
+      if (displayName === "") {
+        return response(422).json({
+          type: "/problems/invalid-user",
+          title: "Invalid User",
+          status: 422,
+          detail: "The display name must not be blank.",
+        });
+      }
       if (invitation_code !== validInvitationCode) {
         return response(422).json({
           type: "/problems/invalid-invitation",
@@ -137,11 +160,8 @@ export function createHandlers(db: MockDb) {
           detail: "The Invitation code is unknown, expired, superseded or already used.",
         });
       }
-      db.write({ ...state, registered: true });
-      return response(201).json({
-        user_id: "0190f5f2-7c00-7000-8000-0000000000aa",
-        is_instance_administrator: false,
-      });
+      db.write({ ...state, registered: true, displayName });
+      return response(201).json(me(displayName));
     }),
 
     http.get("/households", ({ response }) => {
@@ -388,17 +408,7 @@ export function createHandlers(db: MockDb) {
         const { name } = await request.json();
         // The request schema's bounds (1–200) come before the blank check, as in the backend.
         if (name.length === 0 || name.length > 200) {
-          return response.untyped(
-            Response.json(
-              {
-                type: "about:blank",
-                title: "Bad Request",
-                status: 400,
-                detail: "name must be 1 to 200 characters.",
-              },
-              { status: 400, headers: { "Content-Type": "application/problem+json" } },
-            ),
-          );
+          return response.untyped(badRequest("name must be 1 to 200 characters."));
         }
         if (name.trim() === "") {
           return response(422).json({

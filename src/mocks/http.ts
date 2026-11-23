@@ -9,6 +9,16 @@ import type { paths } from "../api/schema.gen";
 export const http = createOpenApiHttp<paths>({ baseUrl: "*/api" });
 
 /**
+ * The backend's 400 for a request its schema refuses, which the contract
+ * leaves untyped: `response.untyped(badRequest("..."))`.
+ */
+export const badRequest = (detail: string): Response =>
+  Response.json(
+    { type: "about:blank", title: "Bad Request", status: 400, detail },
+    { status: 400, headers: { "Content-Type": "application/problem+json" } },
+  );
+
+/**
  * Rewrites a typed JSON response so each `amount` is an exact JSON number, as
  * the backend sends it: `response.untyped(await withExactAmounts(response(200).json(body)))`.
  * Without it MSW would send amounts as JSON strings, which the backend never does.
