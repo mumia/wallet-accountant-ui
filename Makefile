@@ -15,7 +15,9 @@ API_PROXY_TARGET ?= https://wallet.localhost:18443
 # The mkcert CA (`make local-ca` in wallet-accountant) signs the dev certificate,
 # and the dev server trusts it for the cluster's HTTPS.
 MKCERT_CAROOT := $(shell mkcert -CAROOT 2>/dev/null)
-LOCAL_CONTEXT ?= k3d-wallet-accountant
+LOCAL_CLUSTER ?= wallet-accountant
+LOCAL_CONTEXT ?= k3d-$(LOCAL_CLUSTER)
+LOCAL_HTTPS_PORT ?= 18443
 IMAGE        ?= wallet-accountant-ui:local
 # `make local-deploy`: the backend's checkout, whose `make local-push` deploys
 # this repo's last local build (recorded in LOCAL_BUILD, which it reads as
@@ -43,7 +45,7 @@ DOCKER_NODE  = docker run --rm $(TTY) \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps install dev dev-mock dev-cert dev-config local-deploy ui-add e2e build preview generate contract-check contract-update lint actionlint format typecheck test audit image image-test check shell npm clean-deps
+.PHONY: help deps install dev dev-mock dev-cert dev-config local-deploy local-smoke ui-add e2e build preview generate contract-check contract-update lint actionlint format typecheck test audit image image-test check shell npm clean-deps
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-12s %s\n", $$1, $$2}'
@@ -151,6 +153,13 @@ local-deploy: ## Build the image, push it to the local cluster's registry and ha
 	flux --context $(LOCAL_CONTEXT) reconcile kustomization cluster --with-source --timeout=5m; \
 	flux --context $(LOCAL_CONTEXT) reconcile kustomization wallet-accountant --timeout=10m; \
 	echo "local-deploy: https://wallet.localhost:18443"
+
+# The smoke test's steps, and what it needs, are in smoke/smoke.sh. Traces and
+# screenshots of a failed run land in bin/smoke-results.
+local-smoke: deps ## From no cluster: the backend's local-up and local-deploy, this UI's local-deploy, the browser test through the real stack, then local-down (SMOKE_KEEP=1 keeps the cluster)
+	WA_REPO=$(WA_REPO) LOCAL_CLUSTER=$(LOCAL_CLUSTER) LOCAL_HTTPS_PORT=$(LOCAL_HTTPS_PORT) \
+		PLAYWRIGHT_IMAGE=$(PLAYWRIGHT_IMAGE) NODE_VOLUME=$(NODE_VOLUME) RESULTS_DIR=bin/smoke-results \
+		smoke/smoke.sh
 
 check: deps actionlint ## Every CI check
 	$(call DOCKER_NODE) sh -c 'npm run check && npm run audit && npm run contract:check'
