@@ -47,6 +47,7 @@ export default defineConfig(
             "*.config.ts",
             "scripts/**",
             "e2e/**",
+            "smoke/**",
             "src/test/**",
             "src/mocks/**",
             "**/*.test.{ts,tsx}",
@@ -203,7 +204,7 @@ export default defineConfig(
   },
 
   {
-    files: ["*.config.ts", "scripts/**/*.ts", "e2e/**/*.ts"],
+    files: ["*.config.ts", "scripts/**/*.ts", "e2e/**/*.ts", "smoke/**/*.ts"],
     languageOptions: { globals: globals.node },
   },
 

@@ -21,6 +21,7 @@ src/
   test/                 test setup shared by every test, and the MSW server
   mocks/                the mock API: MSW handlers typed by the contract, and mock mode (section 7)
 e2e/                    Playwright tests, run against the mock build (section 7)
+smoke/                  the real-stack smoke test on the local cluster (section 7)
 scripts/                Node scripts in TypeScript: the API generator and the contract check
 types/                  declarations for untyped dev tools
 ```
@@ -69,6 +70,7 @@ A file outside these folders fails lint (`boundaries/no-unknown-files`).
 | `make image` | build the UI image (`IMAGE`, default `wallet-accountant-ui:local`) |
 | `make image-test` | build it, run it as the chart does, check the UI contract |
 | `make local-deploy` | build the image, push it to the local cluster's registry, and have Flux run it in the chart's UI slot at https://wallet.localhost:18443 (see "The dev loop") |
+| `make local-smoke` | from no cluster: the real stack, a browser test through it, then `local-down` (section 7, "The real-stack smoke test") |
 | `make check` | every CI check |
 | `make npm a="…"` | any npm command, e.g. `make npm a="install -E zod@4"` |
 | `make shell` | a shell in the Node container |
@@ -257,6 +259,12 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
   - **The gate:** every test calls `expectAccessible(page)` (`e2e/axe.ts`) once per screen and state, such as a dialog open or errors shown. It runs axe's WCAG 2.2 A and AA rules and fails on any violation.
   - **Exceptions** are passed per scan with a reason, as named sets in `e2e/axe.ts`, each backed by a test of the behaviour that makes the rule not apply. The one so far, `comboboxListOpen`: a Base UI Combobox with its list open hides the rest of the page from assistive tech (`aria-hidden-focus`), and leaving the input closes the list.
   - **Storage:** MSW keeps its own bookkeeping in `localStorage`, unguarded. So an e2e test that blocks storage refuses only the app's keys, and the unit tests cover a `localStorage` that throws on any access.
+- **The real-stack smoke test** (`smoke/`, `make local-smoke`): this UI's image against the real backend and Zitadel on a fresh local cluster. It signs in, redeems a bootstrap Invitation code, creates a Household and a bank Account starting on the 1st of last month, creates a Connection in the CSV mapping editor, imports a statement whose rows are all in last month, Accepts every row with a Category (creating the Categories first), and closes last month with the Export balance as its Statement balance. Everything goes through the UI; nothing is seeded through the API. No step depends on today's date beyond "last month", so it passes on any day.
+  - **It starts from nothing**, as wallet-accountant's `make local-smoke` does: the API can't issue Invitations, and a bootstrap code works only before an Instance administrator exists. It refuses to start if the cluster exists, rather than delete it. Then `smoke/smoke.sh` runs the backend's `make local-up` and `make local-deploy` in `WA_REPO` (default `../wallet-accountant`), then this repo's `make local-deploy`. It creates a Zitadel human user with a random password and gets a code from `make local-bootstrap`, both through the backend's `deploy/local/zitadel.sh`. The code and the password reach the test's environment only, never a log or a command line.
+  - **The browser** is Playwright in its official image, on the k3d cluster's Docker network. `smoke/global-setup.ts` forwards `127.0.0.1:18443` to the ingress, so the browser keeps the real origins. It trusts only the certificates `smoke/tls-pin.ts` has checked against the mkcert CA, as the backend's stand-in UI test does.
+  - **Afterwards** it runs the backend's `make local-down`, whatever happened; `SMOKE_KEEP=1` keeps the cluster. A failed run leaves its trace and screenshot in `bin/smoke-results/` (git-ignored). They hold what was typed, the Invitation code and the password included, so they stay on this machine. Both repos record the smoke test's builds in `bin/local-smoke-build.env`, so a developer's `bin/local-build.env` is left alone.
+  - **It needs** Docker, k3d, kubectl, flux, mkcert (with `make local-ca` run once in wallet-accountant), curl, jq, openssl, and the backend's checkout with what its `make local-up` needs (the environment repo's checkout). It takes about 10 minutes. It doesn't run in CI yet.
+  - **Mock and real differ** in one known way: the backend reads quoted CSV, which the mock doesn't, so the smoke test's statement has no quotes.
 - **Theme contrast**: `src/lib/theme/themes.test.ts` checks every token pair of all eight themes (section 11).
 - **Manual accessibility pass before each release**, on every screen, keyboard first and then VoiceOver (Safari, macOS):
   1. Tab through the whole screen. Focus is always visible, never hidden under a sticky header or a toast, and moves in reading order.
