@@ -120,6 +120,37 @@ test("a bulk Accept reports what failed and keeps those rows selected", async ({
   await expect(page.getByRole("status").filter({ hasText: "selected" })).toHaveText("1 selected");
 });
 
+test("the month field offers only months with rows To review", async ({ page }) => {
+  // Savings: Interest pending in October, a deposit in November, not open yet.
+  const savings = `${home}/accounts/0190f5f2-7c00-7000-8000-000000000103/to-review`;
+  await page.goto(savings);
+
+  const field = page.getByRole("combobox", { name: /^Month/ });
+  await expect(field).toContainText("All months");
+  await field.click();
+  await expect(page.getByRole("option")).toHaveText([
+    "All months",
+    "November 2026",
+    "October 2026",
+  ]);
+  await page.getByRole("option", { name: "November 2026" }).click();
+  await expect(page).toHaveURL(`${savings}?booking_month=2026-11`);
+  await expect(page.getByText("November 2026 isn't open yet")).toBeVisible();
+  await expectAccessible(page);
+
+  // The arrows skip September and August, which have nothing To review.
+  await page.getByRole("button", { name: "Previous month" }).click();
+  await expect(page).toHaveURL(`${savings}?booking_month=2026-10`);
+  await expect(page.getByRole("button", { name: "Previous month" })).toBeDisabled();
+
+  // A month carried over from Transactions still shows.
+  await page.goto(`${savings}?booking_month=2026-08`);
+  await expect(field).toContainText("August 2026");
+  await expect(page.getByText("Nothing to review in August 2026")).toBeVisible();
+  await page.getByRole("button", { name: "Next month" }).click();
+  await expect(page).toHaveURL(`${savings}?booking_month=2026-10`);
+});
+
 test("the state filter shows Suspected duplicates only, and the empty states", async ({ page }) => {
   await page.goto(`${toReview}?state=SUSPECTED_DUPLICATE`);
 

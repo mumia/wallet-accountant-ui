@@ -22,13 +22,18 @@ export function addMonths(month: Month, count: number): Month {
   return monthOf(new Date(year, index - 1 + count, 1));
 }
 
-/** Every month from `first` to `last`, newest first. */
-export function monthsBetween(first: Month, last: Month): Month[] {
-  const months: Month[] = [];
-  for (let month = last; month >= first; month = addMonths(month, -1)) {
-    months.push(month);
-  }
-  return months;
+/**
+ * The offered month nearest to `month` on one side, or none: the arrows of a
+ * month field whose months may have gaps. `months` is newest first.
+ */
+export function nearestOffered(
+  months: readonly Month[],
+  month: Month,
+  side: "earlier" | "later",
+): Month | undefined {
+  return side === "earlier"
+    ? months.find((offered) => offered < month)
+    : months.findLast((offered) => offered > month);
 }
 
 /** "March 2026". */

@@ -111,8 +111,8 @@ function invalidateAccount(queryClient: QueryClient, householdId: string, accoun
 
 /**
  * Everything a Statement import changes (spec, "Freshness"): the Account and the
- * Accounts overview, To review, the Transactions (a first import's Opening
- * balance) and the Statement imports.
+ * Accounts overview, the months (their counts, and months it adds), To review,
+ * the Transactions (a first import's Opening balance) and the Statement imports.
  */
 function invalidateAfterImport(queryClient: QueryClient, householdId: string, accountId: string) {
   const account = { params: { path: { household_id: householdId, account_id: accountId } } };
@@ -124,6 +124,9 @@ function invalidateAfterImport(queryClient: QueryClient, householdId: string, ac
         "/households/{household_id}/accounts",
         { params: { path: { household_id: householdId } } },
       ],
+    }),
+    queryClient.invalidateQueries({
+      queryKey: ["get", "/households/{household_id}/accounts/{account_id}/months", account],
     }),
     queryClient.invalidateQueries({
       queryKey: [

@@ -29,6 +29,7 @@ export function useAccountLabels() {
   const { t } = useTranslation();
   return {
     kind: (kind: AccountKind) => (isKnownKind(kind) ? t(kindKeys[kind]) : kind),
+    awaiting: t("account.awaiting"),
     balance: (account: { balance?: Money | undefined }) =>
       account.balance === undefined ? t("account.awaiting") : formatMoney(account.balance),
   };

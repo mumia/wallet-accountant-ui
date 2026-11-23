@@ -23,19 +23,35 @@ async function expectNoSidewaysScroll(page: Page) {
   expect(overflow).toBeLessThanOrEqual(0);
 }
 
-test("the Accounts overview lists each Account with its balance", async ({ page }) => {
+test("the Accounts overview lists each Account with its To review count, open month and balance", async ({
+  page,
+}) => {
   await page.goto("/");
 
   await expect(page).toHaveURL(home);
   await expect(page.getByRole("heading", { level: 1, name: "Accounts" })).toBeVisible();
   const rows = page.getByRole("row");
-  await expect(rows.filter({ hasText: "Main" })).toContainText(
-    ["Bank account", "EUR", "€1,234.50"].join(""),
+  const mainRow = rows.filter({ hasText: "Main" });
+  await expect(mainRow).toContainText(
+    ["Bank account", "EUR", "7", "Open month: November 2026", "€1,234.50"].join(""),
   );
-  await expect(rows.filter({ hasText: "Credit card" })).toContainText(
-    "Awaiting first Statement import",
+  await expect(mainRow.getByRole("link", { name: "7 rows To review in Main" })).toHaveAttribute(
+    "href",
+    `${main}/to-review`,
   );
-  await expect(navigation(page).getByRole("link", { name: /Main.*€1,234\.50/ })).toBeVisible();
+  await expect(mainRow.getByRole("link", { name: "Open month: November 2026" })).toHaveAttribute(
+    "href",
+    `${main}/months/2026-11`,
+  );
+  const creditCardRow = rows.filter({ hasText: "Credit card" });
+  await expect(creditCardRow).toContainText("0Awaiting first Statement import");
+  await expect(creditCardRow.getByRole("link")).toHaveCount(1);
+  await expect(
+    navigation(page).getByRole("link", { name: /^Main.*€1,234\.50 7 rows To review$/ }),
+  ).toBeVisible();
+  await expect(
+    navigation(page).getByRole("link", { name: /^Credit card/ }),
+  ).not.toHaveAccessibleName(/To review/);
   await expect(navigation(page).getByRole("link", { name: "Accounts overview" })).toHaveAttribute(
     "aria-current",
     "page",

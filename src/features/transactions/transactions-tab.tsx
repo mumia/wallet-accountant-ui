@@ -8,7 +8,7 @@ import { useErrorText } from "../../components/error-text";
 import { MonthField, type MonthChoice } from "../../components/month-field";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
-import { accountMonths, defaultBookingMonth } from "../../lib/account-months";
+import { defaultBookingMonth, toReviewCountIn, transactionMonths } from "../../lib/account-months";
 import { flattenCategories, isUncategorised, type CategoryNode } from "../../lib/categories";
 import { formatMonth, type Month } from "../../lib/month";
 import {
@@ -51,8 +51,14 @@ export function TransactionsTab({
   const categories = api.useQuery("get", "/households/{household_id}/categories", {
     params: { path: { household_id: householdId } },
   });
-  const month = bookingMonth ?? defaultBookingMonth();
-  const months = useMemo(() => accountMonths(account), [account]);
+  // The route's loader has fetched them already.
+  const { data: accountMonths } = api.useSuspenseQuery(
+    "get",
+    "/households/{household_id}/accounts/{account_id}/months",
+    { params: { path: { household_id: householdId, account_id: accountId } } },
+  );
+  const month = bookingMonth ?? defaultBookingMonth(account);
+  const months = useMemo(() => transactionMonths(accountMonths.items), [accountMonths]);
   const openMonth = account.open_month as Month;
 
   const show = (search: { booking_month: MonthChoice; uncategorised?: true }) =>
@@ -60,6 +66,12 @@ export function TransactionsTab({
       to: "/households/$householdId/accounts/$accountId/transactions",
       params: { householdId, accountId },
       search,
+    });
+  const toReview = () =>
+    navigate({
+      to: "/households/$householdId/accounts/$accountId/to-review",
+      params: { householdId, accountId },
+      search: { booking_month: month },
     });
 
   return (
@@ -109,7 +121,9 @@ export function TransactionsTab({
           categories={categories.data?.items}
           openMonth={openMonth}
           highlighted={highlighted}
+          toReviewCount={toReviewCountIn(accountMonths.items, month)}
           onShowAll={() => void show({ booking_month: "all" })}
+          onToReview={() => void toReview()}
           onShowEverything={() => void show({ booking_month: month })}
         />
       )}
@@ -203,7 +217,9 @@ function OneMonth({
   categories,
   openMonth,
   highlighted,
+  toReviewCount,
   onShowAll,
+  onToReview,
   onShowEverything,
 }: {
   householdId: string;
@@ -213,7 +229,10 @@ function OneMonth({
   categories: CategoryNode[] | undefined;
   openMonth: Month;
   highlighted: string | undefined;
+  /** The month's rows To review. */
+  toReviewCount: number;
   onShowAll: () => void;
+  onToReview: () => void;
   onShowEverything: () => void;
 }) {
   const { t } = useTranslation("transactions");
@@ -254,6 +273,9 @@ function OneMonth({
         message={t("empty.month", { month: formatMonth(month) })}
         action={t("empty.showAllMonths")}
         onAction={onShowAll}
+        {...(toReviewCount > 0
+          ? { secondary: t("empty.goToReview"), onSecondary: onToReview }
+          : {})}
       />
     );
   }
@@ -378,18 +400,29 @@ function Empty({
   message,
   action,
   onAction,
+  secondary,
+  onSecondary,
 }: {
   message: string;
   action: string;
   onAction: () => void;
+  secondary?: string;
+  onSecondary?: () => void;
 }) {
   return (
     <Card>
       <CardContent className="grid justify-items-start gap-3">
         <p>{message}</p>
-        <Button variant="outline" onClick={onAction}>
-          {action}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={onAction}>
+            {action}
+          </Button>
+          {secondary !== undefined && (
+            <Button variant="outline" onClick={onSecondary}>
+              {secondary}
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

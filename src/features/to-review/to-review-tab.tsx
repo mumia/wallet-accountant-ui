@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/dialog";
-import { accountMonths, defaultBookingMonth } from "../../lib/account-months";
+import { toReviewMonths } from "../../lib/account-months";
 import { flattenCategories, isUncategorised, type CategoryNode } from "../../lib/categories";
 import { formatMonth, monthOf, type Month } from "../../lib/month";
 import { ReviewTable } from "./review-table";
@@ -58,8 +58,18 @@ export function ToReviewTab({
     "/households/{household_id}/accounts/{account_id}",
     { params: { path: { household_id: householdId, account_id: accountId } } },
   );
-  const month = bookingMonth ?? defaultBookingMonth();
-  const months = useMemo(() => accountMonths(account), [account]);
+  // The route's loader has fetched them already.
+  const { data: accountMonths } = api.useSuspenseQuery(
+    "get",
+    "/households/{household_id}/accounts/{account_id}/months",
+    { params: { path: { household_id: householdId, account_id: accountId } } },
+  );
+  // No month means all months: rows To review may wait in months not open yet.
+  const month = bookingMonth ?? "all";
+  const months = useMemo(
+    () => toReviewMonths(accountMonths.items, month === "all" ? undefined : month),
+    [accountMonths, month],
+  );
   const params = { householdId, accountId };
 
   if (account.awaiting_first_statement_import) {
