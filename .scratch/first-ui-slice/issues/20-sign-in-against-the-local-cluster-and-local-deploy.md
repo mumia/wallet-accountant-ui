@@ -1,6 +1,6 @@
 # Sign in against the local cluster, and make local-deploy
 
-Status: in progress
+Status: done
 Blocked by: 04
 Waits on backend: yes. The environment repo (`wallet-accountant-deploy`) must register the dev origin (`https://localhost:5173/auth/callback` in `oidc.zitadelSetup.web.extraRedirectUris`, `https://localhost:5173/` in `extraPostLogoutRedirectUris`), and, for `make local-deploy`, take `ui.enabled` with the UI image and its base image (`caddy:2.11.9-alpine`) in `images.lock`.
 
@@ -13,9 +13,9 @@ Ticket 04's last steps, which need the local cluster running and the environment
 
 ## Acceptance criteria
 
-- [ ] Signing in from `https://localhost:5173` and from the deployed image both reach `/api/me` with a 200. (The dev server's half is done; the deployed image waits on `make local-deploy`.)
+- [x] Signing in from `https://localhost:5173` and from the deployed image both reach `/api/me` with a 200.
 - [x] A deep link survives the sign-in round trip.
-- [ ] `make local-deploy` runs the image in the cluster with the chart's read-only settings.
+- [x] `make local-deploy` runs the image in the cluster with the chart's read-only settings.
 
 ## Spec
 
@@ -27,3 +27,5 @@ Ticket 04's last steps, which need the local cluster running and the environment
 - 2026-11-23: The environment-repo half of this ticket is on the `ui-dev-origin` branch of wallet-accountant-deploy. It registers the dev server's redirect URIs in `clusters/local/apps/wallet-accountant.yaml` and pins `caddy:2.11.9-alpine` in `images.lock` (`host-images`).
 - 2026-11-23: Checked from `make dev` against the local cluster, with a throwaway Playwright check run in the Playwright image on the k3d network (not committed). Zitadel's login and back works, and the token the UI sends has `wallet-accountant` in `aud`. After redeeming a bootstrap Invitation code and creating a Household, `/api/me` answers 200 with the UI's token. A deep link (path, query and hash) survives a fresh sign-in. Revoking the refresh token at Zitadel and letting the access token lapse shows "Your session has ended" on the next API call. The UI itself never calls `/api/me`; the check called it with the token the UI holds.
 - 2026-11-23: Found and fixed on this branch: `/register` said "You're signed in as <numeric subject>". Zitadel's ID token carries only `sub` unless the app asserts userinfo in it, and the setup Job doesn't. The UI now sets `loadUserInfo: true` (`src/app/session.ts`), and the page shows the email. The alternative, `idTokenUserinfoAssertion` on the `web` app, is a wallet-accountant change and isn't needed.
+- 2026-11-23: wallet-accountant#34 makes the `stage.sh` change described above. `LOCAL_UI_BUILD`, which defaults to `../wallet-accountant-ui/bin/local-build.env`, holds `WALLET_ACCOUNTANT_UI_IMAGE` and `WALLET_ACCOUNTANT_UI_TAG`; the newer of that build and the stand-in's goes in the UI slot. `make local-deploy` here builds `localhost:5050/wallet-accountant-ui:local-<UTC timestamp>`, pushes it, records it in `bin/local-build.env`, runs wallet-accountant's `local-push`, and reconciles. It fails if the backend's stage didn't choose this build. (#34 is merged.)
+- 2026-11-23: Checked on the local cluster. `make local-deploy` rolled out the image with the chart's read-only settings: read-only root filesystem, all capabilities dropped, non-root, RuntimeDefault seccomp. The same sign-in check as the dev server's passed at `https://wallet.localhost:18443`: `aud`, `/api/me` 200, the deep link, and the session-ended dialog.
