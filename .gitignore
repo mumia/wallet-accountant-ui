@@ -10,6 +10,8 @@ coverage/
 !.env.example
 # Written by `make dev-config` from the local cluster.
 public/config.json
+# The last `make local-deploy` build, which wallet-accountant reads.
+bin/
 # The dev server's certificate (`make dev-cert`).
 .certs/
 # Local Claude Code state.

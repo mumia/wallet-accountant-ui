@@ -17,6 +17,12 @@ API_PROXY_TARGET ?= https://wallet.localhost:18443
 MKCERT_CAROOT := $(shell mkcert -CAROOT 2>/dev/null)
 LOCAL_CONTEXT ?= k3d-wallet-accountant
 IMAGE        ?= wallet-accountant-ui:local
+# `make local-deploy`: the backend's checkout, whose `make local-push` deploys
+# this repo's last local build (recorded in LOCAL_BUILD, which it reads as
+# LOCAL_UI_BUILD) in the chart's UI slot, and the k3d registry it pushes to.
+WA_REPO      ?= ../wallet-accountant
+LOCAL_REGISTRY_PORT ?= 5050
+LOCAL_BUILD  := bin/local-build.env
 # The backend release whose contract src/api/openapi.yaml is; images carry it.
 CONTRACT_VERSION := $(shell cat src/api/CONTRACT_VERSION)
 # Playwright's image runs the e2e tests; its version is @playwright/test's in
@@ -37,7 +43,7 @@ DOCKER_NODE  = docker run --rm $(TTY) \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps install dev dev-mock dev-cert dev-config ui-add e2e build preview generate contract-check contract-update lint actionlint format typecheck test audit image image-test check shell npm clean-deps
+.PHONY: help deps install dev dev-mock dev-cert dev-config local-deploy ui-add e2e build preview generate contract-check contract-update lint actionlint format typecheck test audit image image-test check shell npm clean-deps
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-12s %s\n", $$1, $$2}'
@@ -125,6 +131,26 @@ image: ## Build the UI image (IMAGE, default wallet-accountant-ui:local)
 
 image-test: image ## Run the image as the chart does and check the UI contract
 	docker/test-image.sh $(IMAGE)
+
+# A unique tag per build, so Flux rolls each one out. The build is recorded
+# only once its image is in the registry. wallet-accountant's stage.sh puts it
+# in the UI slot unless the stand-in UI's build there is newer, or there is no
+# app build; then this fails rather than leave another UI running unnoticed.
+local-deploy: ## Build the image, push it to the local cluster's registry and have Flux run it at https://wallet.localhost:18443
+	@set -e; tag=local-$$(date -u +%Y%m%d%H%M%S); \
+	image=localhost:$(LOCAL_REGISTRY_PORT)/wallet-accountant-ui:$$tag; \
+	$(MAKE) --no-print-directory image IMAGE=$$image; \
+	docker push -q $$image; \
+	mkdir -p bin; \
+	printf 'WALLET_ACCOUNTANT_UI_IMAGE=wallet-accountant-ui\nWALLET_ACCOUNTANT_UI_TAG=%s\n' $$tag > $(LOCAL_BUILD); \
+	echo "local-deploy: image $$image"; \
+	out=$$($(MAKE) -C $(WA_REPO) --no-print-directory local-push LOCAL_UI_BUILD=$(abspath $(LOCAL_BUILD)) 2>&1) || { echo "$$out"; exit 1; }; \
+	echo "$$out" | grep '^stage:' || true; \
+	echo "$$out" | grep -qx "stage: with the UI wallet-accountant-ui:$$tag" || { \
+		echo "local-deploy: wallet-accountant didn't deploy this build. Has it an app build ('make local-deploy' there), or a newer stand-in UI?"; exit 1; }; \
+	flux --context $(LOCAL_CONTEXT) reconcile kustomization cluster --with-source --timeout=5m; \
+	flux --context $(LOCAL_CONTEXT) reconcile kustomization wallet-accountant --timeout=10m; \
+	echo "local-deploy: https://wallet.localhost:18443"
 
 check: deps actionlint ## Every CI check
 	$(call DOCKER_NODE) sh -c 'npm run check && npm run audit && npm run contract:check'
