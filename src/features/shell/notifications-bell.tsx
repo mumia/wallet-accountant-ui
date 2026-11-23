@@ -19,6 +19,17 @@ type NotificationList = components["schemas"]["NotificationList"];
 /** The kinds this build knows. `kind` is an extensible enum: others are shown as sent, with no link. */
 export const notificationKinds = ["SUSPECTED_DUPLICATES_FOUND"] as const;
 
+/**
+ * What a Suspected duplicates Notification points at. Its fields are present
+ * only on that kind, so any other kind (or one missing them) gives undefined.
+ */
+function suspectedDuplicates(notification: Notification) {
+  const { kind, account_id: accountId, suspected_duplicates: count } = notification;
+  return kind === "SUSPECTED_DUPLICATES_FOUND" && accountId !== undefined && count !== undefined
+    ? { accountId, count }
+    : undefined;
+}
+
 const when = (dateTime: string) =>
   new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(
     new Date(dateTime),
@@ -81,7 +92,7 @@ export function NotificationsBell({ householdId }: { householdId: string }) {
     accounts.data?.items.find(({ account_id }) => account_id === accountId)?.name ??
     t("notifications.unknownAccount");
 
-  const follow = (notification: Notification) => {
+  const follow = (notification: Notification, accountId: string) => {
     setOpen(false);
     setOpenMobile(false);
     if (!notification.read) {
@@ -93,7 +104,7 @@ export function NotificationsBell({ householdId }: { householdId: string }) {
     }
     void navigate({
       to: "/households/$householdId/accounts/$accountId/to-review",
-      params: { householdId, accountId: notification.account_id },
+      params: { householdId, accountId },
       search: { state: "SUSPECTED_DUPLICATE" },
     });
   };
@@ -153,10 +164,10 @@ function Item({
 }: {
   notification: Notification;
   accountName: (accountId: string) => string;
-  onFollow: (notification: Notification) => void;
+  onFollow: (notification: Notification, accountId: string) => void;
 }) {
   const { t } = useTranslation("shell");
-  const known = (notificationKinds as readonly string[]).includes(notification.kind);
+  const suspected = suspectedDuplicates(notification);
   const body = (
     <>
       <span
@@ -166,10 +177,10 @@ function Item({
       <span className="grid gap-0.5">
         <span className={notification.read ? undefined : "font-medium"}>
           {!notification.read && <span className="sr-only">{t("notifications.unread")} </span>}
-          {known
+          {suspected !== undefined
             ? t("notifications.suspected", {
-                count: notification.suspected_duplicates,
-                account: accountName(notification.account_id),
+                count: suspected.count,
+                account: accountName(suspected.accountId),
               })
             : notification.kind}
         </span>
@@ -178,12 +189,12 @@ function Item({
     </>
   );
   const itemClass = "flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm";
-  return known ? (
+  return suspected !== undefined ? (
     <button
       type="button"
       className={`${itemClass} outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50`}
       onClick={() => {
-        onFollow(notification);
+        onFollow(notification, suspected.accountId);
       }}
     >
       {body}

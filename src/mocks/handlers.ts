@@ -21,6 +21,13 @@ const registrationRequired: Problem = {
   detail: "Redeem an Invitation to become a User.",
 };
 
+/** The mock's one User. `displayName` is absent for one who registered before v0.4.0. */
+const me = (displayName: string | undefined): components["schemas"]["Me"] => ({
+  user_id: "0190f5f2-7c00-7000-8000-0000000000aa",
+  is_instance_administrator: false,
+  ...(displayName === undefined ? {} : { display_name: displayName }),
+});
+
 const notFound: Problem = { type: "about:blank", title: "Not Found", status: 404 };
 
 type Category = components["schemas"]["Category"];
@@ -109,14 +116,12 @@ export function createHandlers(db: MockDb) {
       }),
     ),
 
-    http.get("/me", ({ response }) =>
-      db.read().registered
-        ? response(200).json({
-            user_id: "0190f5f2-7c00-7000-8000-0000000000aa",
-            is_instance_administrator: false,
-          })
-        : response(403).json(registrationRequired),
-    ),
+    http.get("/me", ({ response }) => {
+      const state = db.read();
+      return state.registered
+        ? response(200).json(me(state.displayName))
+        : response(403).json(registrationRequired);
+    }),
 
     http.post("/registrations", async ({ request, response }) => {
       const state = db.read();
@@ -128,7 +133,34 @@ export function createHandlers(db: MockDb) {
           detail: "This identity is already a User.",
         });
       }
-      const { invitation_code } = await request.json();
+      const { invitation_code, display_name } = await request.json();
+      // The request schema's bounds (required, 1–64) come before the blank check, as in the backend.
+      if (
+        typeof display_name !== "string" ||
+        display_name.length === 0 ||
+        display_name.length > 64
+      ) {
+        return response.untyped(
+          Response.json(
+            {
+              type: "about:blank",
+              title: "Bad Request",
+              status: 400,
+              detail: "Invalid value for: display_name.",
+            },
+            { status: 400, headers: { "Content-Type": "application/problem+json" } },
+          ),
+        );
+      }
+      const displayName = display_name.trim();
+      if (displayName === "") {
+        return response(422).json({
+          type: "/problems/invalid-user",
+          title: "Invalid User",
+          status: 422,
+          detail: "The display name must not be blank.",
+        });
+      }
       if (invitation_code !== validInvitationCode) {
         return response(422).json({
           type: "/problems/invalid-invitation",
@@ -137,11 +169,8 @@ export function createHandlers(db: MockDb) {
           detail: "The Invitation code is unknown, expired, superseded or already used.",
         });
       }
-      db.write({ ...state, registered: true });
-      return response(201).json({
-        user_id: "0190f5f2-7c00-7000-8000-0000000000aa",
-        is_instance_administrator: false,
-      });
+      db.write({ ...state, registered: true, displayName });
+      return response(201).json(me(displayName));
     }),
 
     http.get("/households", ({ response }) => {

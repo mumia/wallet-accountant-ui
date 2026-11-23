@@ -27,6 +27,8 @@ export interface MonthClose {
 
 export interface MockState {
   registered: boolean;
+  /** The User's Display name, once they have one (`POST /registrations` gives it). */
+  displayName?: string;
   households: Household[];
   /** Each Household's Accounts, by Household ID, in the order they were added. */
   accounts: Record<string, Account[]>;

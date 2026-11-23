@@ -24,7 +24,15 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    patch?: never;
+    /**
+     * Change your display name
+     * @description Changes the caller's display name, the name other members of their
+     *     Households see. A User who registered before display names existed
+     *     has none until they set one here. A name of only spaces gets 422
+     *     `/problems/invalid-user`, and an empty or too long one 400. Names
+     *     needn't be unique. The same name again records nothing.
+     */
+    patch: operations["changeMe"];
     trace?: never;
   };
   "/registrations": {
@@ -39,11 +47,46 @@ export interface paths {
     /**
      * Redeem an Invitation
      * @description Redeems an Invitation code, making the signed-in identity a User with
-     *     the role the Invitation grants (ADR-0017). An unknown, expired,
-     *     superseded or already used code gets 422 with one generic problem, so
-     *     codes can't be probed. An identity that is already a User gets 409.
+     *     the role the Invitation grants and the display name it gives
+     *     (ADR-0017). An Invitation to a Household also makes the new User a
+     *     member of that Household, in the same step (ADR-0025). An unknown,
+     *     expired, superseded, revoked or already used code gets 422 with one
+     *     generic problem, so codes can't be probed. A display name of only
+     *     spaces gets 422 `/problems/invalid-user`. An identity that is already
+     *     a User gets 409 `/problems/already-registered`, and redeems an
+     *     Invitation to a Household with `createMembership` instead.
+     *
+     *     `display_name` is required since `v0.4.0`.
      */
     post: operations["createRegistration"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/memberships": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Join a Household
+     * @description Redeems an Invitation to a Household as a User, making them a member
+     *     of that Household (ADR-0025). It answers with the Household joined.
+     *     An unknown, expired, revoked or already used code, and any code that
+     *     names no Household, gets 422 `/problems/invalid-invitation`, one
+     *     generic problem, so codes can't be probed. A User who is already a
+     *     member of the Household gets 409 `/problems/already-a-member`, and
+     *     the code stays unused. An unregistered caller gets 403
+     *     `/problems/registration-required`, and redeems the code with
+     *     `createRegistration` instead.
+     */
+    post: operations["createMembership"];
     delete?: never;
     options?: never;
     head?: never;
@@ -120,6 +163,104 @@ export interface paths {
     put?: never;
     post?: never;
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/households/{household_id}/members": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * The Household's members
+     * @description Lists every member of the Household, oldest first, with their
+     *     display name and when they joined. Every member is equal and sees
+     *     everything in the Household (ADR-0003).
+     */
+    get: operations["listMembers"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/households/{household_id}/members/{user_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Remove a member, or leave
+     * @description Removes the member from the Household. With the caller's own User ID
+     *     the caller leaves. Any member may remove any other (ADR-0025). The
+     *     removed User loses access at once but stays a User, and can rejoin
+     *     only through a new Invitation. The Household's only member gets 409
+     *     `/problems/last-member`. A User who isn't a member gets 404.
+     */
+    delete: operations["removeMember"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/households/{household_id}/invitations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * The Household's open Invitations
+     * @description Lists the Household's open Invitations, oldest first: those not
+     *     redeemed, not revoked and not expired. It never returns a code.
+     */
+    get: operations["listInvitations"];
+    put?: never;
+    /**
+     * Invite someone to the Household
+     * @description Issues an Invitation to the Household (ADR-0025). Whoever redeems
+     *     its code becomes a member: someone unregistered with
+     *     `createRegistration`, which also makes them a User, and a User with
+     *     `createMembership`. The code is single-use, expires 24 hours after
+     *     it is issued, and is returned only in this response, never in a
+     *     list. A replay with the same Idempotency-Key returns the same code.
+     */
+    post: operations["createInvitation"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/households/{household_id}/invitations/{invitation_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Revoke an Invitation
+     * @description Revokes an open Invitation of the Household, whichever member issued
+     *     it. Its code then gets the same 422 as any invalid code. An
+     *     Invitation that isn't open (redeemed, revoked or expired) gets 404.
+     */
+    delete: operations["revokeInvitation"];
     options?: never;
     head?: never;
     patch?: never;
@@ -852,7 +993,9 @@ export interface paths {
      *     whether the caller has marked it read. Notifications are raised a
      *     little after what caused them, by a deferred handler (ADR-0013): a
      *     Statement import with Suspected duplicates raises a
-     *     `SUSPECTED_DUPLICATES_FOUND` one linking to the import.
+     *     `SUSPECTED_DUPLICATES_FOUND` one linking to the import, and someone
+     *     joining, leaving or being removed raises a `MEMBER_JOINED`,
+     *     `MEMBER_LEFT` or `MEMBER_REMOVED` one naming them.
      */
     get: operations["listNotifications"];
     put?: never;
@@ -898,11 +1041,106 @@ export interface components {
       user_id: string;
       /** @description Whether the User controls who is admitted to the instance */
       is_instance_administrator: boolean;
+      display_name?: components["schemas"]["DisplayNameOut"];
     };
-    /** @description An Invitation code to redeem */
+    /**
+     * @description The name other members see, trimmed; not blank, and needn't be unique
+     * @example Ana
+     */
+    DisplayName: string;
+    /**
+     * @description The User's display name; absent for a User who registered before display names existed and hasn't set one
+     * @example Ana
+     */
+    DisplayNameOut: string;
+    /** @description A new display name for the caller */
+    MeChange: {
+      display_name: components["schemas"]["DisplayName"];
+    };
+    /** @description An Invitation code to redeem, and the new User's display name */
     Registration: {
-      /** @description The Invitation code, exactly as it was handed out */
-      invitation_code: string;
+      invitation_code: components["schemas"]["InvitationCode"];
+      display_name: components["schemas"]["DisplayName"];
+    };
+    /** @description The Invitation code, exactly as it was handed out */
+    InvitationCode: string;
+    /** @description An Invitation code to a Household, redeemed by a User */
+    MembershipCreation: {
+      invitation_code: components["schemas"]["InvitationCode"];
+    };
+    /** @description A member of a Household */
+    Member: {
+      /**
+       * Format: uuid
+       * @description The member's User ID
+       */
+      user_id: string;
+      display_name?: components["schemas"]["DisplayNameOut"];
+      /**
+       * Format: date-time
+       * @description When they became a member, by creating the Household or redeeming an Invitation
+       * @example 2026-11-23T10:00:00Z
+       */
+      joined_at: string;
+    };
+    /** @description A Household's members */
+    MemberList: {
+      /** @description The members, oldest first */
+      items: components["schemas"]["Member"][];
+    };
+    /** @description A User, with their display name, who may no longer be a member */
+    UserRef: {
+      /**
+       * Format: uuid
+       * @description The User's ID
+       */
+      user_id: string;
+      display_name?: components["schemas"]["DisplayNameOut"];
+    };
+    /** @description A new Invitation to a Household, with the code only this response carries */
+    IssuedInvitation: {
+      /**
+       * Format: uuid
+       * @description The Invitation's ID (UUIDv7)
+       */
+      invitation_id: string;
+      /**
+       * @description The code to hand to the person invited; shown only here
+       * @example 3q2-7wEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+       */
+      code: string;
+      /**
+       * Format: date-time
+       * @description When the code stops working, 24 hours after it was issued
+       * @example 2026-11-24T10:00:00Z
+       */
+      expires_at: string;
+    };
+    /** @description An open Invitation to a Household, without its code */
+    Invitation: {
+      /**
+       * Format: uuid
+       * @description The Invitation's ID (UUIDv7)
+       */
+      invitation_id: string;
+      issued_by: components["schemas"]["UserRef"];
+      /**
+       * Format: date-time
+       * @description When it was issued
+       * @example 2026-11-23T10:00:00Z
+       */
+      issued_at: string;
+      /**
+       * Format: date-time
+       * @description When its code stops working
+       * @example 2026-11-24T10:00:00Z
+       */
+      expires_at: string;
+    };
+    /** @description A Household's open Invitations */
+    InvitationList: {
+      /** @description The open Invitations, oldest first */
+      items: components["schemas"]["Invitation"][];
     };
     /** @description A new Household */
     HouseholdCreation: {
@@ -1460,7 +1698,11 @@ export interface components {
     /**
      * @description A Household-level message every member sees, with read state per
      *     User. A `SUSPECTED_DUPLICATES_FOUND` one links to the Statement
-     *     import whose Suspected duplicates wait to be kept or Discarded.
+     *     import whose Suspected duplicates wait to be kept or Discarded, and
+     *     carries `statement_import_id`, `connection_id`, `account_id` and
+     *     `suspected_duplicates`. A `MEMBER_JOINED`, `MEMBER_LEFT` or
+     *     `MEMBER_REMOVED` one carries `member`, and a `MEMBER_REMOVED` one
+     *     also `removed_by`. Fields of other kinds are absent.
      */
     Notification: {
       /**
@@ -1472,28 +1714,35 @@ export interface components {
        * @description What the Notification is about
        * @example SUSPECTED_DUPLICATES_FOUND
        */
-      kind: "SUSPECTED_DUPLICATES_FOUND" | `${string}`;
+      kind:
+        | "SUSPECTED_DUPLICATES_FOUND"
+        | "MEMBER_JOINED"
+        | "MEMBER_LEFT"
+        | "MEMBER_REMOVED"
+        | `${string}`;
       /**
        * Format: uuid
        * @description The Statement import the Notification links to
        */
-      statement_import_id: string;
+      statement_import_id?: string;
       /**
        * Format: uuid
        * @description The Connection the Statement import came through
        */
-      connection_id: string;
+      connection_id?: string;
       /**
        * Format: uuid
        * @description The Account of the Statement import
        */
-      account_id: string;
+      account_id?: string;
       /**
        * Format: int32
        * @description The Suspected duplicates the Statement import brought
        * @example 2
        */
-      suspected_duplicates: number;
+      suspected_duplicates?: number;
+      member?: components["schemas"]["UserRef"];
+      removed_by?: components["schemas"]["UserRef"];
       /**
        * Format: date-time
        * @description When the Notification was raised
@@ -2258,6 +2507,10 @@ export interface components {
     IdempotencyKey: string;
     /** @description The Household's ID */
     HouseholdID: string;
+    /** @description The User's ID */
+    UserID: string;
+    /** @description The Invitation's ID */
+    InvitationID: string;
     /** @description The Category's ID */
     CategoryID: string;
     /** @description The Account's ID */
@@ -2310,6 +2563,34 @@ export interface operations {
       default: components["responses"]["Problem"];
     };
   };
+  changeMe: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MeChange"];
+      };
+    };
+    responses: {
+      /** @description The User, renamed */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Me"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      422: components["responses"]["UnprocessableEntity"];
+      default: components["responses"]["Problem"];
+    };
+  };
   createRegistration: {
     parameters: {
       query?: never;
@@ -2341,6 +2622,43 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["UnprocessableEntity"];
+      default: components["responses"]["Problem"];
+    };
+  };
+  createMembership: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description A key the client chooses for one request, such as a UUID. Sending the
+         *     request again with the same key and body returns the stored response
+         *     without repeating it; the same key with a different body gets 422.
+         *     Keys are scoped to the caller.
+         */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MembershipCreation"];
+      };
+    };
+    responses: {
+      /** @description The Household joined */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Household"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
       409: components["responses"]["Conflict"];
       422: components["responses"]["UnprocessableEntity"];
       default: components["responses"]["Problem"];
@@ -2447,6 +2765,145 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["Household"];
         };
+      };
+      401: components["responses"]["Unauthorized"];
+      404: components["responses"]["NotFound"];
+      default: components["responses"]["Problem"];
+    };
+  };
+  listMembers: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The Household's ID */
+        household_id: components["parameters"]["HouseholdID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The Household's members */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MemberList"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      404: components["responses"]["NotFound"];
+      default: components["responses"]["Problem"];
+    };
+  };
+  removeMember: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The Household's ID */
+        household_id: components["parameters"]["HouseholdID"];
+        /** @description The User's ID */
+        user_id: components["parameters"]["UserID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The member was removed */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      401: components["responses"]["Unauthorized"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      default: components["responses"]["Problem"];
+    };
+  };
+  listInvitations: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The Household's ID */
+        household_id: components["parameters"]["HouseholdID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The open Invitations */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InvitationList"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      404: components["responses"]["NotFound"];
+      default: components["responses"]["Problem"];
+    };
+  };
+  createInvitation: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description A key the client chooses for one request, such as a UUID. Sending the
+         *     request again with the same key and body returns the stored response
+         *     without repeating it; the same key with a different body gets 422.
+         *     Keys are scoped to the caller.
+         */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        /** @description The Household's ID */
+        household_id: components["parameters"]["HouseholdID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The new Invitation, with its code */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IssuedInvitation"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      404: components["responses"]["NotFound"];
+      default: components["responses"]["Problem"];
+    };
+  };
+  revokeInvitation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The Household's ID */
+        household_id: components["parameters"]["HouseholdID"];
+        /** @description The Invitation's ID */
+        invitation_id: components["parameters"]["InvitationID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The Invitation was revoked */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];

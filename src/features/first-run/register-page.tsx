@@ -26,6 +26,7 @@ export function RegisterPage({ invitationCode }: { invitationCode?: string | und
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const codeId = useId();
+  const nameId = useId();
 
   const schema = z.object({
     invitationCode: z
@@ -33,10 +34,15 @@ export function RegisterPage({ invitationCode }: { invitationCode?: string | und
       .trim()
       .min(1, t("register.codeRequired"))
       .max(256, t("register.codeTooLong")),
+    displayName: z
+      .string()
+      .trim()
+      .min(1, t("register.nameRequired"))
+      .max(64, t("register.nameTooLong")),
   });
   const form = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { invitationCode: invitationCode ?? "" },
+    defaultValues: { invitationCode: invitationCode ?? "", displayName: "" },
   });
   const redeem = api.useMutation("post", "/registrations");
 
@@ -49,6 +55,7 @@ export function RegisterPage({ invitationCode }: { invitationCode?: string | und
   const profile = auth.user?.profile;
   const identity = profile?.email ?? profile?.preferred_username ?? profile?.sub ?? "";
   const codeError = form.formState.errors.invitationCode?.message;
+  const nameError = form.formState.errors.displayName?.message;
   const failure = redeem.isError && errorStatus(redeem.error) !== 409 ? redeem.error : undefined;
 
   return (
@@ -56,9 +63,9 @@ export function RegisterPage({ invitationCode }: { invitationCode?: string | und
       <form
         noValidate
         onSubmit={(event) => {
-          void form.handleSubmit(({ invitationCode: code }) => {
+          void form.handleSubmit(({ invitationCode: code, displayName }) => {
             redeem.mutate(
-              { body: { invitation_code: code } },
+              { body: { invitation_code: code, display_name: displayName } },
               {
                 onSuccess: () => void goHome(),
                 onError: (error) => {
@@ -84,6 +91,17 @@ export function RegisterPage({ invitationCode }: { invitationCode?: string | und
               {...form.register("invitationCode")}
             />
             {codeError !== undefined && <FieldError id={`${codeId}-error`}>{codeError}</FieldError>}
+          </Field>
+          <Field data-invalid={nameError !== undefined}>
+            <FieldLabel htmlFor={nameId}>{t("register.name")}</FieldLabel>
+            <Input
+              id={nameId}
+              autoComplete="nickname"
+              aria-invalid={nameError !== undefined}
+              aria-describedby={nameError === undefined ? undefined : `${nameId}-error`}
+              {...form.register("displayName")}
+            />
+            {nameError !== undefined && <FieldError id={`${nameId}-error`}>{nameError}</FieldError>}
           </Field>
           <Button type="submit" disabled={redeem.isPending}>
             {redeem.isPending ? t("register.redeeming") : t("register.redeem")}

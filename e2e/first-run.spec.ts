@@ -6,6 +6,7 @@ import { comboboxListOpen, expectAccessible } from "./axe";
 const validCode = "WELCOME-2026";
 
 const codeField = (page: Page) => page.getByRole("textbox", { name: "Invitation code" });
+const nameField = (page: Page) => page.getByRole("textbox", { name: "Display name" });
 
 test("a new User redeems an Invitation and creates their first Household", async ({ page }) => {
   await page.goto("/?mock-scenario=new-user");
@@ -19,6 +20,7 @@ test("a new User redeems an Invitation and creates their first Household", async
   await expectAccessible(page);
 
   await codeField(page).fill(validCode);
+  await nameField(page).fill("Sam");
   await page.getByRole("button", { name: "Redeem" }).click();
 
   await expect(page).toHaveURL("/households/new");
@@ -57,6 +59,7 @@ test("an Invitation link prefills the code without redeeming it", async ({ page 
   await expect(page).toHaveURL(`/register?invitation_code=${validCode}`);
   await expectAccessible(page);
 
+  await nameField(page).fill("Sam");
   await page.getByRole("button", { name: "Redeem" }).click();
   await expect(page).toHaveURL("/households/new");
 });
@@ -71,6 +74,7 @@ test("an invalid code shows the problem and keeps the input", async ({ page }) =
   await expectAccessible(page);
 
   await codeField(page).fill("NOT-A-CODE");
+  await nameField(page).fill("Sam");
   await page.getByRole("button", { name: "Redeem" }).click();
 
   const alert = page.getByRole("alert").filter({ hasText: "Invalid Invitation code" });
@@ -82,10 +86,39 @@ test("an invalid code shows the problem and keeps the input", async ({ page }) =
   await expectAccessible(page);
 });
 
+test("a Display name must not be blank or too long", async ({ page }) => {
+  await page.goto(`/register?invitation_code=${validCode}&mock-scenario=new-user`);
+
+  await page.getByRole("button", { name: "Redeem" }).click();
+  await expect(nameField(page)).toHaveAccessibleDescription(
+    "Type the name others in your Household will see",
+  );
+
+  await nameField(page).fill("   ");
+  await page.getByRole("button", { name: "Redeem" }).click();
+  await expect(nameField(page)).toHaveAccessibleDescription(
+    "Type the name others in your Household will see",
+  );
+
+  await nameField(page).fill("x".repeat(65));
+  await page.getByRole("button", { name: "Redeem" }).click();
+  await expect(nameField(page)).toHaveAccessibleDescription(
+    "A display name has at most 64 characters",
+  );
+  await expect(page).toHaveURL(`/register?invitation_code=${validCode}`);
+  await expectAccessible(page);
+
+  // Spaces around a name are fine.
+  await nameField(page).fill("  Sam  ");
+  await page.getByRole("button", { name: "Redeem" }).click();
+  await expect(page).toHaveURL("/households/new");
+});
+
 test("someone already registered who redeems again goes on as a User", async ({ page }) => {
   await page.goto("/register?mock-scenario=registered");
 
   await codeField(page).fill("USED-BEFORE");
+  await nameField(page).fill("Sam");
   await page.getByRole("button", { name: "Redeem" }).click();
 
   await expect(page).toHaveURL("/households/new");

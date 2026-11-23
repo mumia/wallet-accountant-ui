@@ -117,7 +117,9 @@ describe("the bearer token", () => {
     );
     const { fetchClient } = createApi({ baseUrl: "/api", auth: fakeAuth("t1", ["t2"]) });
 
-    await fetchClient.POST("/registrations", { body: { invitation_code: "ABCD-1234" } });
+    await fetchClient.POST("/registrations", {
+      body: { invitation_code: "ABCD-1234", display_name: "Sam" },
+    });
 
     expect(sent).toHaveLength(2);
     expect(sent[1]?.auth).toBe("Bearer t2");

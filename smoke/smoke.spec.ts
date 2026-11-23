@@ -135,6 +135,7 @@ test("a new User signs in, imports a statement and closes last month", async ({ 
 
     await expect(page).toHaveURL(`${base}/register`);
     await page.getByRole("textbox", { name: "Invitation code" }).fill(invitationCode);
+    await page.getByRole("textbox", { name: "Display name" }).fill("Smoke tester");
     await page.getByRole("button", { name: "Redeem" }).click();
 
     await expect(page).toHaveURL(`${base}/households/new`);
