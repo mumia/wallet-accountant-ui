@@ -132,6 +132,17 @@ export function MonthPage({
                 {t("notOpenYet.pending", { count: status.pending, month: label })}
               </p>
             )}
+            {/* Unlike Pending rows, a Suspected duplicate here can be decided now. */}
+            {status.suspected_duplicates > 0 && (
+              <Link
+                to="/households/$householdId/accounts/$accountId/to-review"
+                params={params}
+                search={{ booking_month: bookingMonth, state: "SUSPECTED_DUPLICATE" }}
+                className="text-sm font-medium underline underline-offset-4"
+              >
+                {t("notOpenYet.suspected", { count: status.suspected_duplicates })}
+              </Link>
+            )}
           </CardContent>
         </Card>
       )}

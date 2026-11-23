@@ -5,11 +5,13 @@ import { expectAccessible } from "./axe";
 // Savings in the default mock scenario (src/mocks/db.ts), start 2026-08-01:
 // August (closed at €1,200.00) and September (€1,400.00) closed; October open,
 // with a €200.00 deposit Accepted and €2.10 Interest pending (computed balance
-// €1,600.00); November not open yet, with a deposit pending.
+// €1,600.00); November not open yet, with a deposit pending and, from a second
+// import, a Suspected duplicate of it.
 const home = "/households/0190f5f2-7c00-7000-8000-000000000001";
 const savings = `${home}/accounts/0190f5f2-7c00-7000-8000-000000000103`;
 const creditCard = `${home}/accounts/0190f5f2-7c00-7000-8000-000000000102`;
 const interest = "Oct 31, 2026, Interest, €2.10";
+const repeat = "Nov 5, 2026, Transfer from Main, €200.00";
 
 // Whether a month has ended depends on the clock: keep it at 22 Nov 2026.
 test.beforeEach(async ({ page }) => {
@@ -26,7 +28,7 @@ test("the Months tab lists the months newest first, with their state and counts"
 
   await expect(page.getByRole("row")).toHaveText([
     "MonthStatePendingSuspected duplicatesUncategorised",
-    "November 2026Not open yet100",
+    "November 2026Not open yet110",
     "October 2026Open100",
     "September 2026Closed000",
     "August 2026Closed000",
@@ -138,6 +140,14 @@ test("a month not open yet, a month outside the Account, and an Account awaiting
   await page.getByRole("link", { name: "Close October 2026 first" }).click();
   await expect(page).toHaveURL(`${savings}/months/2026-10`);
 
+  // A Suspected duplicate there needn't wait.
+  await page.goto(`${savings}/months/2026-11`);
+  await page.getByRole("link", { name: "1 Suspected duplicate can be decided now" }).click();
+  await expect(page).toHaveURL(
+    `${savings}/to-review?booking_month=2026-11&state=SUSPECTED_DUPLICATE`,
+  );
+  await expect(page.getByRole("button", { name: `Keep ${repeat}` })).toBeVisible();
+
   await page.goto(`${savings}/months/2026-07`);
   await expect(page.getByText("July 2026 isn't a month of this Account.")).toBeVisible();
   await page.getByRole("link", { name: "See all months" }).click();
@@ -153,7 +163,10 @@ test("a month not open yet, a month outside the Account, and an Account awaiting
 test("To review locks Pending rows in a month not open yet", async ({ page }) => {
   await page.goto(`${savings}/to-review`);
 
-  const locked = page.getByRole("row").filter({ hasText: "Nov 5, 2026" });
+  const locked = page
+    .getByRole("region", { name: "Pending" })
+    .getByRole("row")
+    .filter({ hasText: "Nov 5, 2026" });
   await expect(locked).toContainText("November 2026 isn't open yet");
   await expect(locked.getByRole("button")).toHaveCount(0);
   await expect(locked.getByRole("checkbox")).toBeDisabled();
@@ -164,4 +177,42 @@ test("To review locks Pending rows in a month not open yet", async ({ page }) =>
   await page.getByRole("checkbox", { name: "Select all Pending rows" }).click();
   await expect(page.getByRole("status").filter({ hasText: "selected" })).toHaveText("1 selected");
   await expect(page.getByRole("checkbox", { name: `Select ${interest}` })).toBeChecked();
+});
+
+test("a Suspected duplicate in a month not open yet can be kept, and then waits", async ({
+  page,
+}) => {
+  await page.goto(`${savings}/to-review`);
+  const suspected = page.getByRole("region", { name: "Suspected duplicates" });
+  await expect(suspected.getByRole("row").filter({ hasText: "Nov 5, 2026" })).not.toContainText(
+    "isn't open yet",
+  );
+  await expect(suspected.getByRole("checkbox", { name: `Select ${repeat}` })).toBeEnabled();
+  await expectAccessible(page);
+
+  await page.getByRole("button", { name: `Keep ${repeat}` }).click();
+
+  await expect(suspected).toHaveCount(0);
+  const kept = page
+    .getByRole("region", { name: "Pending" })
+    .getByRole("row")
+    .filter({ hasText: "Resembles" });
+  await expect(kept).toContainText("November 2026 isn't open yet");
+  await expect(kept.getByRole("button")).toHaveCount(0);
+  await page.reload();
+  await expect(kept).toContainText("November 2026 isn't open yet");
+});
+
+test("a Suspected duplicate in a month not open yet can be Discarded", async ({ page }) => {
+  await page.goto(`${savings}/to-review`);
+
+  await page.getByRole("button", { name: `Discard ${repeat}` }).click();
+  await page
+    .getByRole("dialog", { name: "Discard this row?" })
+    .getByRole("button", { name: "Discard" })
+    .click();
+
+  await expect(page.getByRole("region", { name: "Suspected duplicates" })).toHaveCount(0);
+  await page.goto(`${savings}/months/2026-11`);
+  await expect(page.getByRole("link", { name: /Suspected duplicate/ })).toHaveCount(0);
 });

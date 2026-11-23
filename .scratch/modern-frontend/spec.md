@@ -73,7 +73,7 @@ The look is shadcn/ui on Base UI with Tailwind, the "Ledger" preset in dark by d
 31. As a User, I want to Accept, Keep or Discard many rows at once and be told how many succeeded.
 32. As a User, I want a Discard confirmed first, because it is final.
 33. As a User, I want to narrow To review to one month, or to Suspected duplicates only when I come from a Notification.
-34. As a User, I want rows booked in a month that isn't open yet shown but locked, with the reason.
+34. As a User, I want Pending rows booked in a month that isn't open yet shown but locked, with the reason, and Suspected duplicates there decidable now.
 
 ### Transactions
 
@@ -261,7 +261,7 @@ From [Grilling: the To review list](issues/14-grilling-the-to-review-list.md), a
 - Optimistic: Accept and Discard remove the row, Keep moves it; on failure it returns with a toast. No Undo; the Accept toast reads "Accepted · View in Transactions". Discard is confirmed (one dialog for one or many). A 409 for a row already Accepted or Discarded refetches and toasts "Already Accepted"; it is not a failure.
 - No keyboard shortcuts.
 - Filters: a month field with arrows and "All months", offering only months with rows To review (⚠️ backend months list); `state=SUSPECTED_DUPLICATE` shows only that section, with "Show everything".
-- Rows booked in a month not open yet show no Accept, Keep or Discard, with "February 2026 isn't open yet" (⚠️ backend month rules).
+- Pending rows booked in a month not open yet show no Accept or Discard and can't be selected, with "February 2026 isn't open yet" (⚠️ backend month rules). A Suspected duplicate there can still be Kept or Discarded; once Kept it is Pending, and locked.
 - Empty states: "Nothing to review" (link to Transactions); "Nothing to review in March 2026" with "Show all months" and "Go to March 2026".
 
 ### Months, Month close, Reverse and Void
@@ -272,7 +272,7 @@ From [Grilling: Month close, Reverse and Void](issues/17-grilling-month-close-re
 - **Month screen**, with ← / → arrows; outside the Account's months, "not a month of this Account":
   - **Open**: blockers up front (pending, Suspected duplicates, Uncategorised, unchecked Statement imports), each linking to its fix. The **Close month** form has one field, the Statement balance, with "Computed balance €X · Difference €Y" live under it, the help "Nothing is booked to make them meet: find and correct the wrong entry" and a link to the month's Transactions. Close is always enabled; under it, "Closing makes January 2026 read-only, except Categories, and opens February 2026." A refusal replaces the blockers with the problem's `reasons` and details, input kept. Success → the next month with a toast. Before the month ends, the form is disabled: "You can close November 2026 from 1 Dec 2026."
   - **Closed**: Statement balance, "Closed on …", a Closed badge, **Reopen** on the latest closed month, with the dialog "Reopen January 2026? February 2026 goes back to not open yet and January becomes editable again. You'll need to close January again with its Statement balance." Disabled when `reopen_blocked`, with "February 2026 has Accepted Transactions. Reverse them first".
-  - **Not open yet**: "Close December 2025 first" with a link, and the month's pending count.
+  - **Not open yet**: "Close December 2025 first" with a link, the month's pending count, and, when there are any, "2 Suspected duplicates can be decided now", linking to To review for that month, Suspected duplicates only.
   - **Awaiting the first Statement import**: the getting-started state.
 - **Reverse** (Transactions row menu): only in the open month, not on reversals, reversed Transactions or the Opening balance Transaction. Dialog "Reverse "Coffee", −€3.50 on 15 Jan 2026? A reversal with the opposite amount is recorded on the same date; both stay in the list." plus, when `imported_transaction_id` is set, "Its Imported transaction goes back to To review, to be Accepted again or Discarded." Destructive **Reverse**. No optimistic update; a toast with an **Open** link. A reversed original is muted with a "Reversed" badge linking to its reversal; a reversal shows "Reversal of …"; neither has a strikethrough or a Category picker, and the Uncategorised filter leaves both out. Rows in a closed month: Category picker without Uncategorised, no Reverse, a lock icon explaining "January 2026 is closed".
 - **Statement imports tab**: all the Account's Connections' imports, newest first, with Connection, Export balance, row counts and the Balance check badge (FAILED hints "Void it and import a corrected file."); voided imports muted with "Voided on …". Void is enabled only when `void_blocked_by` is empty; otherwise disabled with the reason and a fix link. Dialog "Void the import of 3 Feb 2026 (42 rows)? Its Imported transactions become Discarded and the file can be imported again.", plus the first-import sentence about the Opening balance. Afterwards a toast with **Import statement**.
