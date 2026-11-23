@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { expectAccessible } from "./axe";
 
 // The default mock scenario (src/mocks/db.ts). Main's imports, all through
-// Connection 1, newest first: 2026-11-21 (Balance check waiting, two rows
+// "ING export", newest first: 2026-11-21 (Balance check waiting, two rows
 // Accepted on 2026-11-14), 2026-11-20 (failed, voided), 2026-10-15, and its
 // first of 2026-01-03. Its open month is November 2026. Credit card (start
 // date 2026-11-01) awaits its first import.
@@ -28,7 +28,7 @@ test("every import is listed newest first; a blocked Void says why, and Void wor
   await expect(bodyRows(page).nth(1)).toContainText("Nov 20, 2026Voided on Nov 20, 2026");
   await expect(bodyRows(page).nth(2)).toContainText("Oct 15, 2026");
   await expect(bodyRows(page).nth(3)).toContainText("Jan 3, 2026");
-  await expect(bodyRows(page).nth(0)).toContainText("Connection 1€1,234.50");
+  await expect(bodyRows(page).nth(0)).toContainText("ING export€1,234.50");
   await expect(bodyRows(page).nth(0)).toContainText("9 imported · 0 skipped · 1 suspected");
   await expect(bodyRows(page).nth(3)).toContainText("Opening balance €2,500.00");
 

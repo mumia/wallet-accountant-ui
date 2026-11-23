@@ -260,8 +260,8 @@ export const seededConnection: Connection = {
 };
 
 /**
- * Main has two Connections: "Connection 1", which its Statement imports came
- * through, and "Connection 2", made through the API without a mapping.
+ * Main has two Connections: "ING export", which its Statement imports came
+ * through, and "Old export", made through the API without a mapping.
  */
 export const mainConnections: Connection[] = [
   {
@@ -280,7 +280,7 @@ export const mainConnections: Connection[] = [
   },
 ];
 
-/** Main's latest Statement import, through Connection 1, which brought `mainImportedRows`. */
+/** Main's latest Statement import, through "ING export", which brought `mainImportedRows`. */
 export const mainStatementImport: StatementImport = {
   statement_import_id: "0190f5f2-7c00-7000-8000-000000000401",
   connection_id: "0190f5f2-7c00-7000-8000-000000000202",
@@ -298,7 +298,7 @@ export const mainStatementImport: StatementImport = {
 };
 
 /**
- * Main's earlier Statement imports through Connection 1, before
+ * Main's earlier Statement imports through "ING export", before
  * `mainStatementImport`: its first (the Opening balance), October's, and one
  * of 2026-11-20 whose Balance check failed and that was voided. Their rows
  * aren't kept.

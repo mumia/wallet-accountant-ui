@@ -3,10 +3,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { expectAccessible } from "./axe";
 
 // The default mock scenario (src/mocks/db.ts). Credit card (start date
-// 2026-11-01) awaits its first import and has one Connection. Main has two:
-// Connection 1, which its latest import (Export balance 1,234.50 EUR) came
-// through, with rows NL-1114-01 (Albert Heijn, -23.40) and NL-1114-02 (Shell,
-// -38.50) on 2026-11-14; and Connection 2, without a CSV mapping.
+// 2026-11-01) awaits its first import and has one Connection, "Card
+// statements". Main has two: "ING export", which its latest import (Export
+// balance 1,234.50 EUR) came through, with rows NL-1114-01 (Albert Heijn,
+// -23.40) and NL-1114-02 (Shell, -38.50) on 2026-11-14; and "Old export",
+// without a CSV mapping.
 const home = "/households/0190f5f2-7c00-7000-8000-000000000001";
 const main = `${home}/accounts/0190f5f2-7c00-7000-8000-000000000101`;
 const creditCard = `${home}/accounts/0190f5f2-7c00-7000-8000-000000000102`;
@@ -47,7 +48,7 @@ test("a first import previews the Opening balance, then records it", async ({ pa
     "2Opening balance",
     "3Result",
   ]);
-  await expect(page.getByText("Through Connection 1")).toBeVisible();
+  await expect(page.getByText("Through Card statements")).toBeVisible();
   await expect(page.getByRole("link", { name: "Change" })).toHaveCount(0);
   await expect(exportBalance(page)).toHaveAccessibleDescription(
     "Your bank's booked balance when you exported this file, in EUR. Leave out card payments still marked as pending.",
@@ -97,7 +98,7 @@ test("a first import previews the Opening balance, then records it", async ({ pa
   await expect(stat(page, "Rows to import")).toHaveText("2");
   await expect(stat(page, "Ignored, before the start date")).toHaveText("1");
   await expect(stat(page, "File")).toHaveText("november.csv");
-  await expect(stat(page, "Connection")).toHaveText("Connection 1");
+  await expect(stat(page, "Connection")).toHaveText("Card statements");
   await expect(
     page.getByText(
       "1 row is before the Account's start date of November 1, 2026, so it isn't imported.",
@@ -142,16 +143,16 @@ test("a later import chooses the Connection and reports repeats and Suspected du
     "3Result",
   ]);
   // The latest import's Connection is preselected; one without a mapping can't be picked.
-  await expect(page.getByRole("radio", { name: /Connection 1/ })).toBeChecked();
-  await expect(page.getByRole("radio", { name: /Connection 2/ })).toBeDisabled();
-  await expect(page.getByRole("radio", { name: /Connection 2/ })).toHaveAccessibleName(
+  await expect(page.getByRole("radio", { name: /ING export/ })).toBeChecked();
+  await expect(page.getByRole("radio", { name: /Old export/ })).toBeDisabled();
+  await expect(page.getByRole("radio", { name: /Old export/ })).toHaveAccessibleName(
     /Needs a CSV mapping/,
   );
-  await expect(page.getByRole("link", { name: "Edit Connection 2" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Edit Old export" })).toBeVisible();
   await expectAccessible(page);
   await page.getByRole("button", { name: "Continue" }).click();
 
-  await expect(page.getByText("Through Connection 1")).toBeVisible();
+  await expect(page.getByText("Through ING export")).toBeVisible();
   await expect(confirmation(page)).toHaveCount(0);
   await chooseFile(
     page,
@@ -192,11 +193,11 @@ test("a deep link skips choosing the Connection, and Change brings it back", asy
     "1File and Export balance",
     "2Result",
   ]);
-  await expect(page.getByText("Through Connection 1 · Change")).toBeVisible();
+  await expect(page.getByText("Through ING export · Change")).toBeVisible();
   await page.getByRole("link", { name: "Change" }).click();
 
   await expect(page).toHaveURL(`${main}/statement-imports/new`);
-  await expect(page.getByRole("radio", { name: /Connection 1/ })).toBeChecked();
+  await expect(page.getByRole("radio", { name: /ING export/ })).toBeChecked();
 });
 
 test("each refusal shows in the shape that fits it, keeping the input", async ({ page }) => {
@@ -219,7 +220,7 @@ test("each refusal shows in the shape that fits it, keeping the input", async ({
   ]);
   await expect(
     alert.getByRole("link", { name: "Edit the Connection's CSV mapping" }),
-  ).toHaveAttribute("href", `${main}/connections/${mainConnection}`);
+  ).toHaveAttribute("href", `${main}/connections/${mainConnection}?from=statement-import`);
   await expectAccessible(page);
 
   // A failed Balance check: the three amounts and what likely went wrong.
@@ -271,7 +272,7 @@ test("without a Connection, the flow says to create one", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Create a Connection" })).toHaveAttribute(
     "href",
-    /\/connections\/new$/,
+    /\/connections\/new\?from=statement-import$/,
   );
   await expectAccessible(page);
 });

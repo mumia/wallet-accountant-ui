@@ -1,0 +1,166 @@
+{
+  "tab": {
+    "title": "Connections",
+    "new": "New Connection",
+    "empty": "No Connections yet. A Connection tells Wallet Accountant how your bank's statement files are laid out.",
+    "create": "Create a Connection",
+    "columns": {
+      "name": "Name",
+      "mapping": "CSV mapping",
+      "actions": "Actions"
+    },
+    "ready": "Statement file import",
+    "needsMapping": "Needs a CSV mapping",
+    "edit": "Edit",
+    "editNamed": "Edit {{connection}}",
+    "importStatement": "Import statement",
+    "importNamed": "Import statement through {{connection}}"
+  },
+  "editor": {
+    "titleNew": "New Connection",
+    "titleEdit": "Edit {{name}}",
+    "description": "Describe how your bank's statement files are laid out. Open one of its files as a sample and most of this is filled in for you.",
+    "name": "Name",
+    "defaultName": "Statement file",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "futureOnly": "Changes apply to future imports. To re-read a file already imported, Void its Statement import and import it again.",
+    "statementImports": "Go to Statement imports"
+  },
+  "sample": {
+    "title": "Sample file",
+    "description": "Open one of your bank's statement files. It is read here, in your browser, to guess the settings below; only “Read the sample” sends it, and nothing keeps it.",
+    "choose": "Open a sample file",
+    "replace": "Open another sample file",
+    "guessed": "Settings guessed from {{name}}. Check them, then pick each column.",
+    "noDates": "No column of {{name}} reads as dates in a format listed here: choose the date format yourself.",
+    "tableCaption": "The first rows of {{name}}. Pick what each column holds with its button.",
+    "column": "Column {{number}}",
+    "columnWithHeader": "Column {{number}}: {{header}}",
+    "pick": "What column {{number}} holds",
+    "unused": "Not used",
+    "empty": "The sample has no rows after the lines skipped."
+  },
+  "file": {
+    "title": "File",
+    "encoding": "Encoding",
+    "delimiter": "Delimiter",
+    "headerRow": "The first line names the columns",
+    "skipLeadingLines": "Lines to skip at the top",
+    "skipLeadingLinesHelp": "Lines before the column names or the first row, such as an account summary."
+  },
+  "numbers": {
+    "title": "Dates and numbers",
+    "dateFormat": "Date format",
+    "chooseDateFormat": "Choose a date format",
+    "decimalSeparator": "Decimal separator",
+    "thousandsSeparator": "Thousands separator"
+  },
+  "amounts": {
+    "title": "Amounts",
+    "layout": "Amount columns",
+    "positive": "A positive amount is"
+  },
+  "columns": {
+    "title": "Columns",
+    "description": "Booking date, description and the amount are needed; the rest only when the file has them.",
+    "choose": "Choose a column",
+    "notInFile": "Not in the file",
+    "position": "Column {{number}}",
+    "positionWithValue": "Column {{number}} ({{value}})",
+    "optional": "{{field}} (optional)"
+  },
+  "fields": {
+    "booking_date": "Booking date",
+    "description": "Description",
+    "amount": "Amount",
+    "debit": "Debit (money out)",
+    "credit": "Credit (money in)",
+    "transaction_date": "Transaction date",
+    "value_date": "Value date",
+    "payee": "Payee",
+    "bank_transaction_id": "Bank transaction ID"
+  },
+  "choices": {
+    "encoding": {
+      "utf8": "UTF-8",
+      "windows1252": "Windows-1252 (older Windows exports)"
+    },
+    "delimiter": {
+      "semicolon": "Semicolon ( ; )",
+      "comma": "Comma ( , )",
+      "tab": "Tab",
+      "pipe": "Vertical bar ( | )"
+    },
+    "dateFormat": "{{example}} ({{format}})",
+    "decimal": {
+      "point": "Point ( 1234.50 )",
+      "comma": "Comma ( 1234,50 )"
+    },
+    "thousands": {
+      "none": "None ( 1234 )",
+      "point": "Point ( 1.234 )",
+      "comma": "Comma ( 1,234 )",
+      "space": "Space ( 1 234 )",
+      "apostrophe": "Apostrophe ( 1'234 )"
+    },
+    "layout": {
+      "signed": "One signed amount column",
+      "debitCredit": "Separate debit and credit columns"
+    },
+    "positive": {
+      "moneyIn": "Money in",
+      "moneyOut": "Money out (the bank inverts the sign)"
+    }
+  },
+  "rules": {
+    "nameRequired": "Give the Connection a name",
+    "nameTooLong": "A name has at most 100 characters",
+    "delimiter": "Use one character other than a quote",
+    "skipLeadingLines": "Type a whole number, 0 or more",
+    "dateFormat": "Choose the date format",
+    "decimalSeparator": "Choose the decimal separator",
+    "separatorsEqual": "Choose a thousands separator other than the decimal separator",
+    "amountLayout": "Choose how amounts are laid out",
+    "positiveAmountMeans": "Say whether a positive amount is money in or money out",
+    "columnRequired": "Choose the column",
+    "columnUsedTwice": "This column is already used for {{field}}",
+    "headerWithoutHeaderRow": "This column is named by its header, but the file has no header row: choose it again"
+  },
+  "test": {
+    "title": "How rows will read",
+    "description": "Your sample read with this mapping by Wallet Accountant, exactly as an import would read it. Nothing is recorded.",
+    "needsSample": "Open a sample file to see how its rows will read.",
+    "run": "Read the sample",
+    "running": "Reading…",
+    "stale": "The mapping has changed since. Read the sample again.",
+    "readable_one": "{{count}} row reads",
+    "readable_other": "{{count}} rows read",
+    "first_one": "The first row:",
+    "first_other": "The first {{count}}:",
+    "tableCaption": "The first rows as they will read",
+    "unreadable_one": "{{count}} line can't be read",
+    "unreadable_other": "{{count}} lines can't be read",
+    "unreadableCaption": "Lines that can't be read",
+    "more_one": "…and {{count}} more line",
+    "more_other": "…and {{count}} more lines",
+    "columns": {
+      "line": "Line",
+      "bookingDate": "Booking date",
+      "transactionDate": "Transaction date",
+      "valueDate": "Value date",
+      "description": "Description",
+      "payee": "Payee",
+      "bankTransactionId": "Bank transaction ID",
+      "amount": "Amount",
+      "reason": "Reason"
+    }
+  },
+  "leave": {
+    "title": "Leave without saving?",
+    "description": "Your changes to this Connection will be lost.",
+    "stay": "Stay",
+    "leave": "Leave"
+  }
+}

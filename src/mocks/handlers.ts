@@ -4,6 +4,7 @@ import type { components } from "../api/schema.gen";
 import { internalCategories, validInvitationCode, type MockDb } from "./db";
 import { http, withExactAmounts } from "./http";
 import { withCounts } from "./months";
+import { connectionHandlers } from "./connection-handlers";
 import { importedTransactionHandlers } from "./imported-transaction-handlers";
 import { monthHandlers } from "./month-handlers";
 import { statementImportHandlers } from "./statement-import-handlers";
@@ -370,18 +371,7 @@ export function createHandlers(db: MockDb) {
       return response(201).json(account);
     }),
 
-    http.get(
-      "/households/{household_id}/accounts/{account_id}/connections",
-      ({ params, response }) => {
-        const account = householdAccounts(db, params.household_id)?.find(
-          ({ account_id }) => account_id === params.account_id,
-        );
-        return account === undefined
-          ? response(404).json(notFound)
-          : response(200).json({ items: db.read().connections[params.account_id] ?? [] });
-      },
-    ),
-
+    ...connectionHandlers(db),
     ...statementImportHandlers(db),
     ...importedTransactionHandlers(db),
     ...transactionHandlers(db),

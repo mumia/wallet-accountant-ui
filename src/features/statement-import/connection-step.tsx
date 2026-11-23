@@ -91,6 +91,7 @@ export function ConnectionStep({
                   <Link
                     to="/households/$householdId/accounts/$accountId/connections/$connectionId"
                     params={{ householdId, accountId, connectionId: connection.connection_id }}
+                    search={{ from: "statement-import" }}
                     aria-label={t("connection.editNamed", { connection: name })}
                     className={buttonVariants({ variant: "outline", size: "sm" })}
                   >
@@ -139,6 +140,7 @@ export function NoConnection({
         <Link
           to="/households/$householdId/accounts/$accountId/connections/new"
           params={{ householdId, accountId }}
+          search={{ from: "statement-import" }}
           className={buttonVariants()}
         >
           {t("connection.create")}

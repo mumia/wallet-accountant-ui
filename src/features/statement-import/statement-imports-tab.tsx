@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useApi } from "../../api/context";
-import { useConnectionNames } from "../../components/connection-names";
+import { connectionsByName } from "../../components/connection-names";
 import { Button, buttonVariants } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import {
@@ -62,7 +62,7 @@ export function StatementImportsTab({
     path,
   );
   const names = new Map(
-    useConnectionNames(connectionList.items).map(({ connection, name }) => [
+    connectionsByName(connectionList.items).map(({ connection, name }) => [
       connection.connection_id,
       name,
     ]),

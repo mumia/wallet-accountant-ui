@@ -1,8 +1,8 @@
 // How the mock API reads a statement file with a Connection's CSV mapping: a
 // small stand-in for the backend's reader
 // (../wallet-accountant/internal/ingestion/domain/statementfile.go), with its
-// reasons for unreadable lines. It reads plain delimited lines (no quoting), the
-// date formats YYYY-MM-DD and DD/MM/YYYY, and a signed amount column.
+// reasons for unreadable lines. It reads plain delimited lines (no quoting),
+// every date format the contract lists, and either amount layout.
 import type { components } from "../api/schema.gen";
 
 type CsvMapping = components["schemas"]["CsvMapping"];
@@ -13,7 +13,11 @@ export interface StatementRow {
   /** The line in the file, counted from 1. */
   line: number;
   bookingDate: string;
+  /** The Booking date when the file has none. */
+  transactionDate: string;
+  valueDate?: string;
   description: string;
+  payee?: string;
   /** Exact decimal text with the currency's places. */
   amount: string;
   bankTransactionId?: string;
@@ -24,29 +28,71 @@ export type ReadFile =
   | { kind: "unreadable"; rows: RowError[] }
   | { kind: "empty" };
 
-function readDate(text: string, format: string): string | undefined {
-  if (format === "YYYY-MM-DD" && /^\d{4}-\d{2}-\d{2}$/.test(text)) {
-    return text;
-  }
-  const dmy = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text);
-  if (format === "DD/MM/YYYY" && dmy !== null) {
-    const [, day, month, year] = dmy;
-    return [year, month, day].join("-");
-  }
-  return undefined;
+/** A date format as a pattern capturing year, month and day. */
+function datePattern(format: string): RegExp {
+  const source = format
+    .replace(/[./-]/g, (separator) => `\\${separator}`)
+    .replace("YYYY", "(?<y>\\d{4})")
+    .replace("YY", "(?<yy>\\d{2})")
+    .replace("MM", "(?<m>\\d{2})")
+    .replace("DD", "(?<d>\\d{2})");
+  return new RegExp(`^${source}$`);
 }
 
-/** Reads `file` with `mapping`; amounts may have at most `places` decimal places. */
-export function readStatementFile(file: string, mapping: CsvMapping, places: number): ReadFile {
+const dateFormats = [
+  "YYYY-MM-DD",
+  "YYYY/MM/DD",
+  "YYYYMMDD",
+  "DD/MM/YYYY",
+  "DD-MM-YYYY",
+  "DD.MM.YYYY",
+  "MM/DD/YYYY",
+  "MM-DD-YYYY",
+  "DD/MM/YY",
+  "MM/DD/YY",
+];
+
+function readDate(text: string, format: string): string | undefined {
+  if (!dateFormats.includes(format)) {
+    return undefined;
+  }
+  const groups = datePattern(format).exec(text)?.groups;
+  if (groups === undefined) {
+    return undefined;
+  }
+  const short = groups["yy"];
+  // Go's two-digit years: 69–99 are 1900s, the rest 2000s.
+  const year =
+    short === undefined ? (groups["y"] ?? "") : `${Number(short) >= 69 ? "19" : "20"}${short}`;
+  const month = groups["m"] ?? "";
+  const day = groups["d"] ?? "";
+  const date = new Date(`${year}-${month}-${day}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) || date.getUTCDate() !== Number(day)
+    ? undefined
+    : `${year}-${month}-${day}`;
+}
+
+/** Every readable row of `file` and every line it can't read, with `mapping`. */
+export function collectStatementFile(
+  file: string,
+  mapping: Partial<CsvMapping>,
+  places: number,
+): { rows: StatementRow[]; errors: RowError[] } {
   const delimiter = mapping.delimiter ?? ",";
   const decimal = mapping.decimal_separator ?? ".";
-  const thousands = mapping.thousands_separator;
-  const lines = file.replace(/\r\n/g, "\n").split("\n");
-  let index = mapping.skip_leading_lines;
+  const thousands = mapping.thousands_separator ?? "";
+  const lines = file
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n/g, "\n")
+    .split("\n");
+  let index = mapping.skip_leading_lines ?? 0;
   const headers = new Map<string, number>();
-  if (mapping.has_header_row) {
+  if (mapping.has_header_row === true) {
     (lines[index] ?? "").split(delimiter).forEach((name, position) => {
-      headers.set(name.trim().toLowerCase(), position);
+      const key = name.trim().toLowerCase();
+      if (!headers.has(key)) {
+        headers.set(key, position);
+      }
     });
     index += 1;
   }
@@ -57,6 +103,11 @@ export function readStatementFile(file: string, mapping: CsvMapping, places: num
         ? undefined
         : headers.get(wanted.header.trim().toLowerCase());
   const columns = mapping.columns ?? {};
+  const number = (text: string) => {
+    const ungrouped = thousands === "" ? text : text.split(thousands).join("");
+    const plain = ungrouped.split(decimal).join(".").replace(/^\+/, "");
+    return /^-?\d+(\.\d+)?$/.test(plain) ? plain : undefined;
+  };
 
   const rows: StatementRow[] = [];
   const errors: RowError[] = [];
@@ -72,47 +123,103 @@ export function readStatementFile(file: string, mapping: CsvMapping, places: num
       return at === undefined ? "" : (cells[at] ?? "");
     };
     const problems: string[] = [];
+    const date = (name: string, wanted: CsvColumn | undefined, required: boolean) => {
+      const value = cell(wanted);
+      if (value === "") {
+        if (required) {
+          problems.push(`the ${name} is blank`);
+        }
+        return undefined;
+      }
+      const read = readDate(value, mapping.date_format ?? "");
+      if (read === undefined) {
+        problems.push(
+          `the ${name} "${value}" is not a date in the format ${mapping.date_format ?? ""}`,
+        );
+      }
+      return read;
+    };
 
-    const dateText = cell(columns.booking_date);
-    const bookingDate = readDate(dateText, mapping.date_format ?? "YYYY-MM-DD");
-    if (dateText === "") {
-      problems.push("the Booking date is blank");
-    } else if (bookingDate === undefined) {
-      problems.push(
-        `the Booking date "${dateText}" is not a date in the format ${mapping.date_format ?? ""}`,
-      );
+    const bookingDate = date("Booking date", columns.booking_date, true);
+    const transactionDate = date("Transaction date", columns.transaction_date, false);
+    const valueDate = date("Value date", columns.value_date, false);
+
+    let amount: string | undefined;
+    if (mapping.amount_layout === "DEBIT_CREDIT") {
+      const debit = cell(columns.debit);
+      const credit = cell(columns.credit);
+      if (debit === "" && credit === "") {
+        problems.push("both the debit and the credit are blank");
+      } else if (debit !== "" && credit !== "") {
+        problems.push("the row has both a debit and a credit");
+      } else {
+        const read = number(debit === "" ? credit : debit);
+        if (read === undefined) {
+          problems.push(
+            debit === ""
+              ? `the credit "${credit}" is not a number`
+              : `the debit "${debit}" is not a number`,
+          );
+        } else {
+          const magnitude = read.replace(/^-/, "");
+          amount = debit === "" ? magnitude : `-${magnitude}`;
+        }
+      }
+    } else {
+      const amountText = cell(columns.amount);
+      const read = number(amountText);
+      if (amountText === "") {
+        problems.push("the amount is blank");
+      } else if (read === undefined) {
+        problems.push(`the amount "${amountText}" is not a number`);
+      } else {
+        amount =
+          mapping.positive_amount_means === "MONEY_OUT"
+            ? read.startsWith("-")
+              ? read.slice(1)
+              : `-${read}`
+            : read;
+      }
     }
-
-    const amountText = cell(columns.amount);
-    const ungrouped = thousands === "" ? amountText : amountText.split(thousands).join("");
-    const amount = ungrouped.split(decimal).join(".");
-    const [, fraction = ""] = amount.split(".");
-    if (!/^-?\d+(\.\d+)?$/.test(amount)) {
-      problems.push(`the amount "${amountText}" is not a number`);
-    } else if (fraction.replace(/0+$/, "").length > places) {
+    const [, fraction = ""] = (amount ?? "").split(".");
+    if (amount !== undefined && fraction.replace(/0+$/, "").length > places) {
       problems.push(
         `the amount ${amount} has more than the ${String(places)} decimal places of the Account currency`,
       );
     }
 
-    if (problems.length > 0 || bookingDate === undefined) {
+    if (problems.length > 0 || bookingDate === undefined || amount === undefined) {
       errors.push({ line, reason: problems.join("; ") });
       continue;
     }
-    const sign = mapping.positive_amount_means === "MONEY_OUT" ? -1n : 1n;
+    const payee = cell(columns.payee);
     const bankTransactionId = cell(columns.bank_transaction_id);
     rows.push({
       line,
       bookingDate,
+      transactionDate: transactionDate ?? bookingDate,
+      ...(valueDate === undefined ? {} : { valueDate }),
       description: cell(columns.description),
-      amount: fromUnits(toUnits(amount, places) * sign, places),
+      ...(payee === "" ? {} : { payee }),
+      amount: fromUnits(toUnits(amount, places), places),
       ...(bankTransactionId === "" ? {} : { bankTransactionId }),
     });
   }
+  return { rows, errors };
+}
+
+/** Reads `file` with `mapping`; amounts may have at most `places` decimal places. */
+export function readStatementFile(file: string, mapping: CsvMapping, places: number): ReadFile {
+  const { rows, errors } = collectStatementFile(file, mapping, places);
   if (errors.length > 0) {
     return { kind: "unreadable", rows: errors };
   }
   return rows.length === 0 ? { kind: "empty" } : { kind: "rows", rows };
+}
+
+/** A statement file's bytes as text, decoded with the mapping's encoding. */
+export function decodeStatementFile(bytes: ArrayBuffer, encoding: string | undefined): string {
+  return new TextDecoder(encoding === "WINDOWS_1252" ? "windows-1252" : "utf-8").decode(bytes);
 }
 
 /** Exact decimal text as whole minor units: "-12.30" with 2 places is -1230n. */

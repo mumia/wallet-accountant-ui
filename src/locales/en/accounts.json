@@ -53,7 +53,7 @@
       "title": "Create a Connection",
       "body": "Tell us how your bank's statement files are laid out.",
       "action": "Create a Connection",
-      "done": "Connection created."
+      "done": "Connection created: {{name}}."
     },
     "statement": {
       "title": "Import the first statement",
@@ -61,10 +61,5 @@
       "action": "Import the first statement",
       "blocked": "Create a Connection first."
     }
-  },
-  "stub": {
-    "newConnection": "New Connection",
-    "editConnection": "Connection",
-    "body": "This arrives with a later build of Wallet Accountant."
   }
 }

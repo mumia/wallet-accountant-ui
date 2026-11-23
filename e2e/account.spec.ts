@@ -111,7 +111,7 @@ test("the Add Account dialog works from the keyboard and checks its fields", asy
 test("with a Connection, the first statement can be imported", async ({ page }) => {
   await page.goto(creditCard);
 
-  await expect(page.getByText("Connection created.")).toBeVisible();
+  await expect(page.getByText("Connection created: Card statements.")).toBeVisible();
   await expect(
     page.getByRole("heading", { level: 3, name: "Create a Connection (done)" }),
   ).toBeVisible();
@@ -143,8 +143,9 @@ test("an Account with statements opens on Transactions, and tabs keep the month"
   await tabs.getByRole("link", { name: "Statement imports" }).click();
   await expect(page.getByRole("region", { name: "Statement imports" })).toBeVisible();
   await tabs.getByRole("link", { name: "Connections" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "Connections" })).toBeVisible();
-  await page.getByRole("link", { name: "Import statement" }).click();
+  await expect(page.getByRole("region", { name: "Connections" })).toBeVisible();
+  // The header's "Import statement" is on every tab.
+  await page.getByRole("link", { name: "Import statement", exact: true }).click();
   await expect(page).toHaveURL(`${main}/statement-imports/new`);
 });
 
