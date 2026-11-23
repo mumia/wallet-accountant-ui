@@ -68,6 +68,7 @@ A file outside these folders fails lint (`boundaries/no-unknown-files`).
 | `make audit` | `npm audit` of the runtime dependencies, high and above |
 | `make image` | build the UI image (`IMAGE`, default `wallet-accountant-ui:local`) |
 | `make image-test` | build it, run it as the chart does, check the UI contract |
+| `make local-deploy` | build the image, push it to the local cluster's registry, and have Flux run it in the chart's UI slot at https://wallet.localhost:18443 (see "The dev loop") |
 | `make check` | every CI check |
 | `make npm a="…"` | any npm command, e.g. `make npm a="install -E zod@4"` |
 | `make shell` | a shell in the Node container |
@@ -88,7 +89,15 @@ The dev server runs like the real thing: HTTPS, the API under `/api` on the same
 3. `make dev`, then open https://localhost:5173.
 
 - **Where `/api` goes:** Vite forwards `/api` unchanged to `API_PROXY_TARGET`. The default is the cluster's app at `https://wallet.localhost:18443`, reached from the container through `host-gateway` and trusted through the mounted mkcert CA. With the backend's `make run` instead, use `make dev API_PROXY_TARGET=http://host.docker.internal:8080`.
-- **Redirect URIs:** signing in from `https://localhost:5173` needs Zitadel's `web` app to accept that origin's redirect URIs. That's the environment repo change in the backend handoff (`oidc.zitadelSetup.web.extraRedirectUris`).
+- **Redirect URIs:** signing in from `https://localhost:5173` needs Zitadel's `web` app to accept that origin's redirect URIs. The environment repo registers them for the local cluster (`oidc.zitadelSetup.web.extraRedirectUris` in `clusters/local/apps/wallet-accountant.yaml`).
+
+**The image in the cluster:** `make local-deploy` runs the built image the way production does, behind the chart's route at https://wallet.localhost:18443.
+
+- It tags each build `local-<UTC timestamp>`, pushes it to the k3d registry (`localhost:5050`), and records it in `bin/local-build.env` (git-ignored).
+- Then it runs `make local-push` in the backend's checkout (`WA_REPO`, default `../wallet-accountant`), which reads that file as `LOCAL_UI_BUILD`, and the Flux reconciles.
+- It needs the backend's app deployed first (`make local-deploy` there). After that, a backend `make local-deploy` keeps this UI.
+- The backend picks the newer of this build and its stand-in UI (`LOCAL_STAND_IN_UI=1`). If the stand-in wins, or nothing is deployed, this target fails and says so.
+- The backend's `docs/architecture/ui-contract.md`, "The real UI on the local cluster", defines the build file.
 
 ## 3. TypeScript
 
