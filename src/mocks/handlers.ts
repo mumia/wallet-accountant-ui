@@ -2,7 +2,7 @@ import { HttpResponse } from "msw";
 
 import type { components } from "../api/schema.gen";
 import { internalCategories, validInvitationCode, type MockDb } from "./db";
-import { http, withExactAmounts } from "./http";
+import { badRequest, http, withExactAmounts } from "./http";
 import { withCounts } from "./months";
 import { connectionHandlers } from "./connection-handlers";
 import { importedTransactionHandlers } from "./imported-transaction-handlers";
@@ -124,6 +124,16 @@ export function createHandlers(db: MockDb) {
     }),
 
     http.post("/registrations", async ({ request, response }) => {
+      const { invitation_code, display_name } = await request.json();
+      // The request schema (display_name required, 1–64) is checked before
+      // anything else, as in the backend. A body from before v0.4.0 has none.
+      if (
+        typeof display_name !== "string" ||
+        display_name.length === 0 ||
+        display_name.length > 64
+      ) {
+        return response.untyped(badRequest("Invalid value for: display_name."));
+      }
       const state = db.read();
       if (state.registered) {
         return response(409).json({
@@ -132,25 +142,6 @@ export function createHandlers(db: MockDb) {
           status: 409,
           detail: "This identity is already a User.",
         });
-      }
-      const { invitation_code, display_name } = await request.json();
-      // The request schema's bounds (required, 1–64) come before the blank check, as in the backend.
-      if (
-        typeof display_name !== "string" ||
-        display_name.length === 0 ||
-        display_name.length > 64
-      ) {
-        return response.untyped(
-          Response.json(
-            {
-              type: "about:blank",
-              title: "Bad Request",
-              status: 400,
-              detail: "Invalid value for: display_name.",
-            },
-            { status: 400, headers: { "Content-Type": "application/problem+json" } },
-          ),
-        );
       }
       const displayName = display_name.trim();
       if (displayName === "") {
@@ -417,17 +408,7 @@ export function createHandlers(db: MockDb) {
         const { name } = await request.json();
         // The request schema's bounds (1–200) come before the blank check, as in the backend.
         if (name.length === 0 || name.length > 200) {
-          return response.untyped(
-            Response.json(
-              {
-                type: "about:blank",
-                title: "Bad Request",
-                status: 400,
-                detail: "name must be 1 to 200 characters.",
-              },
-              { status: 400, headers: { "Content-Type": "application/problem+json" } },
-            ),
-          );
+          return response.untyped(badRequest("name must be 1 to 200 characters."));
         }
         if (name.trim() === "") {
           return response(422).json({

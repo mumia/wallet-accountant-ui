@@ -18,6 +18,7 @@ type NotificationList = components["schemas"]["NotificationList"];
 
 /** The kinds this build knows. `kind` is an extensible enum: others are shown as sent, with no link. */
 export const notificationKinds = ["SUSPECTED_DUPLICATES_FOUND"] as const;
+const [suspectedDuplicatesFound] = notificationKinds;
 
 /**
  * What a Suspected duplicates Notification points at. Its fields are present
@@ -25,7 +26,7 @@ export const notificationKinds = ["SUSPECTED_DUPLICATES_FOUND"] as const;
  */
 function suspectedDuplicates(notification: Notification) {
   const { kind, account_id: accountId, suspected_duplicates: count } = notification;
-  return kind === "SUSPECTED_DUPLICATES_FOUND" && accountId !== undefined && count !== undefined
+  return kind === suspectedDuplicatesFound && accountId !== undefined && count !== undefined
     ? { accountId, count }
     : undefined;
 }

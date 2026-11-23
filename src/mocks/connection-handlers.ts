@@ -6,7 +6,7 @@
 import type { components } from "../api/schema.gen";
 import { mappingDetail, mappingProblems } from "./csv-mapping-rules";
 import type { MockDb, MockState } from "./db";
-import { http, withExactAmounts } from "./http";
+import { badRequest, http, withExactAmounts } from "./http";
 import { collectStatementFile, currencyPlaces, decodeStatementFile } from "./statement-files";
 
 type Problem = components["schemas"]["Problem"];
@@ -42,16 +42,7 @@ const invalidMapping = (problems: string[]) =>
 /** The request schema's bounds come before the domain's checks, as in the backend. */
 const nameOutOfBounds = (name: string) => name.length === 0 || name.length > 100;
 
-const badRequest = () =>
-  Response.json(
-    {
-      type: "about:blank",
-      title: "Bad Request",
-      status: 400,
-      detail: "name must be 1 to 100 characters.",
-    },
-    { status: 400, headers: { "Content-Type": "application/problem+json" } },
-  );
+const nameBadRequest = () => badRequest("name must be 1 to 100 characters.");
 
 /** The Account, when the caller can see its Household. */
 function findAccount(db: MockDb, householdId: string, accountId: string): Account | undefined {
@@ -111,7 +102,7 @@ export function connectionHandlers(db: MockDb) {
         return response(404).json(notFound);
       }
       if (nameOutOfBounds(body.name)) {
-        return response.untyped(badRequest());
+        return response.untyped(nameBadRequest());
       }
       const connections = db.read().connections[account.account_id] ?? [];
       if (body.name.trim() === "") {
@@ -160,7 +151,7 @@ export function connectionHandlers(db: MockDb) {
         return response(404).json(notFound);
       }
       if (nameOutOfBounds(name)) {
-        return response.untyped(badRequest());
+        return response.untyped(nameBadRequest());
       }
       if (name.trim() === "") {
         return response(422).json(invalidName);

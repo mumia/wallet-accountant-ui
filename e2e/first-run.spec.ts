@@ -86,7 +86,7 @@ test("an invalid code shows the problem and keeps the input", async ({ page }) =
   await expectAccessible(page);
 });
 
-test("a Display name must not be blank or too long", async ({ page }) => {
+test("a display name must not be blank or too long", async ({ page }) => {
   await page.goto(`/register?invitation_code=${validCode}&mock-scenario=new-user`);
 
   await page.getByRole("button", { name: "Redeem" }).click();
