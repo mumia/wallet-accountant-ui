@@ -7,7 +7,7 @@ import type { components } from "../api/schema.gen";
 import { mappingDetail, mappingProblems } from "./csv-mapping-rules";
 import type { MockDb, MockState } from "./db";
 import { badRequest, http, withExactAmounts } from "./http";
-import { currencyPlaces, parseStatementFile } from "./statement-files";
+import { currencyPlaces, parseStatementFile, sampleRows } from "./statement-files";
 
 type Problem = components["schemas"]["Problem"];
 type Account = components["schemas"]["Account"];
@@ -220,21 +220,24 @@ export function connectionHandlers(db: MockDb) {
             ),
           );
         }
+        const parsedRow = (row: (typeof rows)[number]) => ({
+          line: row.line,
+          booking_date: row.bookingDate,
+          transaction_date: row.transactionDate,
+          ...(row.valueDate === undefined ? {} : { value_date: row.valueDate }),
+          description: row.description,
+          ...(row.payee === undefined ? {} : { payee: row.payee }),
+          ...(row.bankTransactionId === undefined
+            ? {}
+            : { bank_transaction_id: row.bankTransactionId }),
+          amount: { amount: row.amount as `${number}`, currency: account.currency },
+        });
+        const { first, last } = sampleRows(rows);
         return response.untyped(
           await withExactAmounts(
             response(200).json({
-              rows: rows.slice(0, 10).map((row) => ({
-                line: row.line,
-                booking_date: row.bookingDate,
-                transaction_date: row.transactionDate,
-                ...(row.valueDate === undefined ? {} : { value_date: row.valueDate }),
-                description: row.description,
-                ...(row.payee === undefined ? {} : { payee: row.payee }),
-                ...(row.bankTransactionId === undefined
-                  ? {}
-                  : { bank_transaction_id: row.bankTransactionId }),
-                amount: { amount: row.amount as `${number}`, currency: account.currency },
-              })),
+              rows: first.map(parsedRow),
+              last_rows: last.map(parsedRow),
               readable_row_count: rows.length,
               unreadable_rows: errors,
             }),

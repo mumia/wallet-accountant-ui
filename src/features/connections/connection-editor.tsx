@@ -51,7 +51,12 @@ import {
   type ColumnKey,
   type MappingForm,
 } from "../../lib/csv-mapping";
-import { guessSample, sampleTable, type SampleTable as Table } from "../../lib/csv-sample";
+import {
+  firstReadRow,
+  guessSample,
+  sampleTable,
+  type SampleTable as Table,
+} from "../../lib/csv-sample";
 import type { EditorFrom } from "../../lib/search";
 import { choiceValues, useChoiceLabel } from "./choice-labels";
 import { useSaveConnection, useTestMapping, type CsvMappingTest } from "./connection-query";
@@ -64,6 +69,7 @@ const mappingFields = [
   "delimiter",
   "hasHeaderRow",
   "skipLeadingLines",
+  "skipTrailingLines",
   "dateFormat",
   "decimalSeparator",
   "thousandsSeparator",
@@ -145,6 +151,7 @@ export function ConnectionEditor({
           encoding: values.encoding,
           delimiter: values.delimiter,
           skipLeadingLines: Number(values.skipLeadingLines) || 0,
+          skipTrailingLines: Number(values.skipTrailingLines) || 0,
           hasHeaderRow: values.hasHeaderRow,
         });
   const fields = columnsFor(values.amountLayout);
@@ -189,6 +196,7 @@ export function ConnectionEditor({
     }
     const bytes = new Uint8Array(await file.arrayBuffer());
     const skip = Number(form.getValues("skipLeadingLines")) || 0;
+    const skipTrailingLines = Number(form.getValues("skipTrailingLines")) || 0;
     const guess = guessSample(bytes, skip);
     const set = { shouldDirty: true, shouldValidate: isSubmitted };
     form.setValue("encoding", guess.encoding, set);
@@ -201,7 +209,11 @@ export function ConnectionEditor({
     if (form.getValues("thousandsSeparator") === guess.decimalSeparator) {
       form.setValue("thousandsSeparator", "", set);
     }
-    const { firstRow } = sampleTable(bytes, { ...guess, skipLeadingLines: skip });
+    const { firstRow } = sampleTable(bytes, {
+      ...guess,
+      skipLeadingLines: skip,
+      skipTrailingLines,
+    });
     form.setValue(
       "columns",
       rekeyColumns(form.getValues("columns"), firstRow, guess.hasHeaderRow),
@@ -248,7 +260,10 @@ export function ConnectionEditor({
     );
 
   const choiceSelect = (
-    name: Exclude<(typeof mappingFields)[number], "hasHeaderRow" | "columns" | "skipLeadingLines">,
+    name: Exclude<
+      (typeof mappingFields)[number],
+      "hasHeaderRow" | "columns" | "skipLeadingLines" | "skipTrailingLines"
+    >,
     choice: Choice,
     label: string,
     placeholder?: string,
@@ -388,21 +403,38 @@ export function ConnectionEditor({
               </Label>
             )}
           />
-          <Field data-invalid={errors.skipLeadingLines !== undefined} className="sm:max-w-xs">
-            <FieldLabel htmlFor={fieldId("skip")}>{t("file.skipLeadingLines")}</FieldLabel>
-            <Input
-              id={fieldId("skip")}
-              inputMode="numeric"
-              autoComplete="off"
-              aria-invalid={errors.skipLeadingLines !== undefined}
-              aria-describedby={describedBy("skip", errors.skipLeadingLines, true)}
-              {...form.register("skipLeadingLines")}
-            />
-            <FieldDescription id={`${fieldId("skip")}-help`}>
-              {t("file.skipLeadingLinesHelp")}
-            </FieldDescription>
-            {errorText("skip", errors.skipLeadingLines)}
-          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field data-invalid={errors.skipLeadingLines !== undefined}>
+              <FieldLabel htmlFor={fieldId("skipTop")}>{t("file.skipLeadingLines")}</FieldLabel>
+              <Input
+                id={fieldId("skipTop")}
+                inputMode="numeric"
+                autoComplete="off"
+                aria-invalid={errors.skipLeadingLines !== undefined}
+                aria-describedby={describedBy("skipTop", errors.skipLeadingLines, true)}
+                {...form.register("skipLeadingLines")}
+              />
+              <FieldDescription id={`${fieldId("skipTop")}-help`}>
+                {t("file.skipLeadingLinesHelp")}
+              </FieldDescription>
+              {errorText("skipTop", errors.skipLeadingLines)}
+            </Field>
+            <Field data-invalid={errors.skipTrailingLines !== undefined}>
+              <FieldLabel htmlFor={fieldId("skipBottom")}>{t("file.skipTrailingLines")}</FieldLabel>
+              <Input
+                id={fieldId("skipBottom")}
+                inputMode="numeric"
+                autoComplete="off"
+                aria-invalid={errors.skipTrailingLines !== undefined}
+                aria-describedby={describedBy("skipBottom", errors.skipTrailingLines, true)}
+                {...form.register("skipTrailingLines")}
+              />
+              <FieldDescription id={`${fieldId("skipBottom")}-help`}>
+                {t("file.skipTrailingLinesHelp")}
+              </FieldDescription>
+              {errorText("skipBottom", errors.skipTrailingLines)}
+            </Field>
+          </div>
         </Section>
 
         <Section title={t("numbers.title")}>
@@ -582,7 +614,7 @@ function columnOptions(
     for (let index = 0; index < table.width; index += 1) {
       const key = keyOf(index);
       const number = index + 1;
-      const value = table.rows[0]?.[index]?.trim() ?? "";
+      const value = firstReadRow(table)?.cells[index]?.trim() ?? "";
       options.set(
         key,
         key.startsWith("h:") && hasHeaderRow

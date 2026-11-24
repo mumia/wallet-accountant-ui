@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { decodeStatementFile, parseStatementFile } from "./statement-files";
+import {
+  collectStatementFile,
+  decodeStatementFile,
+  parseStatementFile,
+  sampleRows,
+} from "./statement-files";
 
 const file = (...bytes: number[]) => new Uint8Array(bytes).buffer;
 
@@ -86,5 +91,62 @@ describe("parsing a statement file", () => {
       rows: [],
       errors: [{ line: 1, reason: "the file has an odd number of bytes, so it is not UTF-16" }],
     });
+  });
+});
+
+describe("lines skipped at the bottom", () => {
+  const mapping = {
+    delimiter: ";",
+    has_header_row: true,
+    skip_leading_lines: 1,
+    date_format: "DD-MM-YYYY",
+    decimal_separator: ",",
+    amount_layout: "SIGNED",
+    columns: {
+      booking_date: { header: "Date" },
+      description: { header: "Text" },
+      amount: { header: "Amount" },
+    },
+  } as const;
+  const file = [
+    "Bank export",
+    "Date;Text;Amount",
+    "16-11-2026;Coffee;-3,50",
+    "17-11-2026;Tea;-2,00",
+    "Total;;-5,50",
+    "Closing balance;;100,00",
+    "",
+    "   ",
+    "",
+  ].join("\n");
+
+  it("are read as rows when none are skipped, with their lines", () => {
+    expect(collectStatementFile(file, mapping, 2).errors.map(({ line }) => line)).toEqual([5, 6]);
+  });
+
+  it("are dropped, not counting blank lines at the very end", () => {
+    const { rows, errors } = collectStatementFile(file, { ...mapping, skip_trailing_lines: 2 }, 2);
+    expect(errors).toEqual([]);
+    expect(rows.map(({ line, description }) => `${String(line)} ${description}`)).toEqual([
+      "3 Coffee",
+      "4 Tea",
+    ]);
+  });
+
+  it("leave no rows when they cover the file", () => {
+    expect(collectStatementFile(file, { ...mapping, skip_trailing_lines: 9 }, 2)).toEqual({
+      rows: [],
+      errors: [],
+    });
+  });
+});
+
+describe("the mapping test's rows", () => {
+  const rows = (count: number) => Array.from({ length: count }, (_, index) => index + 1);
+
+  it("are the first 10, then the last 10 not already shown", () => {
+    expect(sampleRows(rows(5))).toEqual({ first: rows(5), last: [] });
+    expect(sampleRows(rows(15))).toEqual({ first: rows(10), last: [11, 12, 13, 14, 15] });
+    expect(sampleRows(rows(30))).toEqual({ first: rows(10), last: rows(30).slice(20) });
   });
 });

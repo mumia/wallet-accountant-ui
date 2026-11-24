@@ -33,6 +33,7 @@ const saved: CsvMapping = {
   delimiter: ";",
   has_header_row: true,
   skip_leading_lines: 0,
+  skip_trailing_lines: 2,
   date_format: "YYYY-MM-DD",
   decimal_separator: ".",
   thousands_separator: "",
@@ -163,12 +164,14 @@ describe("the mapping rules", () => {
         ...valid,
         delimiter: ";;",
         skipLeadingLines: "-1",
+        skipTrailingLines: "x",
         dateFormat: "",
         positiveAmountMeans: "",
       }),
     ).toEqual({
       delimiter: "rules.delimiter",
       skipLeadingLines: "rules.skipLeadingLines",
+      skipTrailingLines: "rules.skipTrailingLines",
       dateFormat: "rules.dateFormat",
       positiveAmountMeans: "rules.positiveAmountMeans",
     });

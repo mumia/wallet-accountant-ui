@@ -10,7 +10,13 @@ import { SampleTable } from "./sample-table";
 
 const table = sampleTable(
   new TextEncoder().encode("Date;Text;Amount\n2026-01-02;Coffee;-3.50\n2026-01-03;Tea;-2.00\n"),
-  { encoding: "UTF_8", delimiter: ";", skipLeadingLines: 0, hasHeaderRow: true },
+  {
+    encoding: "UTF_8",
+    delimiter: ";",
+    skipLeadingLines: 0,
+    skipTrailingLines: 0,
+    hasHeaderRow: true,
+  },
 );
 
 /** The table with picks kept as the editor keeps them, shown for the test to read. */
@@ -61,9 +67,39 @@ describe("SampleTable", () => {
     render(<Harness />);
     const rows = within(screen.getByRole("table")).getAllByRole("row");
     expect(rows.map((row) => row.textContent)).toEqual([
-      "Column 1: DateNot usedColumn 2: TextNot usedColumn 3: AmountNot used",
-      "2026-01-02Coffee-3.50",
-      "2026-01-03Tea-2.00",
+      "LineColumn 1: DateNot usedColumn 2: TextNot usedColumn 3: AmountNot used",
+      "22026-01-02Coffee-3.50",
+      "32026-01-03Tea-2.00",
+    ]);
+  });
+
+  it("marks skipped lines and shows a gap for the lines left out", () => {
+    const lines = Array.from({ length: 22 }, (_, index) => `2026-01-${String(index + 1)};Row`);
+    const long = sampleTable(new TextEncoder().encode(`Export\n${lines.join("\n")}\nTotal;-1`), {
+      encoding: "UTF_8",
+      delimiter: ";",
+      skipLeadingLines: 1,
+      skipTrailingLines: 1,
+      hasHeaderRow: false,
+    });
+    render(
+      <SampleTable
+        fileName="long.csv"
+        table={long}
+        fields={columnsFor("SIGNED")}
+        picks={newMappingForm("x").columns}
+        keyOf={(index) => headerKey(String(index))}
+        onPick={() => undefined}
+      />,
+    );
+    const rows = within(screen.getByRole("table")).getAllByRole("row");
+    expect(rows.map((row) => row.textContent)).toEqual([
+      "LineColumn 1Not usedColumn 2Not used",
+      "1SkippedExport",
+      ...lines.slice(0, 10).map((line, index) => `${String(index + 2)}${line.replace(";", "")}`),
+      "⋯ 2 lines not shown",
+      ...lines.slice(12).map((line, index) => `${String(index + 14)}${line.replace(";", "")}`),
+      "24SkippedTotal;-1",
     ]);
   });
 

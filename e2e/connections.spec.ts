@@ -38,6 +38,25 @@ const unicodeTextSample = {
   ),
 };
 
+/** 25 rows of November, then a bank's footer of two lines. */
+const footerSample = {
+  name: "with-footer.csv",
+  mimeType: "text/csv",
+  buffer: Buffer.from(
+    [
+      "Date;Description;Amount",
+      ...Array.from(
+        { length: 25 },
+        (_, index) =>
+          `${String(index + 1).padStart(2, "0")}-11-2026;Row ${String(index + 1)};-1,00`,
+      ),
+      "Total;;-25,00",
+      "Closing balance;;975,00",
+      "",
+    ].join("\n"),
+  ),
+};
+
 const select = (page: Page, name: string) => page.getByRole("combobox", { name, exact: true });
 
 async function pickColumn(page: Page, number: number, field: string) {
@@ -90,7 +109,7 @@ test("creates a Connection from a sample file, picking columns by clicking", asy
   await expect(select(page, "Date format")).toHaveValue("DD-MM-YYYY");
   await expect(select(page, "Decimal separator")).toHaveValue(",");
 
-  const sample = page.getByRole("table", { name: /The first rows of rekening\.csv/ });
+  const sample = page.getByRole("table", { name: /The first and last rows of rekening\.csv/ });
   await expect(sample.getByRole("row")).toHaveCount(4);
   await pickColumn(page, 1, "Booking date");
   await pickColumn(page, 2, "Description");
@@ -144,13 +163,47 @@ test("creates a Connection from a sample file, picking columns by clicking", asy
   await expect(page.getByText("Changes apply to future imports")).toHaveCount(0);
 });
 
+test("lines skipped at the bottom leave a bank's footer out", async ({ page }) => {
+  await page.goto(`${main}/connections/new`);
+  await page.getByLabel("Open a sample file").setInputFiles(footerSample);
+
+  // The first and last rows, with line numbers and a gap between.
+  const sample = page.getByRole("table", { name: /The first and last rows of with-footer\.csv/ });
+  const sampleRows = sample.getByRole("row");
+  await expect(sampleRows.nth(1)).toHaveText("201-11-2026Row 1-1,00");
+  await expect(sample.getByRole("row", { name: "⋯ 7 lines not shown" })).toBeVisible();
+  await expect(sampleRows.last()).toHaveText("28Closing balance975,00");
+
+  await pickColumn(page, 1, "Booking date");
+  await pickColumn(page, 2, "Description");
+  await pickColumn(page, 3, "Amount");
+  await page.getByRole("button", { name: "Read the sample" }).click();
+  const unreadable = page.getByRole("alert").filter({ hasText: "2 lines can't be read" });
+  await expect(unreadable.getByRole("row").nth(1)).toContainText(/^27/);
+  await expect(unreadable.getByRole("row").nth(2)).toContainText(/^28/);
+
+  await page.getByRole("textbox", { name: "Lines to skip at the bottom" }).fill("2");
+  await expect(sample.getByRole("row", { name: "⋯ 5 lines not shown" })).toBeVisible();
+  await expect(sampleRows.nth(-2)).toHaveText("27SkippedTotal;;-25,00");
+  await expect(sampleRows.last()).toHaveText("28SkippedClosing balance;;975,00");
+  await expectAccessible(page);
+
+  await page.getByRole("button", { name: "Read the sample" }).click();
+  await expect(page.getByText("25 rows read · The first 10 and the last 10:")).toBeVisible();
+  const read = page.getByRole("table", { name: "The first and last rows as they will read" });
+  await expect(read.getByRole("row", { name: "⋯ 5 rows not shown" })).toBeVisible();
+  await expect(read.getByRole("row").last()).toHaveText("26Nov 25, 2026Row 25-€1.00");
+  await expect(page.getByRole("alert").filter({ hasText: "can't be read" })).toHaveCount(0);
+  await expectAccessible(page);
+});
+
 test("a UTF-16 sample is guessed as UTF-16 and reads", async ({ page }) => {
   await page.goto(`${main}/connections/new`);
 
   await page.getByLabel("Open a sample file").setInputFiles(unicodeTextSample);
   await expect(select(page, "Encoding")).toHaveValue("UTF_16");
   await expect(select(page, "Delimiter")).toHaveValue(";");
-  const sample = page.getByRole("table", { name: /The first rows of unicode\.csv/ });
+  const sample = page.getByRole("table", { name: /The first and last rows of unicode\.csv/ });
   await expect(sample.getByRole("row").nth(1)).toContainText("Café Procès");
 
   await pickColumn(page, 1, "Booking date");

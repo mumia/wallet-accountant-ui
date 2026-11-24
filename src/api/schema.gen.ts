@@ -1423,6 +1423,12 @@ export interface components {
        */
       skip_leading_lines: number;
       /**
+       * Format: int32
+       * @description How many lines to skip at the end of the file, after the last row, such as totals or a closing balance; blank lines at the very end aren't counted
+       * @default 0
+       */
+      skip_trailing_lines: number;
+      /**
        * @description How dates are written
        * @example DD/MM/YYYY
        */
@@ -1504,6 +1510,12 @@ export interface components {
     CsvMappingTest: {
       /** @description The first 10 readable rows, in file order */
       rows: components["schemas"]["ParsedStatementRow"][];
+      /**
+       * @description The last 10 readable rows that aren't already in `rows`, in file
+       *     order, to check how the end of the file reads; empty when the
+       *     file has 10 readable rows or fewer
+       */
+      last_rows: components["schemas"]["ParsedStatementRow"][];
       /**
        * Format: int32
        * @description How many rows of the whole file are readable
