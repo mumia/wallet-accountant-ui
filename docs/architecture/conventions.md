@@ -152,7 +152,7 @@ An untyped dev tool gets a small, typed declaration in `types/` (see `types/esli
 - **To move to a new backend release:** run `make contract-update ref=v0.2.0`. It copies the file at that tag, sets `CONTRACT_VERSION` and regenerates. Commit all three, then fix whatever no longer type-checks: a renamed path or field fails at every call site.
 - `make contract-update ref=<commit>` copies from a commit without changing `CONTRACT_VERSION`. It's for following an unreleased backend change.
 - The `contract` CI job fails when the copy differs from the file at `CONTRACT_VERSION`. Until that tag exists, it warns instead.
-- **Current state:** `CONTRACT_VERSION` is `v0.4.0`, the backend's contract for joining a Household. It made `Registration.display_name` required and the Suspected duplicates fields of a `Notification` optional. Its new operations (Invitations, members, `PATCH /me`, `POST /memberships`) answer 501 until the backend's join-household tickets land; the UI doesn't call them yet.
+- **Current state:** `CONTRACT_VERSION` is `v0.5.0`, which adds the `UTF_16` CSV mapping encoding. `v0.4.0` was the backend's contract for joining a Household: it made `Registration.display_name` required and the Suspected duplicates fields of a `Notification` optional. Its new operations (Invitations, members, `PATCH /me`, `POST /memberships`) answer 501 until the backend's join-household tickets land; the UI doesn't call them yet.
 
 ### Generated types
 

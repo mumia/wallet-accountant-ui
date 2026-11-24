@@ -14,6 +14,16 @@ import {
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 
+/** `text` as UTF-16 in the given byte order; a byte order mark only if `text` starts with U+FEFF. */
+function utf16(text: string, order: "little" | "big"): Uint8Array {
+  const out = new Uint8Array(text.length * 2);
+  const view = new DataView(out.buffer);
+  for (let index = 0; index < text.length; index++) {
+    view.setUint16(index * 2, text.charCodeAt(index), order === "little");
+  }
+  return out;
+}
+
 describe("the encoding", () => {
   it("is UTF-8 when the bytes are valid UTF-8", () => {
     expect(guessEncoding(bytes("Café;€3,50"))).toBe("UTF_8");
@@ -28,6 +38,23 @@ describe("the encoding", () => {
 
   it("drops a UTF-8 byte order mark", () => {
     expect(decodeSample(new Uint8Array([0xef, 0xbb, 0xbf, 0x41]), "UTF_8")).toBe("A");
+  });
+
+  it("is UTF-16 with a UTF-16 byte order mark, in either byte order", () => {
+    const little = utf16("\ufeffCafé;€3,50", "little");
+    const big = utf16("\ufeffCafé;€3,50", "big");
+    expect(guessEncoding(little)).toBe("UTF_16");
+    expect(guessEncoding(big)).toBe("UTF_16");
+    expect(decodeSample(little, "UTF_16")).toBe("Café;€3,50");
+    expect(decodeSample(big, "UTF_16")).toBe("Café;€3,50");
+  });
+
+  it("is UTF-16 with no byte order mark when most bytes of one parity are NUL", () => {
+    // Plain ASCII in UTF-16 is valid UTF-8, so the NULs give it away.
+    const file = utf16("16-11-2026;Coffee;-76.28\n", "little");
+    expect(guessEncoding(file)).toBe("UTF_16");
+    // Little-endian when there is no byte order mark, as the backend reads it.
+    expect(decodeSample(file, "UTF_16")).toBe("16-11-2026;Coffee;-76.28\n");
   });
 });
 

@@ -4,6 +4,9 @@
 // from here: nothing in this module reads a date or an amount for real.
 import { choices, isDelimiter } from "./csv-mapping";
 
+/** An encoding the editor offers. */
+type Encoding = (typeof choices.encoding)[number];
+
 /** How many of the file's rows the editor shows and guesses from. */
 export const sampleRowLimit = 10;
 
@@ -13,8 +16,34 @@ function withoutBom(bytes: Uint8Array): Uint8Array {
   return bom.every((byte, index) => bytes[index] === byte) ? bytes.subarray(3) : bytes;
 }
 
-/** UTF-8 when the bytes are valid UTF-8, else Windows-1252. */
-export function guessEncoding(bytes: Uint8Array): "UTF_8" | "WINDOWS_1252" {
+const startsWithUtf16Bom = (bytes: Uint8Array) =>
+  (bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff);
+
+/**
+ * Whether most of the first bytes in odd or in even positions are NUL, as in
+ * UTF-16 text that is mostly ASCII. Such text is also valid UTF-8.
+ */
+function looksLikeUtf16(bytes: Uint8Array): boolean {
+  const pairs = Math.floor(Math.min(bytes.length, 512) / 2);
+  const nuls = [0, 0];
+  for (let pair = 0; pair < pairs; pair++) {
+    for (const half of [0, 1] as const) {
+      if (bytes[pair * 2 + half] === 0) {
+        nuls[half] = (nuls[half] ?? 0) + 1;
+      }
+    }
+  }
+  return pairs > 0 && Math.max(...nuls) * 2 > pairs;
+}
+
+/**
+ * UTF-16 with a UTF-16 byte order mark or the NULs of UTF-16 text, else UTF-8
+ * when the bytes are valid UTF-8, else Windows-1252.
+ */
+export function guessEncoding(bytes: Uint8Array): Encoding {
+  if (startsWithUtf16Bom(bytes) || looksLikeUtf16(bytes)) {
+    return "UTF_16";
+  }
   try {
     new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     return "UTF_8";
@@ -24,10 +53,17 @@ export function guessEncoding(bytes: Uint8Array): "UTF_8" | "WINDOWS_1252" {
 }
 
 /**
- * The file's text as the backend decodes it: a UTF-8 byte order mark dropped,
- * then Windows-1252 or (for any other encoding) UTF-8.
+ * The file's text as the backend decodes it. UTF-16 takes its byte order from
+ * its byte order mark, which is dropped, and is little-endian without one.
+ * Otherwise a UTF-8 byte order mark is dropped, then Windows-1252 or (for any
+ * other encoding) UTF-8. Bytes the backend would refuse are shown as best they
+ * read: its mapping test says why the file is unreadable.
  */
 export function decodeSample(bytes: Uint8Array, encoding: string): string {
+  if (encoding === "UTF_16") {
+    const bigEndian = bytes[0] === 0xfe && bytes[1] === 0xff;
+    return new TextDecoder(bigEndian ? "utf-16be" : "utf-16le").decode(bytes);
+  }
   const label = encoding === "WINDOWS_1252" ? "windows-1252" : "utf-8";
   return new TextDecoder(label).decode(withoutBom(bytes));
 }
@@ -187,7 +223,7 @@ export function guessHeaderRow(rows: readonly (readonly string[])[]): boolean {
 
 /** What the editor guesses from a sample file, to prefill its fields. */
 export interface SampleGuess {
-  encoding: "UTF_8" | "WINDOWS_1252";
+  encoding: Encoding;
   delimiter: string;
   hasHeaderRow: boolean;
   /** Undefined when no column reads as dates in a format the editor offers. */

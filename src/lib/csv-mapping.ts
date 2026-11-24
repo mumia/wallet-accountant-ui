@@ -15,7 +15,7 @@ type CsvColumn = components["schemas"]["CsvColumn"];
  * saved value the UI doesn't know is still shown, as it is.
  */
 export const choices = {
-  encoding: ["UTF_8", "WINDOWS_1252"],
+  encoding: ["UTF_8", "WINDOWS_1252", "UTF_16"],
   /** Not an enum in the contract: any one character. */
   delimiter: [";", ",", "\t", "|"],
   date_format: [

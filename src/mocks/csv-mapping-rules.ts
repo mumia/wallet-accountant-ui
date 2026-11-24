@@ -23,8 +23,8 @@ const dateFormats = [
 export function mappingProblems(mapping: Partial<CsvMapping>): string[] {
   const problems: string[] = [];
   const encoding = mapping.encoding ?? "UTF_8";
-  if (encoding !== "UTF_8" && encoding !== "WINDOWS_1252") {
-    problems.push("the encoding must be UTF-8 or Windows-1252");
+  if (encoding !== "UTF_8" && encoding !== "WINDOWS_1252" && encoding !== "UTF_16") {
+    problems.push("the encoding must be UTF-8, Windows-1252 or UTF-16");
   }
   const delimiter = mapping.delimiter ?? "";
   if (!/^[^"\r\n]$/u.test(delimiter)) {

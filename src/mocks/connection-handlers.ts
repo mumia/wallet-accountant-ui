@@ -206,11 +206,12 @@ export function connectionHandlers(db: MockDb) {
         if (problems.length > 0) {
           return response(422).json(invalidMapping(problems));
         }
-        const { rows, errors } = collectStatementFile(
-          decodeStatementFile(bytes, mapping.encoding),
-          mapping,
-          currencyPlaces(account.currency),
-        );
+        // A file the encoding can't read is one unreadable row, as in the backend.
+        const decoded = decodeStatementFile(bytes, mapping.encoding);
+        const { rows, errors } =
+          "unreadable" in decoded
+            ? { rows: [], errors: [{ line: 1, reason: decoded.unreadable }] }
+            : collectStatementFile(decoded.text, mapping, currencyPlaces(account.currency));
         if (rows.length === 0 && errors.length === 0) {
           return response(422).json(
             unprocessable(

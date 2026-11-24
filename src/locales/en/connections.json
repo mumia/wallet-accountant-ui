@@ -85,7 +85,8 @@
   "choices": {
     "encoding": {
       "utf8": "UTF-8",
-      "windows1252": "Windows-1252 (older Windows exports)"
+      "windows1252": "Windows-1252 (older Windows exports)",
+      "utf16": "UTF-16 (Excel's Unicode Text)"
     },
     "delimiter": {
       "semicolon": "Semicolon ( ; )",

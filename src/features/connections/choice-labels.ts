@@ -4,7 +4,11 @@ import { choices, isKnownChoice, type Choice } from "../../lib/csv-mapping";
 
 /** A message key for each value the editor offers by name (`choices` in lib/csv-mapping). */
 const labelKeys = {
-  encoding: { UTF_8: "choices.encoding.utf8", WINDOWS_1252: "choices.encoding.windows1252" },
+  encoding: {
+    UTF_8: "choices.encoding.utf8",
+    WINDOWS_1252: "choices.encoding.windows1252",
+    UTF_16: "choices.encoding.utf16",
+  },
   delimiter: {
     ";": "choices.delimiter.semicolon",
     ",": "choices.delimiter.comma",
