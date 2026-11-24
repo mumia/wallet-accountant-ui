@@ -405,19 +405,19 @@ export function ConnectionEditor({
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <Field data-invalid={errors.skipLeadingLines !== undefined}>
-              <FieldLabel htmlFor={fieldId("skip")}>{t("file.skipLeadingLines")}</FieldLabel>
+              <FieldLabel htmlFor={fieldId("skipTop")}>{t("file.skipLeadingLines")}</FieldLabel>
               <Input
-                id={fieldId("skip")}
+                id={fieldId("skipTop")}
                 inputMode="numeric"
                 autoComplete="off"
                 aria-invalid={errors.skipLeadingLines !== undefined}
-                aria-describedby={describedBy("skip", errors.skipLeadingLines, true)}
+                aria-describedby={describedBy("skipTop", errors.skipLeadingLines, true)}
                 {...form.register("skipLeadingLines")}
               />
-              <FieldDescription id={`${fieldId("skip")}-help`}>
+              <FieldDescription id={`${fieldId("skipTop")}-help`}>
                 {t("file.skipLeadingLinesHelp")}
               </FieldDescription>
-              {errorText("skip", errors.skipLeadingLines)}
+              {errorText("skipTop", errors.skipLeadingLines)}
             </Field>
             <Field data-invalid={errors.skipTrailingLines !== undefined}>
               <FieldLabel htmlFor={fieldId("skipBottom")}>{t("file.skipTrailingLines")}</FieldLabel>

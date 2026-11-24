@@ -16,6 +16,7 @@ import {
 } from "../../components/ui/table";
 import { formatMoney } from "../../lib/money";
 import type { CsvMappingTest } from "./connection-query";
+import { GapRow } from "./gap-row";
 
 /** How many unreadable lines are listed; the rest are counted. */
 const shownUnreadable = 20;
@@ -131,11 +132,7 @@ function TestResult({ result }: { result: CsvMappingTest }) {
             <TableBody>
               {first.map(rowOf)}
               {last.length > 0 && notShown > 0 && (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={columnCount} className="text-center text-muted-foreground">
-                    {t("test.gap", { count: notShown })}
-                  </TableCell>
-                </TableRow>
+                <GapRow columns={columnCount}>{t("test.gap", { count: notShown })}</GapRow>
               )}
               {last.map(rowOf)}
             </TableBody>

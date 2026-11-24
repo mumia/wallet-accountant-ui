@@ -83,7 +83,8 @@ export interface CsvRecord {
  * The text's records split into cells at `delimiter`, as CSV: double quotes
  * enclose a cell (with `""` for a quote), and a line break inside quotes stays
  * in the cell. Blank lines are dropped. Reads at most `limit` records. Lines
- * are counted at each `\n`, as the backend counts them.
+ * are counted at each `\n`, as the backend counts them, and at a lone `\r`,
+ * which ends a row here (the backend can't read such a file anyway).
  */
 export function splitCsvRecords(text: string, delimiter: string, limit = Infinity): CsvRecord[] {
   const records: CsvRecord[] = [];
@@ -125,9 +126,7 @@ export function splitCsvRecords(text: string, delimiter: string, limit = Infinit
         i += 1;
       }
       endRow();
-      if (char === "\n" || crlf) {
-        line += 1;
-      }
+      line += 1;
       start = line;
     } else {
       cell += char;
@@ -326,6 +325,30 @@ export function firstReadRow(table: SampleTable): SampleLine | undefined {
   return table.rows.find((row): row is SampleLine => "cells" in row && !row.skipped);
 }
 
+/** Whether a line is blank to the backend: only what Go's `unicode.IsSpace` calls space. */
+export function isBlankLine(line: string): boolean {
+  return /^(?:[^\S\uFEFF]|\u0085)*$/u.test(line);
+}
+
+/**
+ * Which of a file's physical lines a mapping reads, as the backend's
+ * skipLines and skipTrailingLines pick them: `lines[top, bottom)`. `end` is
+ * past the last line that isn't blank; `lines[bottom, end)` are skipped at
+ * the bottom, and blank lines after them don't count.
+ */
+export function readRange(
+  lines: readonly string[],
+  skipLeadingLines: number,
+  skipTrailingLines: number,
+): { top: number; bottom: number; end: number } {
+  const top = Math.min(skipLeadingLines, lines.length);
+  let end = lines.length;
+  while (end > top && isBlankLine(lines[end - 1] ?? "")) {
+    end -= 1;
+  }
+  return { top, bottom: Math.max(top, end - skipTrailingLines), end };
+}
+
 /** The file's physical lines, as the backend splits them: at `\n`, no empty last one. */
 function physicalLines(text: string): string[] {
   if (text === "") {
@@ -334,6 +357,16 @@ function physicalLines(text: string): string[] {
   return (text.endsWith("\n") ? text.slice(0, -1) : text).split("\n");
 }
 
+/** The mapping's settings the sample table follows. */
+export interface SampleSettings {
+  encoding: string;
+  delimiter: string;
+  skipLeadingLines: number;
+  skipTrailingLines: number;
+  hasHeaderRow: boolean;
+}
+
+/** A line or record of the file, in order, and whether the table shows it. */
 interface Entry {
   line: number;
   lastLine: number;
@@ -352,27 +385,10 @@ interface Entry {
  */
 export function sampleTable(
   bytes: Uint8Array,
-  {
-    encoding,
-    delimiter,
-    skipLeadingLines,
-    skipTrailingLines,
-    hasHeaderRow,
-  }: {
-    encoding: string;
-    delimiter: string;
-    skipLeadingLines: number;
-    skipTrailingLines: number;
-    hasHeaderRow: boolean;
-  },
+  { encoding, delimiter, skipLeadingLines, skipTrailingLines, hasHeaderRow }: SampleSettings,
 ): SampleTable {
   const lines = physicalLines(decodeSample(bytes, encoding));
-  const top = Math.min(skipLeadingLines, lines.length);
-  let end = lines.length;
-  while (end > top && (lines[end - 1] ?? "").trim() === "") {
-    end -= 1;
-  }
-  const bottom = Math.max(top, end - skipTrailingLines);
+  const { top, bottom, end } = readRange(lines, skipLeadingLines, skipTrailingLines);
 
   const skippedEntry = (index: number, shown: boolean): Entry => ({
     line: index + 1,
@@ -423,16 +439,16 @@ export function sampleTable(
       leftOut = true;
       continue;
     }
-    if (leftOut) {
+    if (leftOut && entry.line - lastShown - 1 > 0) {
       rows.push({ gap: entry.line - lastShown - 1 });
-      leftOut = false;
     }
+    leftOut = false;
     lastShown = entry.lastLine;
     if (entry.header !== true) {
       rows.push({ line: entry.line, cells: entry.cells, skipped: entry.skipped });
     }
   }
-  if (leftOut) {
+  if (leftOut && end - lastShown > 0) {
     rows.push({ gap: end - lastShown });
   }
 

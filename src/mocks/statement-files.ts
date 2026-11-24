@@ -4,6 +4,7 @@
 // reasons for unreadable lines. It reads plain delimited lines (no quoting),
 // every date format the contract lists, and either amount layout.
 import type { components } from "../api/schema.gen";
+import { readRange } from "../lib/csv-sample";
 
 type CsvMapping = components["schemas"]["CsvMapping"];
 type CsvColumn = components["schemas"]["CsvColumn"];
@@ -85,13 +86,12 @@ export function collectStatementFile(
     .replace(/^\uFEFF/, "")
     .replace(/\r\n/g, "\n")
     .split("\n");
-  let index = mapping.skip_leading_lines ?? 0;
-  // The backend's skipTrailingLines: blank lines at the very end don't count.
-  let end = lines.length;
-  while (end > index && (lines[end - 1] ?? "").trim() === "") {
-    end -= 1;
-  }
-  end = Math.max(index, end - (mapping.skip_trailing_lines ?? 0));
+  const { top, bottom: end } = readRange(
+    lines,
+    mapping.skip_leading_lines ?? 0,
+    mapping.skip_trailing_lines ?? 0,
+  );
+  let index = top;
   const headers = new Map<string, number>();
   if (mapping.has_header_row === true) {
     (lines[index] ?? "").split(delimiter).forEach((name, position) => {

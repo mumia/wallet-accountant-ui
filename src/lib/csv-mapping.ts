@@ -287,6 +287,9 @@ export type RuleMessage =
   | "rules.columnRequired"
   | "rules.headerWithoutHeaderRow";
 
+/** A count of lines to skip as typed: a whole number, 0 or more. */
+const lineCount = /^\s*\d{1,4}\s*$/;
+
 /**
  * The mapping's rules, checked on its fields before Save. `message` gives each
  * rule's words; `usedTwice` says a column is already read for another field.
@@ -305,8 +308,8 @@ export function mappingSchema(
       encoding: z.string(),
       delimiter: z.string().refine(isDelimiter, message("rules.delimiter")),
       hasHeaderRow: z.boolean(),
-      skipLeadingLines: z.string().regex(/^\s*\d{1,4}\s*$/, message("rules.skipLeadingLines")),
-      skipTrailingLines: z.string().regex(/^\s*\d{1,4}\s*$/, message("rules.skipTrailingLines")),
+      skipLeadingLines: z.string().regex(lineCount, message("rules.skipLeadingLines")),
+      skipTrailingLines: z.string().regex(lineCount, message("rules.skipTrailingLines")),
       dateFormat: z.string().min(1, message("rules.dateFormat")),
       decimalSeparator: z.string().min(1, message("rules.decimalSeparator")),
       thousandsSeparator: z.string(),

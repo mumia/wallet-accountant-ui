@@ -220,7 +220,7 @@ export function connectionHandlers(db: MockDb) {
             ),
           );
         }
-        const parsed = (row: (typeof rows)[number]) => ({
+        const parsedRow = (row: (typeof rows)[number]) => ({
           line: row.line,
           booking_date: row.bookingDate,
           transaction_date: row.transactionDate,
@@ -236,8 +236,8 @@ export function connectionHandlers(db: MockDb) {
         return response.untyped(
           await withExactAmounts(
             response(200).json({
-              rows: first.map(parsed),
-              last_rows: last.map(parsed),
+              rows: first.map(parsedRow),
+              last_rows: last.map(parsedRow),
               readable_row_count: rows.length,
               unreadable_rows: errors,
             }),

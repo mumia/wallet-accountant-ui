@@ -20,6 +20,7 @@ import {
 } from "../../components/ui/table";
 import type { ColumnField, ColumnKey } from "../../lib/csv-mapping";
 import { firstReadRow, type SampleTable as Sample } from "../../lib/csv-sample";
+import { GapRow } from "./gap-row";
 
 const unused = "";
 
@@ -131,14 +132,9 @@ export function SampleTable({
           <TableBody>
             {table.rows.map((row, rowIndex) =>
               "gap" in row ? (
-                <TableRow key={rowIndex} className="hover:bg-transparent">
-                  <TableCell
-                    colSpan={columns.length + 1}
-                    className="text-center text-muted-foreground"
-                  >
-                    {t("sample.gap", { count: row.gap })}
-                  </TableCell>
-                </TableRow>
+                <GapRow key={rowIndex} columns={columns.length + 1}>
+                  {t("sample.gap", { count: row.gap })}
+                </GapRow>
               ) : row.skipped ? (
                 <TableRow key={rowIndex} className="text-muted-foreground">
                   <TableCell className="tabular text-right align-top">{row.line}</TableCell>
@@ -146,7 +142,7 @@ export function SampleTable({
                     <span className="mr-2 rounded-sm border px-1 text-xs">
                       {t("sample.skipped")}
                     </span>
-                    <span className="line-through">{row.cells[0]}</span>
+                    <span>{row.cells[0]}</span>
                   </TableCell>
                 </TableRow>
               ) : (

@@ -182,6 +182,23 @@ describe("the sample's table", () => {
     ]);
   });
 
+  it("never counts a negative gap, even with old Mac line breaks", () => {
+    const rows = Array.from({ length: 25 }, (_, index) => `2026-01-${String(index + 1)};Row`);
+    const shown = sampleTable(bytes(rows.join("\r")), options).rows;
+    const lines = shown.flatMap((entry) => ("gap" in entry ? [] : [entry.line]));
+    expect(lines).toEqual([...lines].sort((a, b) => a - b));
+    expect(shown.every((entry) => !("gap" in entry) || entry.gap > 0)).toBe(true);
+  });
+
+  it("counts blank lines at the end as Go's unicode.IsSpace does", () => {
+    const table = (end: string) =>
+      sampleTable(bytes(`a;b\nTotal;1\n${end}\n`), { ...options, skipTrailingLines: 1 }).rows;
+    // U+0085 is space to Go, so the line isn't counted and Total is skipped.
+    expect(table("\u0085")).toContainEqual(line(2, ["Total;1"], true));
+    // U+FEFF isn't, so that line is the one skipped.
+    expect(table("\uFEFF")).toContainEqual(line(2, ["Total", "1"]));
+  });
+
   it("is empty when the lines skipped leave nothing to read", () => {
     const table = sampleTable(bytes("Bank export\nTotal\n"), {
       ...options,

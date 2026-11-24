@@ -68,3 +68,8 @@ Some banks end their exports with footer lines: totals, a closing balance. Today
   - A skipped line is shown whole, as one cell across the columns, since it isn't read as columns.
   - At most 10 skipped lines are shown at each end (the field takes up to 9999); any more fall into a gap.
   - The mock's `sampleRows` picks `rows` and `last_rows` as the backend's `ReadSample` does.
+- 2026-11-24, after review:
+  - The browser and the mock share `readRange` and `isBlankLine` (`src/lib/csv-sample.ts`), so the two can't skip lines differently. A blank line is one of only what Go's `unicode.IsSpace` calls space (U+0085 yes, U+FEFF no).
+  - A lone `\r` ends a row in the sample table and counts as a line, so line numbers only go up. The backend can't read such a file, and the mapping test says so.
+  - A gap row appears only when it stands for at least one line or row. So the mapping test has none for 11 to 20 readable rows, where `rows` and `last_rows` meet.
+  - When the lines skipped leave nothing to read, the sample table still shows the skipped lines, under the "no rows after the lines skipped" message.
