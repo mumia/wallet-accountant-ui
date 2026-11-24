@@ -87,6 +87,8 @@ function useFileDrop(
  * Step 2: the statement file and its Export balance. On a first import the
  * Export balance is typed twice, and pasting into the second field is refused;
  * a mismatch shows when the field is left or on Preview, never while typing.
+ * Through a mapping with a balance column it is typed once: the backend checks
+ * it against the file's balance, which the page never shows.
  */
 export function FileStep({
   householdId,
@@ -119,6 +121,8 @@ export function FileStep({
 }) {
   const { t } = useTranslation("statementImport");
   const fileId = useId();
+  const checkedByFile = connection.connection.csv_mapping?.columns?.balance !== undefined;
+  const askTwice = first && !checkedByFile;
 
   // Every check is here, so the messages come in a fixed order and none shows while typing.
   const schema = z
@@ -139,7 +143,7 @@ export function FileStep({
       if (exportBalance === null) {
         issue("exportBalance", t("file.exportBalanceRequired"));
       }
-      if (!first) {
+      if (!askTwice) {
         return;
       }
       if (confirmation === null) {
@@ -185,7 +189,7 @@ export function FileStep({
             onSubmit({
               file: chosen,
               exportBalance,
-              ...(first && confirmation !== null ? { confirmation } : {}),
+              ...(askTwice && confirmation !== null ? { confirmation } : {}),
             });
           })(event);
         }}
@@ -300,14 +304,18 @@ export function FileStep({
                   }}
                   onBlur={field.onBlur}
                   name={field.name}
-                  description={t("file.exportBalanceHelp", { currency })}
+                  description={
+                    checkedByFile
+                      ? t("file.exportBalanceCheckedHelp", { currency })
+                      : t("file.exportBalanceHelp", { currency })
+                  }
                   {...(errors.exportBalance?.message === undefined
                     ? {}
                     : { error: errors.exportBalance.message })}
                 />
               )}
             />
-            {first && (
+            {askTwice && (
               <Controller
                 control={form.control}
                 name="confirmation"

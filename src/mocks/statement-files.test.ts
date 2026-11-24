@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  fileBalanceOf,
   collectStatementFile,
   decodeStatementFile,
   parseStatementFile,
@@ -148,5 +149,75 @@ describe("the mapping test's rows", () => {
     expect(sampleRows(rows(5))).toEqual({ first: rows(5), last: [] });
     expect(sampleRows(rows(15))).toEqual({ first: rows(10), last: [11, 12, 13, 14, 15] });
     expect(sampleRows(rows(30))).toEqual({ first: rows(10), last: rows(30).slice(20) });
+  });
+});
+
+describe("the balance column", () => {
+  const mapping = {
+    delimiter: ";",
+    has_header_row: true,
+    date_format: "DD-MM-YYYY",
+    decimal_separator: ".",
+    amount_layout: "SIGNED",
+    columns: {
+      booking_date: { header: "Date" },
+      description: { header: "Text" },
+      amount: { header: "Amount" },
+      balance: { header: "Balance" },
+    },
+  } as const;
+  const read = (...rows: string[]) =>
+    collectStatementFile(["Date;Text;Amount;Balance", ...rows].join("\n"), mapping, 2);
+
+  it("is read on each row", () => {
+    expect(read("16-11-2026;Coffee;-3.5;96.50").rows[0]?.balance).toBe("96.50");
+  });
+
+  it("makes a row unreadable when it isn't a number, as the backend says", () => {
+    expect(read("16-11-2026;Coffee;-3.50;", "17-11-2026;Tea;-2.00;lots").errors).toEqual([
+      { line: 2, reason: "the balance is blank" },
+      { line: 3, reason: 'the balance "lots" is not a number' },
+    ]);
+  });
+});
+
+describe("the file's balance", () => {
+  const row = (line: number, amount: string, balance: string) => ({ line, amount, balance });
+
+  it("is the last row's when the rows are oldest first", () => {
+    expect(
+      fileBalanceOf([
+        row(2, "-3.00", "97.00"),
+        row(3, "-2.00", "95.00"),
+        row(4, "10.00", "105.00"),
+      ]),
+    ).toEqual({ amount: "105.00", line: 4 });
+  });
+
+  it("is the first row's when the rows are newest first, as Millennium BCP's are", () => {
+    expect(
+      fileBalanceOf([
+        row(14, "-76.28", "8758.21"),
+        row(15, "-56.00", "8834.49"),
+        row(16, "-8.60", "8890.49"),
+      ]),
+    ).toEqual({ amount: "8758.21", line: 14 });
+  });
+
+  it("is the only row's in a file of one", () => {
+    expect(fileBalanceOf([row(2, "-3.00", "97.00")])).toEqual({ amount: "97.00", line: 2 });
+  });
+
+  it("can't be worked out when the balances don't add up", () => {
+    expect(fileBalanceOf([row(2, "-3.00", "97.00"), row(3, "-2.00", "90.00")])).toEqual({
+      problem: "the balance column doesn't add up from one end of the file to the other",
+    });
+  });
+
+  it("can't be worked out when the balances add up both ways to different balances", () => {
+    expect(fileBalanceOf([row(2, "10.00", "110.00"), row(3, "-10.00", "100.00")])).toEqual({
+      problem:
+        "the balance column adds up from both ends of the file, so its newest row can't be told",
+    });
   });
 });

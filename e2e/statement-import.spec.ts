@@ -131,6 +131,64 @@ test("a first import previews the Opening balance, then records it", async ({ pa
   await expect(page.getByRole("main")).toContainText("Credit card · EUR · €500.00");
 });
 
+test("with a balance column, a first import asks once and checks the file's balance", async ({
+  page,
+}) => {
+  // Oldest first: 400.00 before the start date, so the Opening balance is 400.00.
+  const withBalance = {
+    name: "with-balance.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      [
+        "Date;Description;Amount;Id;Balance",
+        "2026-10-30;Bakery;-5.00;CC-1;400.00",
+        "2026-11-03;Albert Heijn;-23.40;CC-2;376.60",
+        "2026-11-05;Refund;100.00;CC-3;476.60",
+      ].join("\n"),
+    ),
+  };
+
+  // Card statements gets a Balance column in the CSV mapping editor.
+  await page.goto(`${creditCard}/connections/0190f5f2-7c00-7000-8000-000000000201`);
+  await page.getByLabel("Open a sample file").setInputFiles(withBalance);
+  await page.getByRole("button", { name: /^What column 5 holds/ }).click();
+  await page.getByRole("menuitemradio", { name: "Balance (after the row)", exact: true }).click();
+  await page.getByRole("button", { name: "Read the sample" }).click();
+  await expect(
+    page.getByText(
+      "The file's balance: €476.60 (line 4). Imports through this mapping check their Export balance against it.",
+    ),
+  ).toBeVisible();
+  const read = page.getByRole("table", { name: "The first rows as they will read" });
+  await expect(read.getByRole("row").nth(1)).toHaveText("2Oct 30, 2026BakeryCC-1-€5.00€400.00");
+  await expectAccessible(page);
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page).toHaveURL(`${creditCard}/connections`);
+
+  await page.goto(creditCard);
+  await page.getByRole("link", { name: "Import the first statement" }).click();
+  await expect(exportBalance(page)).toHaveAccessibleDescription(
+    "Your bank's booked balance when you exported this file, in EUR. Leave out card payments still marked as pending. It's checked against the balance in the file.",
+  );
+  await expect(confirmation(page)).toHaveCount(0);
+
+  // A wrong Export balance is refused with the file's balance; the input stays.
+  await chooseFile(page, withBalance);
+  await exportBalance(page).fill("1000");
+  await page.getByRole("button", { name: "Preview" }).click();
+  const alert = page.getByRole("alert").filter({ hasText: "Export balance differs from the file" });
+  await expect(alert).toContainText(
+    "The Export balance, 1000.00 EUR, isn't the file's balance, 476.60 EUR (line 4). Check it is the bank's booked balance.",
+  );
+  await expect(exportBalance(page)).toHaveValue("1,000.00");
+  await expectAccessible(page);
+
+  await exportBalance(page).fill("476.60");
+  await page.getByRole("button", { name: "Preview" }).click();
+  await expect(page.getByText("Opening balance on November 1, 2026")).toBeVisible();
+  await expect(page.getByText("€400.00", { exact: true })).toBeVisible();
+});
+
 test("a later import chooses the Connection and reports repeats and Suspected duplicates", async ({
   page,
 }) => {
