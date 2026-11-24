@@ -19,6 +19,7 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { Field, FieldError, FieldGroup } from "../../components/ui/field";
+import { hasBalanceColumn } from "../../lib/csv-mapping";
 import type { Decimal } from "../../lib/money";
 import { Refusal } from "./refusal";
 import type { StatementInput } from "./statement-import-query";
@@ -121,8 +122,8 @@ export function FileStep({
 }) {
   const { t } = useTranslation("statementImport");
   const fileId = useId();
-  const checkedByFile = connection.connection.csv_mapping?.columns?.balance !== undefined;
-  const askTwice = first && !checkedByFile;
+  const balanceColumn = hasBalanceColumn(connection.connection.csv_mapping);
+  const askTwice = first && !balanceColumn;
 
   // Every check is here, so the messages come in a fixed order and none shows while typing.
   const schema = z
@@ -305,7 +306,7 @@ export function FileStep({
                   onBlur={field.onBlur}
                   name={field.name}
                   description={
-                    checkedByFile
+                    balanceColumn
                       ? t("file.exportBalanceCheckedHelp", { currency })
                       : t("file.exportBalanceHelp", { currency })
                   }

@@ -66,6 +66,16 @@ export const columnFields = [
 export type ColumnField = (typeof columnFields)[number];
 
 /**
+ * Whether a mapping reads a balance column, so every import through it checks
+ * its Export balance against the file's balance (the backend's HasBalance).
+ */
+export function hasBalanceColumn(
+  mapping: Pick<Partial<CsvMapping>, "columns"> | undefined,
+): boolean {
+  return mapping?.columns?.balance !== undefined;
+}
+
+/**
  * A picked column: `h:<name>` by its header, `p:<n>` by its position counted
  * from 1, or "" for none. The User only ever picks a column; the editor writes
  * a header when the file has a header row and a position otherwise.
