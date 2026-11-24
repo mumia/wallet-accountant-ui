@@ -123,6 +123,7 @@ describe("SampleTable", () => {
       "Value date",
       "Payee",
       "Bank transaction ID",
+      "Balance (after the row)",
     ]);
     await user.keyboard("{ArrowDown}{Enter}");
 

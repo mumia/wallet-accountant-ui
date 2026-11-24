@@ -60,6 +60,7 @@ export const columnFields = [
   "value_date",
   "payee",
   "bank_transaction_id",
+  "balance",
 ] as const;
 
 export type ColumnField = (typeof columnFields)[number];

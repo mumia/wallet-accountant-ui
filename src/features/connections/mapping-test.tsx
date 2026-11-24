@@ -72,7 +72,14 @@ type ParsedRow = CsvMappingTest["rows"][number];
 /** The first rows read, then the last ones, with a gap for those between. */
 function TestResult({ result }: { result: CsvMappingTest }) {
   const { t } = useTranslation("connections");
-  const { rows: first, last_rows: last, readable_row_count, unreadable_rows } = result;
+  const {
+    rows: first,
+    last_rows: last,
+    readable_row_count,
+    unreadable_rows,
+    file_balance,
+    file_balance_problem,
+  } = result;
   const rows = [...first, ...last];
   const notShown = readable_row_count - rows.length;
   const has = {
@@ -80,8 +87,10 @@ function TestResult({ result }: { result: CsvMappingTest }) {
     valueDate: rows.some((row) => row.value_date !== undefined),
     payee: rows.some((row) => row.payee !== undefined),
     bankTransactionId: rows.some((row) => row.bank_transaction_id !== undefined),
+    balance: rows.some((row) => row.balance !== undefined),
   };
-  const columnCount = 3 + Object.values(has).filter(Boolean).length;
+  // Line, Booking date, Description and Amount, then the optional ones.
+  const columnCount = 4 + Object.values(has).filter(Boolean).length;
   const rowOf = (row: ParsedRow) => (
     <TableRow key={row.line}>
       <TableCell className="tabular text-right">{row.line}</TableCell>
@@ -94,6 +103,11 @@ function TestResult({ result }: { result: CsvMappingTest }) {
       {has.payee && <TableCell>{row.payee ?? ""}</TableCell>}
       {has.bankTransactionId && <TableCell>{row.bank_transaction_id ?? ""}</TableCell>}
       <TableCell className="tabular text-right">{formatMoney(row.amount)}</TableCell>
+      {has.balance && (
+        <TableCell className="tabular text-right">
+          {row.balance === undefined ? "" : formatMoney(row.balance)}
+        </TableCell>
+      )}
     </TableRow>
   );
   return (
@@ -109,6 +123,21 @@ function TestResult({ result }: { result: CsvMappingTest }) {
           </>
         )}
       </p>
+      {file_balance !== undefined && (
+        <p className="text-sm">
+          {t("test.fileBalance", {
+            balance: formatMoney(file_balance.amount),
+            line: file_balance.line,
+          })}
+        </p>
+      )}
+      {file_balance_problem !== undefined && (
+        <Alert>
+          <CircleAlertIcon aria-hidden="true" />
+          <AlertTitle>{t("test.fileBalanceUnknown")}</AlertTitle>
+          <AlertDescription>{file_balance_problem}</AlertDescription>
+        </Alert>
+      )}
       {first.length > 0 && (
         <div className="max-w-full overflow-x-auto rounded-lg border">
           <Table>
@@ -127,6 +156,9 @@ function TestResult({ result }: { result: CsvMappingTest }) {
                   <TableHead>{t("test.columns.bankTransactionId")}</TableHead>
                 )}
                 <TableHead className="text-right">{t("test.columns.amount")}</TableHead>
+                {has.balance && (
+                  <TableHead className="text-right">{t("test.columns.balance")}</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>

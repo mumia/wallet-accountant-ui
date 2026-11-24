@@ -86,7 +86,8 @@
     "transaction_date": "Transaction date",
     "value_date": "Value date",
     "payee": "Payee",
-    "bank_transaction_id": "Bank transaction ID"
+    "bank_transaction_id": "Bank transaction ID",
+    "balance": "Balance (after the row)"
   },
   "choices": {
     "encoding": {
@@ -153,6 +154,8 @@
     "tableCaptionFirstAndLast": "The first and last rows as they will read",
     "gap_one": "⋯ {{count}} row not shown",
     "gap_other": "⋯ {{count}} rows not shown",
+    "fileBalance": "The file's balance: {{balance}} (line {{line}}). Imports through this mapping check their Export balance against it.",
+    "fileBalanceUnknown": "The file's balance can't be worked out",
     "unreadable_one": "{{count}} line can't be read",
     "unreadable_other": "{{count}} lines can't be read",
     "unreadableCaption": "Lines that can't be read",
@@ -167,7 +170,8 @@
       "payee": "Payee",
       "bankTransactionId": "Bank transaction ID",
       "amount": "Amount",
-      "reason": "Reason"
+      "reason": "Reason",
+      "balance": "Balance"
     }
   },
   "leave": {

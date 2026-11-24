@@ -6,6 +6,7 @@ import type { ImportedRow, MockDb, MockState } from "./db";
 import { http, withExactAmounts } from "./http";
 import {
   currencyPlaces as currencyPlacesOf,
+  fileBalanceOf,
   fingerprint,
   fromUnits,
   readStatementFile,
@@ -138,22 +139,31 @@ function readFile({ state, account, connection }: Found, upload: Upload): Read {
       ),
     };
   }
-  const file = upload.fileFingerprint;
-  const earlier = (state.statementImports?.[connection.connection_id] ?? []).find(
-    (item) =>
-      item.voided_at === undefined && state.statementFiles?.[item.statement_import_id] === file,
-  );
-  if (earlier !== undefined) {
-    return {
-      kind: "conflict",
-      problem: {
-        type: "/problems/duplicate-statement-import",
-        title: "Statement file already imported",
-        status: 409,
-        detail: `This file was already imported through the Connection as Statement import ${earlier.statement_import_id}.`,
-        statement_import_id: earlier.statement_import_id,
-      },
-    };
+  const alreadyImported = (): Read | undefined => {
+    const file = upload.fileFingerprint;
+    const earlier = (state.statementImports?.[connection.connection_id] ?? []).find(
+      (item) =>
+        item.voided_at === undefined && state.statementFiles?.[item.statement_import_id] === file,
+    );
+    return earlier === undefined
+      ? undefined
+      : {
+          kind: "conflict",
+          problem: {
+            type: "/problems/duplicate-statement-import",
+            title: "Statement file already imported",
+            status: 409,
+            detail: `This file was already imported through the Connection as Statement import ${earlier.statement_import_id}.`,
+            statement_import_id: earlier.statement_import_id,
+          },
+        };
+  };
+  // Through a mapping with a balance column, the file is read and its balance
+  // checked before the duplicate-file check, as in the backend.
+  const checkedByFile = connection.csv_mapping.columns?.balance !== undefined;
+  const duplicate = checkedByFile ? undefined : alreadyImported();
+  if (duplicate !== undefined) {
+    return duplicate;
   }
   const read = readStatementFile(upload.bytes, connection.csv_mapping, currencyPlaces);
   if (read.kind === "unreadable") {
@@ -179,6 +189,21 @@ function readFile({ state, account, connection }: Found, upload: Upload): Read {
       ),
     };
   }
+  if (checkedByFile) {
+    const refusal = fileBalanceRefusal(
+      read.rows,
+      upload.exportBalance,
+      account.currency,
+      currencyPlaces,
+    );
+    if (refusal !== undefined) {
+      return { kind: "refused", problem: refusal };
+    }
+    const duplicate = alreadyImported();
+    if (duplicate !== undefined) {
+      return duplicate;
+    }
+  }
   const kept = read.rows.filter((row) => row.bookingDate >= account.start_date);
   return {
     kind: "read",
@@ -191,6 +216,41 @@ function readFile({ state, account, connection }: Found, upload: Upload): Read {
     })),
     ignored: read.rows.length - kept.length,
     currencyPlaces,
+  };
+}
+
+/**
+ * Why an Export balance fails the file's balance, as the backend words it, or
+ * undefined when it is the file's balance.
+ */
+function fileBalanceRefusal(
+  rows: Parameters<typeof fileBalanceOf>[0],
+  exportBalance: string,
+  currency: string,
+  currencyPlaces: number,
+): StatementFileProblem | undefined {
+  const balance = fileBalanceOf(rows);
+  if ("problem" in balance) {
+    return refused(
+      "file-balance-unknown",
+      "File balance can't be worked out",
+      `The file's balance can't be worked out, so its Export balance can't be checked: ${balance.problem}. Check the CSV mapping's balance column.`,
+    );
+  }
+  const typed = toUnits(exportBalance, currencyPlaces);
+  if (typed === toUnits(balance.amount, currencyPlaces)) {
+    return undefined;
+  }
+  const written = (units: bigint) => fromUnits(units, currencyPlaces);
+  const fileBalance = written(toUnits(balance.amount, currencyPlaces));
+  return {
+    ...refused(
+      "export-balance-differs-from-file",
+      "Export balance differs from the file",
+      `The Export balance, ${written(typed)} ${currency}, isn't the file's balance, ${fileBalance} ${currency} (line ${String(balance.line)}). Check it is the bank's booked balance.`,
+    ),
+    file_balance: fileBalance,
+    line: balance.line,
   };
 }
 
@@ -390,10 +450,12 @@ export function statementImportHandlers(db: MockDb) {
         return response(409).json(read.problem);
       }
       const { currencyPlaces } = read;
+      // With a balance column, the file's balance tests the Export balance: no confirmation.
       if (
-        upload.confirmation === undefined ||
-        toUnits(upload.confirmation, currencyPlaces) !==
-          toUnits(upload.exportBalance, currencyPlaces)
+        found.connection.csv_mapping?.columns?.balance === undefined &&
+        (upload.confirmation === undefined ||
+          toUnits(upload.confirmation, currencyPlaces) !==
+            toUnits(upload.exportBalance, currencyPlaces))
       ) {
         return response(422).json(
           refused(

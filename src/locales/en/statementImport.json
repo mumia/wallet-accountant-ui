@@ -35,6 +35,7 @@
     "fileEmpty": "This file is empty. Export the statement again from your bank.",
     "exportBalance": "Export balance",
     "exportBalanceHelp": "Your bank's booked balance when you exported this file, in {{currency}}. Leave out card payments still marked as pending.",
+    "exportBalanceCheckedHelp": "Your bank's booked balance when you exported this file, in {{currency}}. Leave out card payments still marked as pending. It's checked against the balance in the file.",
     "exportBalanceRequired": "Type the Export balance",
     "confirmation": "Export balance, again",
     "confirmationHelp": "Type it again rather than pasting it: on the first import it sets the Opening balance.",

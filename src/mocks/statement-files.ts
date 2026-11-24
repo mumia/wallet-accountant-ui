@@ -22,6 +22,8 @@ export interface StatementRow {
   /** Exact decimal text with the currency's places. */
   amount: string;
   bankTransactionId?: string;
+  /** The balance after the row, when the mapping has a balance column; exact decimal text. */
+  balance?: string;
 }
 
 export type ReadFile =
@@ -194,6 +196,23 @@ export function collectStatementFile(
       );
     }
 
+    let balance: string | undefined;
+    if (columns.balance !== undefined) {
+      const balanceText = cell(columns.balance);
+      const read = number(balanceText);
+      if (balanceText === "") {
+        problems.push("the balance is blank");
+      } else if (read === undefined) {
+        problems.push(`the balance "${balanceText}" is not a number`);
+      } else if ((read.split(".")[1] ?? "").replace(/0+$/, "").length > places) {
+        problems.push(
+          `the balance ${read} has more than the ${String(places)} decimal places of the Account currency`,
+        );
+      } else {
+        balance = fromUnits(toUnits(read, places), places);
+      }
+    }
+
     if (problems.length > 0 || bookingDate === undefined || amount === undefined) {
       errors.push({ line, reason: problems.join("; ") });
       continue;
@@ -209,6 +228,7 @@ export function collectStatementFile(
       ...(payee === "" ? {} : { payee }),
       amount: fromUnits(toUnits(amount, places), places),
       ...(bankTransactionId === "" ? {} : { bankTransactionId }),
+      ...(balance === undefined ? {} : { balance }),
     });
   }
   return { rows, errors };
@@ -228,6 +248,50 @@ export function parseStatementFile(
   return decoded.kind === "unreadable"
     ? { rows: [], errors: [{ line: 1, reason: decoded.reason }] }
     : collectStatementFile(decoded.text, mapping, places);
+}
+
+/**
+ * A statement file's balance: the balance on its newest row, told by the
+ * balances alone, as the backend's FileBalanceOf does. The rows are oldest
+ * first when the last row's balance is the first row's plus every later
+ * row's amount, and newest first when the first row's balance is the last
+ * row's plus every earlier row's amount. Rows are in file order, each with a
+ * balance.
+ */
+export function fileBalanceOf(
+  rows: readonly { line: number; amount: string; balance?: string | undefined }[],
+): { amount: string; line: number } | { problem: string } {
+  const [first] = rows;
+  const last = rows.at(-1);
+  if (first === undefined || last === undefined) {
+    return { problem: "the file has no rows" };
+  }
+  if (rows.length === 1) {
+    return { amount: first.balance ?? "", line: first.line };
+  }
+  const places = Math.max(
+    ...rows.flatMap(({ amount, balance }) =>
+      [amount, balance ?? "0"].map((value) => value.split(".")[1]?.length ?? 0),
+    ),
+  );
+  const units = (value: string | undefined) => toUnits(value ?? "0", places);
+  const sum = (some: readonly { amount: string }[]) =>
+    some.reduce((total, { amount }) => total + units(amount), 0n);
+  const oldestFirst = units(last.balance) === units(first.balance) + sum(rows.slice(1));
+  const newestFirst = units(first.balance) === units(last.balance) + sum(rows.slice(0, -1));
+  if (oldestFirst && newestFirst && units(first.balance) !== units(last.balance)) {
+    return {
+      problem:
+        "the balance column adds up from both ends of the file, so its newest row can't be told",
+    };
+  }
+  if (oldestFirst) {
+    return { amount: last.balance ?? "", line: last.line };
+  }
+  if (newestFirst) {
+    return { amount: first.balance ?? "", line: first.line };
+  }
+  return { problem: "the balance column doesn't add up from one end of the file to the other" };
 }
 
 /** How many rows the mapping test shows at each end of the file. */

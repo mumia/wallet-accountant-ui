@@ -3,12 +3,14 @@ import { describe, expect, it } from "vitest";
 import { propertyEnum } from "../test/contract";
 import {
   choices,
+  columnsFor,
   csvMapping,
   freeConnectionName,
   mappingForm,
   mappingSchema,
   newMappingForm,
   rekeyColumns,
+  requiredColumns,
   sameMapping,
   type ColumnField,
   type CsvMapping,
@@ -44,6 +46,7 @@ const saved: CsvMapping = {
     description: { header: "Description" },
     amount: { header: "Amount" },
     bank_transaction_id: { position: 4 },
+    balance: { header: "Balance" },
   },
 };
 
@@ -72,6 +75,14 @@ describe("reading and writing a mapping", () => {
     const form = mappingForm("ING", saved);
     expect(sameMapping(form, { ...form, name: "Other" })).toBe(true);
     expect(sameMapping(form, { ...form, delimiter: "," })).toBe(false);
+  });
+});
+
+describe("the columns a mapping can pick", () => {
+  it("include an optional Balance column in either amount layout", () => {
+    expect(columnsFor("SIGNED")).toContain("balance");
+    expect(columnsFor("DEBIT_CREDIT")).toContain("balance");
+    expect(requiredColumns("SIGNED")).not.toContain("balance");
   });
 });
 
@@ -149,6 +160,7 @@ describe("the mapping rules", () => {
       "columns.booking_date": "rules.headerWithoutHeaderRow",
       "columns.description": "rules.headerWithoutHeaderRow",
       "columns.amount": "rules.headerWithoutHeaderRow",
+      "columns.balance": "rules.headerWithoutHeaderRow",
     });
   });
 

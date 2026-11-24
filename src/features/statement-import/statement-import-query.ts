@@ -49,7 +49,10 @@ export function usePreview(householdId: string, accountId: string) {
           body: {
             file: input.file,
             export_balance: input.exportBalance,
-            export_balance_confirmation: input.confirmation ?? input.exportBalance,
+            // Asked only without a balance column; with one, the file's balance checks it.
+            ...(input.confirmation === undefined
+              ? {}
+              : { export_balance_confirmation: input.confirmation }),
           },
           bodySerializer: (body) => multipart(body),
         }),

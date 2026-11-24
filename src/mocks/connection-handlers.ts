@@ -7,7 +7,7 @@ import type { components } from "../api/schema.gen";
 import { mappingDetail, mappingProblems } from "./csv-mapping-rules";
 import type { MockDb, MockState } from "./db";
 import { badRequest, http, withExactAmounts } from "./http";
-import { currencyPlaces, parseStatementFile, sampleRows } from "./statement-files";
+import { currencyPlaces, fileBalanceOf, parseStatementFile, sampleRows } from "./statement-files";
 
 type Problem = components["schemas"]["Problem"];
 type Account = components["schemas"]["Account"];
@@ -231,13 +231,37 @@ export function connectionHandlers(db: MockDb) {
             ? {}
             : { bank_transaction_id: row.bankTransactionId }),
           amount: { amount: row.amount as `${number}`, currency: account.currency },
+          ...(row.balance === undefined
+            ? {}
+            : { balance: { amount: row.balance as `${number}`, currency: account.currency } }),
         });
+        // As the backend's ReadSample: an import refuses unreadable rows before
+        // it works out the file's balance.
+        const balance =
+          mapping.columns?.balance === undefined
+            ? undefined
+            : errors.length > 0
+              ? { problem: "the file has rows that can't be read" }
+              : fileBalanceOf(rows);
         const { first, last } = sampleRows(rows);
         return response.untyped(
           await withExactAmounts(
             response(200).json({
               rows: first.map(parsedRow),
               last_rows: last.map(parsedRow),
+              ...(balance === undefined
+                ? {}
+                : "problem" in balance
+                  ? { file_balance_problem: balance.problem }
+                  : {
+                      file_balance: {
+                        amount: {
+                          amount: balance.amount as `${number}`,
+                          currency: account.currency,
+                        },
+                        line: balance.line,
+                      },
+                    }),
               readable_row_count: rows.length,
               unreadable_rows: errors,
             }),
