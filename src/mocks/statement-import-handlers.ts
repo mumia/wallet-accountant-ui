@@ -2,11 +2,13 @@
 // backend's rules and its problems word for word
 // (../wallet-accountant/internal/ingestion/adapters/http/statementimports.go).
 import type { components, Decimal } from "../api/schema.gen";
+import { hasBalanceColumn } from "../lib/csv-mapping";
 import type { ImportedRow, MockDb, MockState } from "./db";
 import { http, withExactAmounts } from "./http";
 import {
   currencyPlaces as currencyPlacesOf,
   fileBalanceOf,
+  withBalances,
   fingerprint,
   fromUnits,
   readStatementFile,
@@ -105,31 +107,17 @@ type Read =
       currencyPlaces: number;
     };
 
-/** What preview and upload share: the Export balance, the mapping, the file. */
+/**
+ * What preview and upload share: the mapping, the file and the Export balance,
+ * checked in the backend's order (`read` in its app/statementimports.go): the
+ * mapping, then, without a balance column, the duplicate-file check, then the
+ * Export balance and the file; with a balance column, the file's balance and
+ * only then the duplicate-file check.
+ */
 function readFile({ state, account, connection }: Found, upload: Upload): Read {
   const currencyPlaces = currencyPlacesOf(account.currency);
-  if (!/^-?\d+(\.\d+)?$/.test(upload.exportBalance)) {
-    return {
-      kind: "refused",
-      problem: refused(
-        "invalid-export-balance",
-        "Invalid Export balance",
-        "The Export balance must be a decimal number.",
-      ),
-    };
-  }
-  const [, fraction = ""] = upload.exportBalance.split(".");
-  if (fraction.replace(/0+$/, "").length > currencyPlaces) {
-    return {
-      kind: "refused",
-      problem: refused(
-        "invalid-export-balance",
-        "Invalid Export balance",
-        "The Export balance has more decimal places than the Account currency.",
-      ),
-    };
-  }
-  if (connection.csv_mapping === undefined) {
+  const mapping = connection.csv_mapping;
+  if (mapping === undefined) {
     return {
       kind: "refused",
       problem: refused(
@@ -158,14 +146,33 @@ function readFile({ state, account, connection }: Found, upload: Upload): Read {
           },
         };
   };
-  // Through a mapping with a balance column, the file is read and its balance
-  // checked before the duplicate-file check, as in the backend.
-  const checkedByFile = connection.csv_mapping.columns?.balance !== undefined;
-  const duplicate = checkedByFile ? undefined : alreadyImported();
+  const balanceColumn = hasBalanceColumn(mapping);
+  const duplicate = balanceColumn ? undefined : alreadyImported();
   if (duplicate !== undefined) {
     return duplicate;
   }
-  const read = readStatementFile(upload.bytes, connection.csv_mapping, currencyPlaces);
+  if (!/^-?\d+(\.\d+)?$/.test(upload.exportBalance)) {
+    return {
+      kind: "refused",
+      problem: refused(
+        "invalid-export-balance",
+        "Invalid Export balance",
+        "The Export balance must be a decimal number.",
+      ),
+    };
+  }
+  const [, fraction = ""] = upload.exportBalance.split(".");
+  if (fraction.replace(/0+$/, "").length > currencyPlaces) {
+    return {
+      kind: "refused",
+      problem: refused(
+        "invalid-export-balance",
+        "Invalid Export balance",
+        "The Export balance has more decimal places than the Account currency.",
+      ),
+    };
+  }
+  const read = readStatementFile(upload.bytes, mapping, currencyPlaces);
   if (read.kind === "unreadable") {
     return {
       kind: "refused",
@@ -189,9 +196,9 @@ function readFile({ state, account, connection }: Found, upload: Upload): Read {
       ),
     };
   }
-  if (checkedByFile) {
+  if (balanceColumn) {
     const refusal = fileBalanceRefusal(
-      read.rows,
+      withBalances(read.rows),
       upload.exportBalance,
       account.currency,
       currencyPlaces,
@@ -237,20 +244,20 @@ function fileBalanceRefusal(
       `The file's balance can't be worked out, so its Export balance can't be checked: ${balance.problem}. Check the CSV mapping's balance column.`,
     );
   }
+  // The file's balance is already written with the currency's places.
+  const { amount: fileBalance, line } = balance;
   const typed = toUnits(exportBalance, currencyPlaces);
-  if (typed === toUnits(balance.amount, currencyPlaces)) {
+  if (typed === toUnits(fileBalance, currencyPlaces)) {
     return undefined;
   }
-  const written = (units: bigint) => fromUnits(units, currencyPlaces);
-  const fileBalance = written(toUnits(balance.amount, currencyPlaces));
   return {
     ...refused(
       "export-balance-differs-from-file",
       "Export balance differs from the file",
-      `The Export balance, ${written(typed)} ${currency}, isn't the file's balance, ${fileBalance} ${currency} (line ${String(balance.line)}). Check it is the bank's booked balance.`,
+      `The Export balance, ${fromUnits(typed, currencyPlaces)} ${currency}, isn't the file's balance, ${fileBalance} ${currency} (line ${String(line)}). Check it is the bank's booked balance.`,
     ),
     file_balance: fileBalance,
-    line: balance.line,
+    line,
   };
 }
 
@@ -452,7 +459,7 @@ export function statementImportHandlers(db: MockDb) {
       const { currencyPlaces } = read;
       // With a balance column, the file's balance tests the Export balance: no confirmation.
       if (
-        found.connection.csv_mapping?.columns?.balance === undefined &&
+        !hasBalanceColumn(found.connection.csv_mapping) &&
         (upload.confirmation === undefined ||
           toUnits(upload.confirmation, currencyPlaces) !==
             toUnits(upload.exportBalance, currencyPlaces))

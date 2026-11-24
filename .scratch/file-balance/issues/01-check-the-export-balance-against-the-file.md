@@ -53,3 +53,9 @@ A first import was given the wrong Export balance (€1,000.00 instead of €8,7
   - Both refusals have no Money fields, so the import page shows them as a plain refusal: the title, and the backend's detail naming the typed balance, the file's balance and its line.
   - No Connection is seeded with a balance column. The e2e test gives one to "Card statements" through the CSV mapping editor, then imports through it. That covers the editor and the import together, and leaves the other tests' seeds as they were.
   - Fixed on the way: the mapping test's gap row spanned one column too few (it counted 3 fixed columns, not 4).
+- 2026-11-24, after review:
+  - One `hasBalanceColumn(mapping)` (`src/lib/csv-mapping.ts`) is the backend's `HasBalance` for the file step and the mock.
+  - The mock's `readFile` now checks in the backend's order: the mapping, the duplicate file (without a balance column), the Export balance, the file, then the file's balance and the duplicate file (with one).
+  - `src/mocks/statement-import-handlers.test.ts` covers the later-import path: a mismatch, and a column that doesn't add up. It runs in Vitest's node environment, because jsdom's `FormData` doesn't go through Node's `fetch`.
+  - A known edge, left as is: if the page's cached mapping still has a balance column the server's no longer has, a first import's preview goes without a confirmation. The server then answers `export-balance-mismatch` and there is no second field. Reloading the page fixes it.
+

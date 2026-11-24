@@ -7,7 +7,14 @@ import type { components } from "../api/schema.gen";
 import { mappingDetail, mappingProblems } from "./csv-mapping-rules";
 import type { MockDb, MockState } from "./db";
 import { badRequest, http, withExactAmounts } from "./http";
-import { currencyPlaces, fileBalanceOf, parseStatementFile, sampleRows } from "./statement-files";
+import { hasBalanceColumn } from "../lib/csv-mapping";
+import {
+  currencyPlaces,
+  fileBalanceOf,
+  parseStatementFile,
+  sampleRows,
+  withBalances,
+} from "./statement-files";
 
 type Problem = components["schemas"]["Problem"];
 type Account = components["schemas"]["Account"];
@@ -237,12 +244,11 @@ export function connectionHandlers(db: MockDb) {
         });
         // As the backend's ReadSample: an import refuses unreadable rows before
         // it works out the file's balance.
-        const balance =
-          mapping.columns?.balance === undefined
-            ? undefined
-            : errors.length > 0
-              ? { problem: "the file has rows that can't be read" }
-              : fileBalanceOf(rows);
+        const balance = !hasBalanceColumn(mapping)
+          ? undefined
+          : errors.length > 0
+            ? { problem: "the file has rows that can't be read" }
+            : fileBalanceOf(withBalances(rows));
         const { first, last } = sampleRows(rows);
         return response.untyped(
           await withExactAmounts(

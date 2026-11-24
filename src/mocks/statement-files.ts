@@ -250,6 +250,22 @@ export function parseStatementFile(
     : collectStatementFile(decoded.text, mapping, places);
 }
 
+/** A row read through a mapping with a balance column: every row has its balance. */
+export type BalancedRow = Pick<StatementRow, "line" | "amount"> & { balance: string };
+
+/**
+ * The rows read through a mapping with a balance column, each with its
+ * balance, which the reader guarantees: a row without one is unreadable.
+ */
+export function withBalances(rows: readonly StatementRow[]): BalancedRow[] {
+  return rows.map(({ line, amount, balance }) => {
+    if (balance === undefined) {
+      throw new Error(`Line ${String(line)} has no balance: the mapping has no balance column`);
+    }
+    return { line, amount, balance };
+  });
+}
+
 /**
  * A statement file's balance: the balance on its newest row, told by the
  * balances alone, as the backend's FileBalanceOf does. The rows are oldest
@@ -259,7 +275,7 @@ export function parseStatementFile(
  * balance.
  */
 export function fileBalanceOf(
-  rows: readonly { line: number; amount: string; balance?: string | undefined }[],
+  rows: readonly BalancedRow[],
 ): { amount: string; line: number } | { problem: string } {
   const [first] = rows;
   const last = rows.at(-1);
@@ -267,14 +283,14 @@ export function fileBalanceOf(
     return { problem: "the file has no rows" };
   }
   if (rows.length === 1) {
-    return { amount: first.balance ?? "", line: first.line };
+    return { amount: first.balance, line: first.line };
   }
   const places = Math.max(
     ...rows.flatMap(({ amount, balance }) =>
-      [amount, balance ?? "0"].map((value) => value.split(".")[1]?.length ?? 0),
+      [amount, balance].map((value) => value.split(".")[1]?.length ?? 0),
     ),
   );
-  const units = (value: string | undefined) => toUnits(value ?? "0", places);
+  const units = (value: string) => toUnits(value, places);
   const sum = (some: readonly { amount: string }[]) =>
     some.reduce((total, { amount }) => total + units(amount), 0n);
   const oldestFirst = units(last.balance) === units(first.balance) + sum(rows.slice(1));
@@ -286,10 +302,10 @@ export function fileBalanceOf(
     };
   }
   if (oldestFirst) {
-    return { amount: last.balance ?? "", line: last.line };
+    return { amount: last.balance, line: last.line };
   }
   if (newestFirst) {
-    return { amount: first.balance ?? "", line: first.line };
+    return { amount: first.balance, line: first.line };
   }
   return { problem: "the balance column doesn't add up from one end of the file to the other" };
 }
