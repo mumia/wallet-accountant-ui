@@ -208,18 +208,72 @@ export function collectStatementFile(
   return { rows, errors };
 }
 
-/** Reads `file` with `mapping`; amounts may have at most `places` decimal places. */
-export function readStatementFile(file: string, mapping: CsvMapping, places: number): ReadFile {
-  const { rows, errors } = collectStatementFile(file, mapping, places);
+/**
+ * Decodes a statement file's bytes with the mapping's encoding, then reads
+ * them as `collectStatementFile` does. A file the encoding can't read is one
+ * unreadable line, 1, as in the backend's parseStatementFile.
+ */
+export function parseStatementFile(
+  bytes: ArrayBuffer,
+  mapping: Partial<CsvMapping>,
+  places: number,
+): { rows: StatementRow[]; errors: RowError[] } {
+  const decoded = decodeStatementFile(bytes, mapping.encoding);
+  return decoded.kind === "unreadable"
+    ? { rows: [], errors: [{ line: 1, reason: decoded.reason }] }
+    : collectStatementFile(decoded.text, mapping, places);
+}
+
+/** Reads a statement file with `mapping`; amounts may have at most `places` decimal places. */
+export function readStatementFile(
+  bytes: ArrayBuffer,
+  mapping: CsvMapping,
+  places: number,
+): ReadFile {
+  const { rows, errors } = parseStatementFile(bytes, mapping, places);
   if (errors.length > 0) {
     return { kind: "unreadable", rows: errors };
   }
   return rows.length === 0 ? { kind: "empty" } : { kind: "rows", rows };
 }
 
-/** A statement file's bytes as text, decoded with the mapping's encoding. */
-export function decodeStatementFile(bytes: ArrayBuffer, encoding: string | undefined): string {
-  return new TextDecoder(encoding === "WINDOWS_1252" ? "windows-1252" : "utf-8").decode(bytes);
+/**
+ * A statement file's bytes as text, decoded with the mapping's encoding as the
+ * backend does (../wallet-accountant/internal/ingestion/domain/encoding.go),
+ * or why it can't be.
+ * UTF-16 takes its byte order from its byte order mark, which is dropped, and
+ * is little-endian without one. Under another encoding a UTF-16 byte order
+ * mark is refused and a UTF-8 one dropped.
+ */
+export function decodeStatementFile(
+  buffer: ArrayBuffer,
+  encoding: string | undefined,
+): { kind: "text"; text: string } | { kind: "unreadable"; reason: string } {
+  const bytes = new Uint8Array(buffer);
+  const bom = (...marker: number[]) => marker.every((byte, index) => bytes[index] === byte);
+  if (encoding === "UTF_16") {
+    if (bytes.length % 2 !== 0) {
+      return {
+        kind: "unreadable",
+        reason: "the file has an odd number of bytes, so it is not UTF-16",
+      };
+    }
+    return {
+      kind: "text",
+      text: new TextDecoder(bom(0xfe, 0xff) ? "utf-16be" : "utf-16le").decode(bytes),
+    };
+  }
+  if (bom(0xff, 0xfe) || bom(0xfe, 0xff)) {
+    return {
+      kind: "unreadable",
+      reason: "the file starts with a UTF-16 byte order mark; set the mapping's encoding to UTF-16",
+    };
+  }
+  const text = bom(0xef, 0xbb, 0xbf) ? bytes.subarray(3) : bytes;
+  return {
+    kind: "text",
+    text: new TextDecoder(encoding === "WINDOWS_1252" ? "windows-1252" : "utf-8").decode(text),
+  };
 }
 
 /** Exact decimal text as whole minor units: "-12.30" with 2 places is -1230n. */

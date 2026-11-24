@@ -64,7 +64,9 @@ function find(db: MockDb, householdId: string, connectionId: string): Found | un
 }
 
 interface Upload {
-  text: string;
+  bytes: ArrayBuffer;
+  /** Tells files apart; it is over the file read as UTF-8, whatever its encoding. */
+  fileFingerprint: string;
   exportBalance: string;
   confirmation: string | undefined;
   previewId: string | undefined;
@@ -78,7 +80,8 @@ async function readUpload(request: Request): Promise<Upload> {
     return typeof value === "string" ? value : undefined;
   };
   return {
-    text: file instanceof Blob ? await file.text() : "",
+    bytes: file instanceof Blob ? await file.arrayBuffer() : new ArrayBuffer(0),
+    fileFingerprint: fingerprint(file instanceof Blob ? await file.text() : ""),
     exportBalance: field("export_balance") ?? "",
     confirmation: field("export_balance_confirmation"),
     previewId: field("preview_id"),
@@ -135,7 +138,7 @@ function readFile({ state, account, connection }: Found, upload: Upload): Read {
       ),
     };
   }
-  const file = fingerprint(upload.text);
+  const file = upload.fileFingerprint;
   const earlier = (state.statementImports?.[connection.connection_id] ?? []).find(
     (item) =>
       item.voided_at === undefined && state.statementFiles?.[item.statement_import_id] === file,
@@ -152,7 +155,7 @@ function readFile({ state, account, connection }: Found, upload: Upload): Read {
       },
     };
   }
-  const read = readStatementFile(upload.text, connection.csv_mapping, currencyPlaces);
+  const read = readStatementFile(upload.bytes, connection.csv_mapping, currencyPlaces);
   if (read.kind === "unreadable") {
     return {
       kind: "refused",
@@ -199,7 +202,7 @@ function previewId(found: Found, upload: Upload): string {
     [
       found.account.account_id,
       found.connection.connection_id,
-      fingerprint(upload.text),
+      upload.fileFingerprint,
       upload.exportBalance,
       String(found.connection.csv_mapping_version ?? 0),
     ].join("|"),
@@ -594,7 +597,7 @@ export function statementImportHandlers(db: MockDb) {
             recorded,
           ],
         },
-        statementFiles: { ...state.statementFiles, [statementImportId]: fingerprint(upload.text) },
+        statementFiles: { ...state.statementFiles, [statementImportId]: upload.fileFingerprint },
         importedRows: { ...state.importedRows, [account.account_id]: [...earlier, ...newRows] },
         // The backend raises it a little later; the mock at once.
         ...(suspected.length > 0

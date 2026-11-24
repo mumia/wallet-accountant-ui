@@ -15,7 +15,7 @@ type CsvColumn = components["schemas"]["CsvColumn"];
  * saved value the UI doesn't know is still shown, as it is.
  */
 export const choices = {
-  encoding: ["UTF_8", "WINDOWS_1252"],
+  encoding: ["UTF_8", "WINDOWS_1252", "UTF_16"],
   /** Not an enum in the contract: any one character. */
   delimiter: [";", ",", "\t", "|"],
   date_format: [
@@ -37,6 +37,9 @@ export const choices = {
 } as const;
 
 export type Choice = keyof typeof choices;
+
+/** An encoding the editor offers. */
+export type Encoding = (typeof choices.encoding)[number];
 
 /** Whether `value` is one of the values `choice` offers by name. */
 export function isKnownChoice<C extends Choice>(

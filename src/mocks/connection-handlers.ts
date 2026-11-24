@@ -7,7 +7,7 @@ import type { components } from "../api/schema.gen";
 import { mappingDetail, mappingProblems } from "./csv-mapping-rules";
 import type { MockDb, MockState } from "./db";
 import { badRequest, http, withExactAmounts } from "./http";
-import { collectStatementFile, currencyPlaces, decodeStatementFile } from "./statement-files";
+import { currencyPlaces, parseStatementFile } from "./statement-files";
 
 type Problem = components["schemas"]["Problem"];
 type Account = components["schemas"]["Account"];
@@ -206,8 +206,8 @@ export function connectionHandlers(db: MockDb) {
         if (problems.length > 0) {
           return response(422).json(invalidMapping(problems));
         }
-        const { rows, errors } = collectStatementFile(
-          decodeStatementFile(bytes, mapping.encoding),
+        const { rows, errors } = parseStatementFile(
+          bytes,
           mapping,
           currencyPlaces(account.currency),
         );
