@@ -38,6 +38,9 @@ export const choices = {
 
 export type Choice = keyof typeof choices;
 
+/** An encoding the editor offers. */
+export type Encoding = (typeof choices.encoding)[number];
+
 /** Whether `value` is one of the values `choice` offers by name. */
 export function isKnownChoice<C extends Choice>(
   choice: C,

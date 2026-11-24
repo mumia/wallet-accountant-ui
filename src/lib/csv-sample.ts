@@ -2,29 +2,33 @@
 // to show the file as a table whose columns the User picks (spec, "CSV mapping
 // editor"). How rows will read comes from the backend's test endpoint, never
 // from here: nothing in this module reads a date or an amount for real.
-import { choices, isDelimiter } from "./csv-mapping";
-
-/** An encoding the editor offers. */
-type Encoding = (typeof choices.encoding)[number];
+import { choices, isDelimiter, type Encoding } from "./csv-mapping";
 
 /** How many of the file's rows the editor shows and guesses from. */
 export const sampleRowLimit = 10;
 
-const bom = [0xef, 0xbb, 0xbf];
+const startsWith = (bytes: Uint8Array, ...marker: number[]) =>
+  marker.every((byte, index) => bytes[index] === byte);
 
 function withoutBom(bytes: Uint8Array): Uint8Array {
-  return bom.every((byte, index) => bytes[index] === byte) ? bytes.subarray(3) : bytes;
+  return startsWith(bytes, 0xef, 0xbb, 0xbf) ? bytes.subarray(3) : bytes;
 }
 
+const startsWithUtf16BigEndianBom = (bytes: Uint8Array) => startsWith(bytes, 0xfe, 0xff);
 const startsWithUtf16Bom = (bytes: Uint8Array) =>
-  (bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff);
+  startsWith(bytes, 0xff, 0xfe) || startsWithUtf16BigEndianBom(bytes);
+
+/** How many of a file's first bytes the UTF-16 guess looks at. */
+const utf16GuessBytes = 512;
 
 /**
  * Whether most of the first bytes in odd or in even positions are NUL, as in
- * UTF-16 text that is mostly ASCII. Such text is also valid UTF-8.
+ * UTF-16 text that is mostly ASCII. Such text is also valid UTF-8. Big-endian
+ * text with no byte order mark passes too, though it then reads as
+ * little-endian, as in the backend.
  */
 function looksLikeUtf16(bytes: Uint8Array): boolean {
-  const pairs = Math.floor(Math.min(bytes.length, 512) / 2);
+  const pairs = Math.floor(Math.min(bytes.length, utf16GuessBytes) / 2);
   const nuls = [0, 0];
   for (let pair = 0; pair < pairs; pair++) {
     for (const half of [0, 1] as const) {
@@ -61,8 +65,8 @@ export function guessEncoding(bytes: Uint8Array): Encoding {
  */
 export function decodeSample(bytes: Uint8Array, encoding: string): string {
   if (encoding === "UTF_16") {
-    const bigEndian = bytes[0] === 0xfe && bytes[1] === 0xff;
-    return new TextDecoder(bigEndian ? "utf-16be" : "utf-16le").decode(bytes);
+    const label = startsWithUtf16BigEndianBom(bytes) ? "utf-16be" : "utf-16le";
+    return new TextDecoder(label).decode(bytes);
   }
   const label = encoding === "WINDOWS_1252" ? "windows-1252" : "utf-8";
   return new TextDecoder(label).decode(withoutBom(bytes));

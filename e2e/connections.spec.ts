@@ -173,6 +173,7 @@ test("a UTF-16 sample is guessed as UTF-16 and reads", async ({ page }) => {
     "the file starts with a UTF-16 byte order mark; set the mapping's encoding to UTF-16",
   );
 });
+
 test("mapping rules show on their fields before Save", async ({ page }) => {
   await page.goto(`${main}/connections/new`);
   const save = page.getByRole("button", { name: "Save" });
