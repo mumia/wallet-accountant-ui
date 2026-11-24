@@ -119,24 +119,76 @@ describe("guessing", () => {
 });
 
 describe("the sample's table", () => {
-  const file = bytes("Bank export\nDate;Text\n2026-01-02;Coffee\n2026-01-03;Tea;extra\n");
+  const options = {
+    encoding: "UTF_8",
+    delimiter: ";",
+    skipLeadingLines: 0,
+    skipTrailingLines: 0,
+    hasHeaderRow: false,
+  };
+  const line = (number: number, cells: string[], skipped = false) => ({
+    line: number,
+    cells,
+    skipped,
+  });
 
-  it("skips lines and takes the header row", () => {
+  it("shows the lines skipped at both ends, marked, with the header row and the rows between", () => {
+    const file = bytes(
+      "Bank export\nDate;Text\n2026-01-02;Coffee\n2026-01-03;Tea;extra\nTotal;-5,50\n\n  \n",
+    );
     expect(
       sampleTable(file, {
-        encoding: "UTF_8",
-        delimiter: ";",
+        ...options,
         skipLeadingLines: 1,
+        skipTrailingLines: 1,
         hasHeaderRow: true,
       }),
     ).toEqual({
       header: ["Date", "Text"],
       firstRow: ["Date", "Text"],
       rows: [
-        ["2026-01-02", "Coffee"],
-        ["2026-01-03", "Tea", "extra"],
+        line(1, ["Bank export"], true),
+        line(3, ["2026-01-02", "Coffee"]),
+        line(4, ["2026-01-03", "Tea", "extra"]),
+        // Blank lines at the very end don't count as lines to skip.
+        line(5, ["Total;-5,50"], true),
       ],
+      // Skipped lines don't shape the columns.
       width: 3,
     });
+  });
+
+  it("shows the first and the last 10 rows, with the lines between as a gap", () => {
+    const rows = Array.from({ length: 25 }, (_, index) => `2026-01-${String(index + 1)};Row`);
+    const { rows: shown } = sampleTable(bytes(`${rows.join("\n")}\n`), options);
+    expect(
+      shown.map((entry) => ("gap" in entry ? `gap ${String(entry.gap)}` : entry.line)),
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, "gap 5", 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]);
+  });
+
+  it("shows every row once, with no gap, when the two ends meet", () => {
+    const rows = Array.from({ length: 20 }, (_, index) => `2026-01-${String(index + 1)};Row`);
+    const { rows: shown } = sampleTable(bytes(rows.join("\r\n")), options);
+    expect(shown.map((entry) => ("gap" in entry ? "gap" : entry.line))).toEqual(
+      Array.from({ length: 20 }, (_, index) => index + 1),
+    );
+  });
+
+  it("counts a quoted line break as a line, as the backend does", () => {
+    const file = bytes('a;"two\nlines"\nb;c\n');
+    expect(sampleTable(file, options).rows).toEqual([
+      line(1, ["a", "two\nlines"]),
+      line(3, ["b", "c"]),
+    ]);
+  });
+
+  it("is empty when the lines skipped leave nothing to read", () => {
+    const table = sampleTable(bytes("Bank export\nTotal\n"), {
+      ...options,
+      skipLeadingLines: 1,
+      skipTrailingLines: 1,
+    });
+    expect(table).toMatchObject({ header: undefined, firstRow: [], width: 0 });
+    expect(table.rows).toEqual([line(1, ["Bank export"], true), line(2, ["Total"], true)]);
   });
 });

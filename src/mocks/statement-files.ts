@@ -86,6 +86,12 @@ export function collectStatementFile(
     .replace(/\r\n/g, "\n")
     .split("\n");
   let index = mapping.skip_leading_lines ?? 0;
+  // The backend's skipTrailingLines: blank lines at the very end don't count.
+  let end = lines.length;
+  while (end > index && (lines[end - 1] ?? "").trim() === "") {
+    end -= 1;
+  }
+  end = Math.max(index, end - (mapping.skip_trailing_lines ?? 0));
   const headers = new Map<string, number>();
   if (mapping.has_header_row === true) {
     (lines[index] ?? "").split(delimiter).forEach((name, position) => {
@@ -111,7 +117,7 @@ export function collectStatementFile(
 
   const rows: StatementRow[] = [];
   const errors: RowError[] = [];
-  for (; index < lines.length; index += 1) {
+  for (; index < end; index += 1) {
     const text = lines[index] ?? "";
     if (text.trim() === "") {
       continue;
@@ -222,6 +228,21 @@ export function parseStatementFile(
   return decoded.kind === "unreadable"
     ? { rows: [], errors: [{ line: 1, reason: decoded.reason }] }
     : collectStatementFile(decoded.text, mapping, places);
+}
+
+/** How many rows the mapping test shows at each end of the file. */
+const sampleRowCount = 10;
+
+/**
+ * The rows the mapping test shows, as the backend's ReadSample picks them:
+ * the first 10, and the last 10 that aren't already among them.
+ */
+export function sampleRows<Row>(rows: readonly Row[]): { first: Row[]; last: Row[] } {
+  const shown = Math.min(rows.length, sampleRowCount);
+  return {
+    first: rows.slice(0, shown),
+    last: rows.slice(Math.max(rows.length - sampleRowCount, shown)),
+  };
 }
 
 /** Reads a statement file with `mapping`; amounts may have at most `places` decimal places. */

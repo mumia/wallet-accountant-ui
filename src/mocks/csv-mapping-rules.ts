@@ -33,6 +33,9 @@ export function mappingProblems(mapping: Partial<CsvMapping>): string[] {
   if ((mapping.skip_leading_lines ?? 0) < 0) {
     problems.push("the number of leading lines to skip must not be negative");
   }
+  if ((mapping.skip_trailing_lines ?? 0) < 0) {
+    problems.push("the number of trailing lines to skip must not be negative");
+  }
   const dateFormat = mapping.date_format ?? "";
   if (!dateFormats.includes(dateFormat)) {
     problems.push(

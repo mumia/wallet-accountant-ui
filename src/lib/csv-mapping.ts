@@ -91,6 +91,7 @@ export interface MappingForm {
   delimiter: string;
   hasHeaderRow: boolean;
   skipLeadingLines: string;
+  skipTrailingLines: string;
   dateFormat: string;
   decimalSeparator: string;
   thousandsSeparator: string;
@@ -138,6 +139,7 @@ export function newMappingForm(name: string): MappingForm {
     delimiter: ";",
     hasHeaderRow: true,
     skipLeadingLines: "0",
+    skipTrailingLines: "0",
     dateFormat: "",
     decimalSeparator: ".",
     thousandsSeparator: "",
@@ -166,6 +168,7 @@ export function mappingForm(name: string, mapping: CsvMapping | undefined): Mapp
     delimiter: mapping.delimiter ?? "",
     hasHeaderRow: mapping.has_header_row,
     skipLeadingLines: String(mapping.skip_leading_lines),
+    skipTrailingLines: String(mapping.skip_trailing_lines),
     dateFormat: mapping.date_format ?? "",
     decimalSeparator: mapping.decimal_separator ?? "",
     thousandsSeparator: mapping.thousands_separator,
@@ -196,6 +199,7 @@ export function csvMapping(form: MappingForm): CsvMapping {
     delimiter: form.delimiter,
     has_header_row: form.hasHeaderRow,
     skip_leading_lines: Number(form.skipLeadingLines),
+    skip_trailing_lines: Number(form.skipTrailingLines),
     date_format: form.dateFormat,
     decimal_separator: form.decimalSeparator,
     thousands_separator: form.thousandsSeparator,
@@ -274,6 +278,7 @@ export type RuleMessage =
   | "rules.nameTooLong"
   | "rules.delimiter"
   | "rules.skipLeadingLines"
+  | "rules.skipTrailingLines"
   | "rules.dateFormat"
   | "rules.decimalSeparator"
   | "rules.separatorsEqual"
@@ -301,6 +306,7 @@ export function mappingSchema(
       delimiter: z.string().refine(isDelimiter, message("rules.delimiter")),
       hasHeaderRow: z.boolean(),
       skipLeadingLines: z.string().regex(/^\s*\d{1,4}\s*$/, message("rules.skipLeadingLines")),
+      skipTrailingLines: z.string().regex(/^\s*\d{1,4}\s*$/, message("rules.skipTrailingLines")),
       dateFormat: z.string().min(1, message("rules.dateFormat")),
       decimalSeparator: z.string().min(1, message("rules.decimalSeparator")),
       thousandsSeparator: z.string(),

@@ -66,25 +66,54 @@ export function MappingTest({
   );
 }
 
+type ParsedRow = CsvMappingTest["rows"][number];
+
+/** The first rows read, then the last ones, with a gap for those between. */
 function TestResult({ result }: { result: CsvMappingTest }) {
   const { t } = useTranslation("connections");
-  const { rows, readable_row_count, unreadable_rows } = result;
+  const { rows: first, last_rows: last, readable_row_count, unreadable_rows } = result;
+  const rows = [...first, ...last];
+  const notShown = readable_row_count - rows.length;
   const has = {
     transactionDate: rows.some((row) => row.transaction_date !== row.booking_date),
     valueDate: rows.some((row) => row.value_date !== undefined),
     payee: rows.some((row) => row.payee !== undefined),
     bankTransactionId: rows.some((row) => row.bank_transaction_id !== undefined),
   };
+  const columnCount = 3 + Object.values(has).filter(Boolean).length;
+  const rowOf = (row: ParsedRow) => (
+    <TableRow key={row.line}>
+      <TableCell className="tabular text-right">{row.line}</TableCell>
+      <TableCell>{mediumDate(row.booking_date)}</TableCell>
+      {has.transactionDate && <TableCell>{mediumDate(row.transaction_date)}</TableCell>}
+      {has.valueDate && (
+        <TableCell>{row.value_date === undefined ? "" : mediumDate(row.value_date)}</TableCell>
+      )}
+      <TableCell>{row.description}</TableCell>
+      {has.payee && <TableCell>{row.payee ?? ""}</TableCell>}
+      {has.bankTransactionId && <TableCell>{row.bank_transaction_id ?? ""}</TableCell>}
+      <TableCell className="tabular text-right">{formatMoney(row.amount)}</TableCell>
+    </TableRow>
+  );
   return (
     <div className="grid gap-4">
       <p className="text-sm">
         {t("test.readable", { count: readable_row_count })}
-        {rows.length > 0 && <> · {t("test.first", { count: rows.length })}</>}
+        {first.length > 0 && (
+          <>
+            {" · "}
+            {last.length === 0
+              ? t("test.first", { count: first.length })
+              : t("test.firstAndLast", { first: first.length, count: last.length })}
+          </>
+        )}
       </p>
-      {rows.length > 0 && (
+      {first.length > 0 && (
         <div className="max-w-full overflow-x-auto rounded-lg border">
           <Table>
-            <TableCaption className="sr-only">{t("test.tableCaption")}</TableCaption>
+            <TableCaption className="sr-only">
+              {last.length === 0 ? t("test.tableCaption") : t("test.tableCaptionFirstAndLast")}
+            </TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead className="text-right">{t("test.columns.line")}</TableHead>
@@ -100,22 +129,15 @@ function TestResult({ result }: { result: CsvMappingTest }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.line}>
-                  <TableCell className="tabular text-right">{row.line}</TableCell>
-                  <TableCell>{mediumDate(row.booking_date)}</TableCell>
-                  {has.transactionDate && <TableCell>{mediumDate(row.transaction_date)}</TableCell>}
-                  {has.valueDate && (
-                    <TableCell>
-                      {row.value_date === undefined ? "" : mediumDate(row.value_date)}
-                    </TableCell>
-                  )}
-                  <TableCell>{row.description}</TableCell>
-                  {has.payee && <TableCell>{row.payee ?? ""}</TableCell>}
-                  {has.bankTransactionId && <TableCell>{row.bank_transaction_id ?? ""}</TableCell>}
-                  <TableCell className="tabular text-right">{formatMoney(row.amount)}</TableCell>
+              {first.map(rowOf)}
+              {last.length > 0 && notShown > 0 && (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={columnCount} className="text-center text-muted-foreground">
+                    {t("test.gap", { count: notShown })}
+                  </TableCell>
                 </TableRow>
-              ))}
+              )}
+              {last.map(rowOf)}
             </TableBody>
           </Table>
         </div>

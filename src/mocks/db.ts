@@ -238,6 +238,7 @@ export const mockCsvMapping: CsvMapping = {
   delimiter: ";",
   has_header_row: true,
   skip_leading_lines: 0,
+  skip_trailing_lines: 0,
   date_format: "YYYY-MM-DD",
   decimal_separator: ".",
   thousands_separator: "",
