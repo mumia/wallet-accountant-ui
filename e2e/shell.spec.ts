@@ -134,7 +134,7 @@ test("the sidebar leads to each Account and to Categories", async ({ page }) => 
 
 test("the User menu shows who is signed in and opens Appearance…", async ({ page }) => {
   await page.goto(home);
-  const userMenu = page.getByRole("button", { name: /^Sam Example/ });
+  const userMenu = page.getByRole("button", { name: /^Sam/ });
 
   await userMenu.click();
   await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();

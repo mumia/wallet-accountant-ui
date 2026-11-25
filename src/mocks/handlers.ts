@@ -28,6 +28,13 @@ const me = (displayName: string | undefined): components["schemas"]["Me"] => ({
   ...(displayName === undefined ? {} : { display_name: displayName }),
 });
 
+const blankDisplayName: Problem = {
+  type: "/problems/invalid-user",
+  title: "Invalid User",
+  status: 422,
+  detail: "The display name must not be blank.",
+};
+
 const notFound: Problem = { type: "about:blank", title: "Not Found", status: 404 };
 
 type Category = components["schemas"]["Category"];
@@ -123,6 +130,24 @@ export function createHandlers(db: MockDb) {
         : response(403).json(registrationRequired);
     }),
 
+    http.patch("/me", async ({ request, response }) => {
+      const { display_name } = await request.json();
+      // The request schema (1–64) first, as in the backend.
+      if (display_name.length === 0 || display_name.length > 64) {
+        return response.untyped(badRequest("Invalid value for: display_name."));
+      }
+      const state = db.read();
+      if (!state.registered) {
+        return response(403).json(registrationRequired);
+      }
+      const displayName = display_name.trim();
+      if (displayName === "") {
+        return response(422).json(blankDisplayName);
+      }
+      db.write({ ...state, displayName });
+      return response(200).json(me(displayName));
+    }),
+
     http.post("/registrations", async ({ request, response }) => {
       const { invitation_code, display_name } = await request.json();
       // The request schema (display_name required, 1–64) is checked before
@@ -145,12 +170,7 @@ export function createHandlers(db: MockDb) {
       }
       const displayName = display_name.trim();
       if (displayName === "") {
-        return response(422).json({
-          type: "/problems/invalid-user",
-          title: "Invalid User",
-          status: 422,
-          detail: "The display name must not be blank.",
-        });
+        return response(422).json(blankDisplayName);
       }
       if (invitation_code !== validInvitationCode) {
         return response(422).json({

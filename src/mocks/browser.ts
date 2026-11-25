@@ -3,7 +3,7 @@
 // is put where oidc-client-ts keeps it, so the app starts without Zitadel or a
 // backend. Only a `--mode mock` build includes this file.
 //
-// `?mock-scenario=new-user` (or `registered`, `household`) on any page starts the
+// `?mock-scenario=new-user` (or `registered`, `household`, `unnamed`) on any page starts the
 // tab's mock data over from that scenario (src/mocks/db.ts); the parameter is
 // then removed from the address. `?mock-fail=<path end>:<count>` makes the next
 // <count> API requests whose path ends that way fail with a 503;

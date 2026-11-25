@@ -5,7 +5,7 @@ import { expectAccessible } from "./axe";
 const html = (page: Page) => page.locator("html");
 
 async function openAppearance(page: Page) {
-  await page.getByRole("button", { name: /^Sam Example/ }).click();
+  await page.getByRole("button", { name: /^Sam/ }).click();
   await page.getByRole("menuitem", { name: "Appearance…" }).click();
   return page.getByRole("dialog", { name: "Appearance" });
 }
