@@ -1,7 +1,13 @@
 import { HttpResponse } from "msw";
 
 import type { components } from "../api/schema.gen";
-import { internalCategories, validInvitationCode, type MockDb } from "./db";
+import {
+  householdInvitationCodes,
+  internalCategories,
+  validInvitationCode,
+  type MockDb,
+  type MockState,
+} from "./db";
 import { badRequest, http, withExactAmounts } from "./http";
 import { withCounts } from "./months";
 import { connectionHandlers } from "./connection-handlers";
@@ -34,6 +40,35 @@ const blankDisplayName: Problem = {
   status: 422,
   detail: "The display name must not be blank.",
 };
+
+const invalidInvitation: Problem = {
+  type: "/problems/invalid-invitation",
+  title: "Invalid Invitation code",
+  status: 422,
+  detail: "The Invitation code is unknown, expired, revoked, superseded or already used.",
+};
+
+type Household = components["schemas"]["Household"];
+
+/** The Household an unused Invitation code admits to, if it is one. */
+function invitedHousehold(state: MockState, code: string): Household | undefined {
+  return Object.hasOwn(householdInvitationCodes, code) && !state.redeemedCodes?.includes(code)
+    ? householdInvitationCodes[code as keyof typeof householdInvitationCodes]
+    : undefined;
+}
+
+/** Join Household: the User becomes a member and the code is used up. */
+function joined(state: MockState, code: string, household: Household): MockState {
+  return {
+    ...state,
+    households: [...state.households, household],
+    categories: {
+      ...state.categories,
+      [household.household_id]: state.categories[household.household_id] ?? internalCategories(),
+    },
+    redeemedCodes: [...(state.redeemedCodes ?? []), code],
+  };
+}
 
 const notFound: Problem = { type: "about:blank", title: "Not Found", status: 404 };
 
@@ -172,16 +207,40 @@ export function createHandlers(db: MockDb) {
       if (displayName === "") {
         return response(422).json(blankDisplayName);
       }
+      // An Invitation to a Household makes the new User a member of it too.
+      const household = invitedHousehold(state, invitation_code);
+      if (household !== undefined) {
+        db.write(joined({ ...state, registered: true, displayName }, invitation_code, household));
+        return response(201).json(me(displayName));
+      }
       if (invitation_code !== validInvitationCode) {
-        return response(422).json({
-          type: "/problems/invalid-invitation",
-          title: "Invalid Invitation code",
-          status: 422,
-          detail: "The Invitation code is unknown, expired, superseded or already used.",
-        });
+        return response(422).json(invalidInvitation);
       }
       db.write({ ...state, registered: true, displayName });
       return response(201).json(me(displayName));
+    }),
+
+    http.post("/memberships", async ({ request, response }) => {
+      const state = db.read();
+      if (!state.registered) {
+        return response(403).json(registrationRequired);
+      }
+      const { invitation_code } = await request.json();
+      const household = invitedHousehold(state, invitation_code);
+      if (household === undefined) {
+        return response(422).json(invalidInvitation);
+      }
+      if (state.households.some(({ household_id }) => household_id === household.household_id)) {
+        return response(409).json({
+          type: "/problems/already-a-member",
+          title: "Already a member",
+          status: 409,
+          detail:
+            "You are already a member of this Household. The Invitation code is still unused.",
+        });
+      }
+      db.write(joined(state, invitation_code, household));
+      return response(201).json(household);
     }),
 
     http.get("/households", ({ response }) => {
