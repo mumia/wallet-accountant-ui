@@ -1,7 +1,8 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
 import { errorStatus } from "../../../api/problem";
 import { MembersPage } from "../../../features/members/members-page";
+import { HouseholdError, NotAMemberError } from "../../../features/shell/not-a-member";
 
 export const Route = createFileRoute("/households/$householdId/members")({
   loader: async ({ context: { api, queryClient }, params: { householdId } }) => {
@@ -14,13 +15,14 @@ export const Route = createFileRoute("/households/$householdId/members")({
         }),
       );
     } catch (error) {
-      // Not a member (any more): the Household's own not-found screen.
+      // The members list is 404 only for someone who isn't a member (any more).
       if (errorStatus(error) === 404) {
-        throw notFound({ routeId: "/households/$householdId" });
+        throw new NotAMemberError(householdId);
       }
       throw error;
     }
   },
+  errorComponent: HouseholdError,
   component: function Members() {
     const { householdId } = Route.useParams();
     return <MembersPage householdId={householdId} />;

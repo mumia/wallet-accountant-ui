@@ -4,6 +4,7 @@ import { useEffect, useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useApi } from "../../api/context";
+import { errorStatus } from "../../api/problem";
 import { useAccountLabels } from "../../components/account-labels";
 import { useOpenAddAccount } from "../../components/add-account";
 import { MainProvided } from "../../components/main-landmark";
@@ -25,6 +26,7 @@ import {
 import { toReviewCount } from "../../lib/account-months";
 import { saveLastHousehold } from "../../lib/last-household";
 import { HouseholdSwitcher } from "./household-switcher";
+import { NotAMemberError } from "./not-a-member";
 import { NotificationsBell } from "./notifications-bell";
 import { UserMenu } from "./user-menu";
 
@@ -43,10 +45,15 @@ export function HouseholdShell({
   const { t } = useTranslation("shell");
   const { api } = useApi();
   // The route's loader has fetched all three.
-  const { data: household } = api.useSuspenseQuery("get", "/households/{household_id}", {
+  const { data: household, error } = api.useSuspenseQuery("get", "/households/{household_id}", {
     params: { path: { household_id: householdId } },
   });
   const { data: households } = api.useSuspenseQuery("get", "/households");
+  // A refetch (on focus, say) that gets 404 keeps the old data, so the query
+  // doesn't throw: a member removed the User. The route's error screen says so.
+  if (errorStatus(error) === 404) {
+    throw new NotAMemberError(householdId);
+  }
 
   useEffect(() => {
     saveLastHousehold(householdId);

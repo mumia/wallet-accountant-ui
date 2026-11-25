@@ -73,6 +73,11 @@ export interface MockState {
    * `method`, when given) fail with a 503.
    */
   failures?: { method?: string; pathEnd: string; remaining: number };
+  /**
+   * A member removes the mock User from `householdId` once `remaining` more
+   * reads of that Household (`GET /households/{id}`) have succeeded.
+   */
+  removal?: { householdId: string; remaining: number };
 }
 
 /** The one Invitation code the mock API accepts. */

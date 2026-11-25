@@ -7,6 +7,11 @@
   "addAccount": "Add Account",
   "toReview_one": "{{count}} row To review",
   "toReview_other": "{{count}} rows To review",
+  "notAMember": {
+    "title": "You're not a member of this Household",
+    "body": "It may have been removed from your list because a member removed you, or the link is wrong.",
+    "home": "Go to your Households"
+  },
   "switcher": {
     "household": "Household",
     "households": "Households",
