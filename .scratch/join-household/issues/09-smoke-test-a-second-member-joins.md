@@ -1,6 +1,6 @@
 # 09: Real-stack smoke test: a second member joins
 
-Status: ready-for-human (2026-11-25): built; only the `make local-smoke` run is left
+Status: done
 Blocked by: 04, 05
 Waits on backend: no. v0.8.0 carries join-household (https://github.com/mumia/wallet-accountant/releases/tag/v0.8.0). No contract change.
 
@@ -19,12 +19,16 @@ This also closes join-household ticket 01's open item: the smoke test has never 
 
 - [x] `smoke.sh` creates the second Zitadel user and passes its credentials only through the environment
 - [x] `smoke.spec.ts` runs the steps above after the existing ones
-- [ ] `make local-smoke` passes on a fresh cluster with the released backend. Note the backend tag in the Answer
-- [ ] Tick join-household ticket 01's "real-stack smoke test passes" item
+- [x] `make local-smoke` passes on a fresh cluster with the released backend. Note the backend tag in the Answer
+- [x] Tick join-household ticket 01's "real-stack smoke test passes" item
 
 ## Spec
 
 [spec.md](../spec.md): "Testing Decisions" (real-stack smoke test); "Further Notes".
+
+## Answer
+
+Done on 2026-11-25. The developer ran `make local-smoke` on a fresh cluster with the backend at **v0.8.0**, the first tag that carries join-household, and it passed. The second member joined through an Invitation link, both Members lists showed two members, and the first User's bell showed the joined Notification. This also ticks ticket 01's smoke-test item.
 
 ## Comments
 

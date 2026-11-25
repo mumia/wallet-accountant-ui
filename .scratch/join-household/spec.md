@@ -1,6 +1,6 @@
 # Spec: Joining a Household (UI)
 
-Status: ready-for-agent (2026-11-25). The decisions listed under "Decided without a grilling" are open to correction.
+Status: done (2026-11-25): every ticket has landed, and the real-stack smoke test passed against backend v0.8.0.
 
 The UI half of the backend's join-household spec (`../wallet-accountant/.scratch/join-household/spec.md`, ADR-0025). The backend lets any member invite someone into their Household, lets that person join whether or not they are already a User, and lets members see who belongs, revoke Invitations, remove each other or leave. This spec gives those operations screens. Domain terms come from `../wallet-accountant/CONTEXT-MAP.md` and the Households `CONTEXT.md`: **Household**, **Member**, **User**, **display name**, **Invitation**, **Notification**.
 
