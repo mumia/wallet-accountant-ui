@@ -45,9 +45,10 @@ Against a v0.4.0 backend, today's `/register` form (`src/features/first-run/regi
 ### Done when
 
 - [x] `make check` passes: the contract check against v0.4.0 and the image's `min-api-version` v0.4.0
-- [ ] The real-stack smoke test passes against a backend at v0.4.0 or later
+- [x] The real-stack smoke test passes against a backend at v0.4.0 or later
 
 ## Comments
 
 - 2026-11-23, from the backend: in the contract, a field that is absent is left out rather than sent as `null`, so read `display_name`, `member` and `removed_by` as optional, not nullable. Users who registered before v0.4.0 have no display name until they call `PATCH /me`, which works from the backend's join-household ticket 03.
 - 2026-11-24: done in PR #30 (`make check` passed against v0.4.0, with all e2e). The contract has since moved on to v0.6.0. The real-stack smoke test (`make local-smoke`) wasn't run: it refuses to start while the local k3d cluster exists. `smoke/smoke.spec.ts` types a display name, so the next `make local-smoke` checks it.
+- 2026-11-25: the real-stack smoke test passed against backend v0.8.0 (ticket 09's run), which covers the display name on `/register`.
