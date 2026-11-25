@@ -14,6 +14,7 @@ import { badRequest, http, withExactAmounts } from "./http";
 import { withCounts } from "./months";
 import { connectionHandlers } from "./connection-handlers";
 import { importedTransactionHandlers } from "./imported-transaction-handlers";
+import { invitationByCode, invitationHandlers, withRedeemed } from "./invitation-handlers";
 import { monthHandlers } from "./month-handlers";
 import { statementImportHandlers } from "./statement-import-handlers";
 import { transactionHandlers } from "./transaction-handlers";
@@ -52,11 +53,14 @@ const invalidInvitation: Problem = {
 
 type Household = components["schemas"]["Household"];
 
-/** The Household an unused Invitation code admits to, if it is one. */
+/**
+ * The Household an unused Invitation code admits to, if it is one: a fixed
+ * code, or the code of an open Invitation a member issued.
+ */
 function invitedHousehold(state: MockState, code: string): Household | undefined {
   return Object.hasOwn(householdInvitationCodes, code) && !state.redeemedCodes?.includes(code)
     ? householdInvitationCodes[code as keyof typeof householdInvitationCodes]
-    : undefined;
+    : invitationByCode(state, code)?.household;
 }
 
 /** `state` with the mock User the newest member of `householdId`. */
@@ -71,7 +75,7 @@ function withMe(state: MockState, householdId: string): MockState {
 /** Join Household: the User becomes a member and the code is used up. */
 function joined(state: MockState, code: string, household: Household): MockState {
   return {
-    ...withMe(state, household.household_id),
+    ...withMe(withRedeemed(state, code), household.household_id),
     households: [...state.households, household],
     categories: {
       ...state.categories,
@@ -518,6 +522,7 @@ export function createHandlers(db: MockDb) {
       return response(201).json(account);
     }),
 
+    ...invitationHandlers(db),
     ...connectionHandlers(db),
     ...statementImportHandlers(db),
     ...importedTransactionHandlers(db),

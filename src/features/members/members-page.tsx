@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { YourNameDialog } from "../../components/your-name-dialog";
+import { OpenInvitations } from "./open-invitations";
 
 /** When a member joined, as a date in the User's locale: "Mar 12, 2026". */
 function joinedOn(dateTime: string): string {
@@ -84,6 +85,7 @@ export function MembersPage({ householdId }: { householdId: string }) {
           </Table>
         </CardContent>
       </Card>
+      <OpenInvitations householdId={householdId} />
       <YourNameDialog displayName={undefined} open={yourNameOpen} onOpenChange={setYourNameOpen} />
     </div>
   );

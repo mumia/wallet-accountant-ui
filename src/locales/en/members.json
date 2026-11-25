@@ -1,5 +1,42 @@
 {
   "title": "Members",
+  "invitations": {
+    "title": "Open Invitations",
+    "columns": {
+      "issuedBy": "Issued by",
+      "issued": "Issued",
+      "expires": "Expires",
+      "actions": "Actions"
+    },
+    "you": "you",
+    "noName": "No name yet",
+    "empty": "No open Invitations. An Invitation works once and expires 24 hours after it's issued.",
+    "invite": "Invite someone",
+    "revoke": "Revoke…",
+    "revokeFor": "the Invitation issued by {{issuer}} on {{issued}}",
+    "inviteDialog": {
+      "title": "Invite someone to {{household}}",
+      "description": "Whoever opens the link becomes a member and sees all of this Household's Accounts, Transactions and history. Send it only to the person you mean.",
+      "cancel": "Cancel",
+      "create": "Create Invitation",
+      "creating": "Creating…",
+      "link": "Invitation link",
+      "code": "Code",
+      "copyLink": "Copy link",
+      "copyCode": "Copy code",
+      "copied": "Copied",
+      "warning": "It works once and expires {{expires}}. You won't see this code again after you close this dialog.",
+      "done": "Done"
+    },
+    "revokeDialog": {
+      "title": "Revoke this Invitation?",
+      "description": "Its link stops working at once.",
+      "cancel": "Cancel",
+      "confirm": "Revoke",
+      "revoking": "Revoking…",
+      "gone": "That Invitation was no longer open"
+    }
+  },
   "members": {
     "title": "Members",
     "columns": {
