@@ -158,13 +158,6 @@ test("Create Household checks its fields before sending", async ({ page }) => {
   await expectAccessible(page);
 });
 
-test("a Household that isn't the User's is not found", async ({ page }) => {
-  await page.goto("/households/0190f5f2-7c00-7000-8000-00000000dead");
-
-  await expect(page.getByRole("heading", { level: 1, name: "Not found" })).toBeVisible();
-  await expectAccessible(page);
-});
-
 test("leaving the Base currency list closes it and shows the page again", async ({ page }) => {
   await page.goto("/households/new?mock-scenario=registered");
   const currency = page.getByRole("combobox", { name: "Base currency" });

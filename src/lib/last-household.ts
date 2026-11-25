@@ -23,3 +23,20 @@ export function saveLastHousehold(
     // Blocked storage: `/` goes to the first Household.
   }
 }
+
+/**
+ * Forgets the last Household when it's `householdId`, the one the User lost
+ * access to or left, so `/` doesn't go back to it.
+ */
+export function forgetLastHousehold(
+  householdId: string,
+  storage: () => Storage = () => window.localStorage,
+): void {
+  try {
+    if (storage().getItem(storageKey) === householdId) {
+      storage().removeItem(storageKey);
+    }
+  } catch {
+    // Blocked storage remembers nothing.
+  }
+}

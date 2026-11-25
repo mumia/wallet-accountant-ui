@@ -126,6 +126,25 @@ function householdAccounts(db: MockDb, householdId: string) {
   return isMember ? (state.accounts[householdId] ?? []) : undefined;
 }
 
+/**
+ * Counts a read of a Household toward `removal`, and when none remain, a
+ * member removes the mock User from it: it leaves their list of Households.
+ */
+function countTowardRemoval(db: MockDb, householdId: string): void {
+  const { removal, ...state } = db.read();
+  if (removal?.householdId !== householdId) {
+    return;
+  }
+  db.write(
+    removal.remaining > 0
+      ? { ...state, removal: { ...removal, remaining: removal.remaining - 1 } }
+      : {
+          ...state,
+          households: state.households.filter(({ household_id }) => household_id !== householdId),
+        },
+  );
+}
+
 /** The mock API, over `db`. Tests add or replace handlers with `server.use(...)`. */
 export function createHandlers(db: MockDb) {
   return [
@@ -274,6 +293,7 @@ export function createHandlers(db: MockDb) {
     }),
 
     http.get("/households/{household_id}", ({ params, response }) => {
+      countTowardRemoval(db, params.household_id);
       const state = db.read();
       const household = state.registered
         ? state.households.find(({ household_id }) => household_id === params.household_id)
