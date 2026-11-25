@@ -41,10 +41,31 @@
     "title": "Members",
     "columns": {
       "name": "Name",
-      "joined": "Joined"
+      "joined": "Joined",
+      "actions": "Actions"
     },
     "noName": "No name yet",
     "you": "(you)",
-    "setYourName": "Set your name"
+    "setYourName": "Set your name",
+    "unnamed": "the member who joined {{date}}"
+  },
+  "remove": {
+    "open": "Remove…",
+    "openNamed": "Remove {{member}}…",
+    "title": "Remove {{member}}?",
+    "body": "They lose access to {{household}} at once. They can come back only with a new Invitation.",
+    "cancel": "Cancel",
+    "confirm": "Remove",
+    "removing": "Removing…",
+    "failed": "Couldn't remove {{member}}"
+  },
+  "leave": {
+    "open": "Leave Household…",
+    "onlyMember": "You're the only member. A Household always keeps at least one.",
+    "title": "Leave {{household}}?",
+    "body": "You lose access at once. You can come back only with a new Invitation from a member.",
+    "cancel": "Cancel",
+    "confirm": "Leave",
+    "leaving": "Leaving…"
   }
 }

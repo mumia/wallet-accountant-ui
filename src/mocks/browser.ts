@@ -17,6 +17,8 @@
 // User. It can be repeated.
 // `?mock-remove-me=<household ID>:<count>` has a member remove the User from that
 // Household after the next <count> reads of it, as if from another browser.
+// `?mock-others-leave` has the other members of a Household leave just before
+// the User's next Remove or Leave in it: Remove gets 404, Leave 409 last-member.
 import { HttpResponse } from "msw";
 import { setupWorker } from "msw/browser";
 import { User } from "oidc-client-ts";
@@ -66,6 +68,7 @@ const failureParameter = "mock-fail";
 const memberParameter = "mock-member";
 const removalParameter = "mock-remove-me";
 const invitationParameter = "mock-invitation";
+const othersLeaveParameter = "mock-others-leave";
 
 export async function startMockApi(): Promise<void> {
   const db = createMockDb(window.sessionStorage);
@@ -108,6 +111,11 @@ export async function startMockApi(): Promise<void> {
       removal: { householdId: removal[1], remaining: Number(removal[2]) },
     });
     url.searchParams.delete(removalParameter);
+    window.history.replaceState(window.history.state, "", url);
+  }
+  if (url.searchParams.has(othersLeaveParameter)) {
+    db.write({ ...db.read(), othersLeave: true });
+    url.searchParams.delete(othersLeaveParameter);
     window.history.replaceState(window.history.state, "", url);
   }
   const worker = setupWorker(

@@ -87,6 +87,14 @@ function joined(state: MockState, code: string, household: Household): MockState
 
 const notFound: Problem = { type: "about:blank", title: "Not Found", status: 404 };
 
+// (../wallet-accountant/internal/households/adapters/http/members.go)
+const lastMember: Problem = {
+  type: "/problems/last-member",
+  title: "Last member",
+  status: 409,
+  detail: "The only member of a Household can't leave it.",
+};
+
 type Category = components["schemas"]["Category"];
 type CategoryNode = components["schemas"]["CategoryNode"];
 
@@ -331,6 +339,48 @@ export function createHandlers(db: MockDb) {
         },
       );
       return response(200).json({ items });
+    }),
+
+    http.delete("/households/{household_id}/members/{user_id}", ({ params, response }) => {
+      const { household_id: householdId, user_id: userId } = params;
+      let state = db.read();
+      const isMember =
+        state.registered &&
+        state.households.some(({ household_id }) => household_id === householdId);
+      if (!isMember) {
+        return response(404).json(notFound);
+      }
+      if (state.othersLeave === true) {
+        state = {
+          ...state,
+          othersLeave: false,
+          members: {
+            ...state.members,
+            [householdId]: householdMembers(state, householdId).filter(
+              ({ user_id }) => user_id === mockUserId,
+            ),
+          },
+        };
+        db.write(state);
+      }
+      const members = householdMembers(state, householdId);
+      if (!members.some(({ user_id }) => user_id === userId)) {
+        return response(404).json(notFound);
+      }
+      if (members.length === 1) {
+        return response(409).json(lastMember);
+      }
+      const remaining = members.filter(({ user_id }) => user_id !== userId);
+      db.write({
+        ...state,
+        members: { ...state.members, [householdId]: remaining },
+        // Leaving takes the Household off the User's list.
+        households:
+          userId === mockUserId
+            ? state.households.filter(({ household_id }) => household_id !== householdId)
+            : state.households,
+      });
+      return response(204).empty();
     }),
 
     http.get("/households/{household_id}/accounts", async ({ params, response }) => {
