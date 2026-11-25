@@ -1,0 +1,13 @@
+{
+  "title": "Members",
+  "members": {
+    "title": "Members",
+    "columns": {
+      "name": "Name",
+      "joined": "Joined"
+    },
+    "noName": "No name yet",
+    "you": "(you)",
+    "setYourName": "Set your name"
+  }
+}

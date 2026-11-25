@@ -6,6 +6,7 @@ import firstRun from "../locales/en/firstRun.json";
 import months from "../locales/en/months.json";
 import accounts from "../locales/en/accounts.json";
 import categories from "../locales/en/categories.json";
+import members from "../locales/en/members.json";
 import connections from "../locales/en/connections.json";
 import shell from "../locales/en/shell.json";
 import statementImport from "../locales/en/statementImport.json";
@@ -20,6 +21,7 @@ export const resources = {
     shell,
     accounts,
     categories,
+    members,
     connections,
     transactions,
     statementImport,

@@ -8,11 +8,14 @@
 // then removed from the address. `?mock-fail=<path end>:<count>` makes the next
 // <count> API requests whose path ends that way fail with a 503;
 // `?mock-fail=PATCH:<count>` (any method) fails the next <count> of that method.
+// `?mock-member=Ana` adds a member named Ana to the User's first Household,
+// after any `mock-scenario`; `?mock-member=` adds one with no name. It can be
+// repeated.
 import { HttpResponse } from "msw";
 import { setupWorker } from "msw/browser";
 import { User } from "oidc-client-ts";
 
-import { createMockDb, isScenario } from "./db";
+import { createMockDb, isScenario, withMember } from "./db";
 import { createHandlers } from "./handlers";
 import { http } from "./http";
 
@@ -54,6 +57,7 @@ function signIn(): void {
 
 const scenarioParameter = "mock-scenario";
 const failureParameter = "mock-fail";
+const memberParameter = "mock-member";
 
 export async function startMockApi(): Promise<void> {
   const db = createMockDb(window.sessionStorage);
@@ -75,6 +79,12 @@ export async function startMockApi(): Promise<void> {
         : { pathEnd: failure[1], remaining },
     });
     url.searchParams.delete(failureParameter);
+    window.history.replaceState(window.history.state, "", url);
+  }
+  const members = url.searchParams.getAll(memberParameter);
+  if (members.length > 0) {
+    db.write(members.reduce(withMember, db.read()));
+    url.searchParams.delete(memberParameter);
     window.history.replaceState(window.history.state, "", url);
   }
   const worker = setupWorker(
