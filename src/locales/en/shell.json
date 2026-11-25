@@ -32,6 +32,15 @@
     "suspected_one": "{{count}} Suspected duplicate to review in {{account}}",
     "suspected_other": "{{count}} Suspected duplicates to review in {{account}}",
     "unknownAccount": "an Account",
+    "memberJoined": "{{member}} joined the Household",
+    "memberLeft": "{{member}} left the Household",
+    "memberRemoved": "{{removedBy}} removed {{member}}",
+    "names": {
+      "you": "You",
+      "youObject": "you",
+      "aMember": "A member",
+      "aMemberObject": "a member"
+    },
     "markFailed": "The Notification wasn't marked read"
   },
   "userMenu": {
