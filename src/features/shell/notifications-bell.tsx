@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import type { TFunction } from "i18next";
 import { BellIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { useApi } from "../../api/context";
 import type { components } from "../../api/schema.gen";
 import { errorText, useErrorText } from "../../components/error-text";
+import { useMe } from "../../components/me";
 import { useErrorToast } from "../../components/toaster";
 import { Button } from "../../components/ui/button";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "../../components/ui/popover";
@@ -15,10 +17,16 @@ import { notificationsInterval, notificationsKey } from "../../lib/notifications
 
 type Notification = components["schemas"]["Notification"];
 type NotificationList = components["schemas"]["NotificationList"];
+type UserRef = components["schemas"]["UserRef"];
 
 /** The kinds this build knows. `kind` is an extensible enum: others are shown as sent, with no link. */
-export const notificationKinds = ["SUSPECTED_DUPLICATES_FOUND"] as const;
-const [suspectedDuplicatesFound] = notificationKinds;
+export const notificationKinds = [
+  "SUSPECTED_DUPLICATES_FOUND",
+  "MEMBER_JOINED",
+  "MEMBER_LEFT",
+  "MEMBER_REMOVED",
+] as const;
+const [suspectedDuplicatesFound, memberJoined, memberLeft, memberRemoved] = notificationKinds;
 
 /**
  * What a Suspected duplicates Notification points at. Its fields are present
@@ -31,6 +39,50 @@ function suspectedDuplicates(notification: Notification) {
     : undefined;
 }
 
+/**
+ * What a member Notification says (spec, "Notifications"): "Ana joined the
+ * Household", "Ana left the Household" or "Rui removed Ana". A User who is the
+ * caller (`myUserId`, from `GET /me`) reads "You", or "you" when removed, and
+ * one without a display name "A member". Undefined for any other kind, and for
+ * a member kind without `member`, which is then shown as sent.
+ */
+export function memberNotificationText(
+  notification: Notification,
+  myUserId: string | undefined,
+  t: TFunction<"shell">,
+): string | undefined {
+  const { kind, member, removed_by: removedBy } = notification;
+  if (member === undefined) {
+    return undefined;
+  }
+  const isMe = (user: UserRef | undefined) => myUserId !== undefined && user?.user_id === myUserId;
+  // A MEMBER_REMOVED one without `removed_by` reads "A member removed …".
+  const subject = (user: UserRef | undefined) =>
+    isMe(user)
+      ? t("notifications.names.you")
+      : (user?.display_name ?? t("notifications.names.aMember"));
+  const object = (user: UserRef) =>
+    isMe(user)
+      ? t("notifications.names.youObject")
+      : (user.display_name ?? t("notifications.names.aMemberObject"));
+  switch (kind) {
+    case memberJoined:
+      return t("notifications.memberJoined", { member: subject(member) });
+    case memberLeft:
+      return t("notifications.memberLeft", { member: subject(member) });
+    case memberRemoved:
+      return t("notifications.memberRemoved", {
+        removedBy: subject(removedBy),
+        member: object(member),
+      });
+    default:
+      return undefined;
+  }
+}
+
+/** Where following a Notification goes. */
+type Destination = { to: "suspected-duplicates"; accountId: string } | { to: "members" };
+
 const when = (dateTime: string) =>
   new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(
     new Date(dateTime),
@@ -39,7 +91,8 @@ const when = (dateTime: string) =>
 /**
  * The Notifications bell (spec, "Notifications"): an unread count worked out
  * from the list, and a panel listing them. A Suspected duplicates one marks
- * itself read and opens that Account's Suspected duplicates.
+ * itself read and opens that Account's Suspected duplicates; a member one marks
+ * itself read and opens Members.
  */
 export function NotificationsBell({ householdId }: { householdId: string }) {
   const { t } = useTranslation("shell");
@@ -56,6 +109,7 @@ export function NotificationsBell({ householdId }: { householdId: string }) {
     refetchInterval: notificationsInterval,
   });
   const accounts = api.useQuery("get", "/households/{household_id}/accounts", household);
+  const myUserId = useMe()?.user_id;
   const key = notificationsKey(householdId);
 
   const markRead = api.useMutation(
@@ -93,7 +147,7 @@ export function NotificationsBell({ householdId }: { householdId: string }) {
     accounts.data?.items.find(({ account_id }) => account_id === accountId)?.name ??
     t("notifications.unknownAccount");
 
-  const follow = (notification: Notification, accountId: string) => {
+  const follow = (notification: Notification, destination: Destination) => {
     setOpen(false);
     setOpenMobile(false);
     if (!notification.read) {
@@ -103,11 +157,15 @@ export function NotificationsBell({ householdId }: { householdId: string }) {
         },
       });
     }
-    void navigate({
-      to: "/households/$householdId/accounts/$accountId/to-review",
-      params: { householdId, accountId },
-      search: { state: "SUSPECTED_DUPLICATE" },
-    });
+    if (destination.to === "members") {
+      void navigate({ to: "/households/$householdId/members", params: { householdId } });
+    } else {
+      void navigate({
+        to: "/households/$householdId/accounts/$accountId/to-review",
+        params: { householdId, accountId: destination.accountId },
+        search: { state: "SUSPECTED_DUPLICATE" },
+      });
+    }
   };
 
   return (
@@ -148,7 +206,12 @@ export function NotificationsBell({ householdId }: { householdId: string }) {
           <ul className="grid max-h-96 gap-0.5 overflow-y-auto">
             {items.map((notification) => (
               <li key={notification.notification_id}>
-                <Item notification={notification} accountName={accountName} onFollow={follow} />
+                <Item
+                  notification={notification}
+                  myUserId={myUserId}
+                  accountName={accountName}
+                  onFollow={follow}
+                />
               </li>
             ))}
           </ul>
@@ -160,15 +223,30 @@ export function NotificationsBell({ householdId }: { householdId: string }) {
 
 function Item({
   notification,
+  myUserId,
   accountName,
   onFollow,
 }: {
   notification: Notification;
+  myUserId: string | undefined;
   accountName: (accountId: string) => string;
-  onFollow: (notification: Notification, accountId: string) => void;
+  onFollow: (notification: Notification, destination: Destination) => void;
 }) {
   const { t } = useTranslation("shell");
   const suspected = suspectedDuplicates(notification);
+  const memberText = memberNotificationText(notification, myUserId, t);
+  const [text, destination]: [string, Destination | undefined] =
+    suspected !== undefined
+      ? [
+          t("notifications.suspected", {
+            count: suspected.count,
+            account: accountName(suspected.accountId),
+          }),
+          { to: "suspected-duplicates", accountId: suspected.accountId },
+        ]
+      : memberText !== undefined
+        ? [memberText, { to: "members" }]
+        : [notification.kind, undefined];
   const body = (
     <>
       <span
@@ -178,24 +256,19 @@ function Item({
       <span className="grid gap-0.5">
         <span className={notification.read ? undefined : "font-medium"}>
           {!notification.read && <span className="sr-only">{t("notifications.unread")} </span>}
-          {suspected !== undefined
-            ? t("notifications.suspected", {
-                count: suspected.count,
-                account: accountName(suspected.accountId),
-              })
-            : notification.kind}
+          {text}
         </span>
         <span className="text-xs text-muted-foreground">{when(notification.created_at)}</span>
       </span>
     </>
   );
   const itemClass = "flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm";
-  return suspected !== undefined ? (
+  return destination !== undefined ? (
     <button
       type="button"
       className={`${itemClass} outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50`}
       onClick={() => {
-        onFollow(notification, suspected.accountId);
+        onFollow(notification, destination);
       }}
     >
       {body}

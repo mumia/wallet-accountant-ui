@@ -651,12 +651,38 @@ function mainCloses(ledger: AccountTransaction[]): Record<string, MonthClose> {
   return closes;
 }
 
+/** Ana, who joined Home and was removed again; she is no longer a member. */
+const formerMember = { user_id: "0190f5f2-7c00-7000-8000-0000000000c1", display_name: "Ana" };
+
 /**
- * Home's Notifications, newest first: Main's latest import found a Suspected
- * duplicate (unread), a kind this build doesn't know (unread), and an older
- * one already read.
+ * Home's Notifications, newest first: the mock User removed Ana (unread), a
+ * member with no name left (unread), Ana joined (read), Main's latest import
+ * found a Suspected duplicate (unread), a kind this build doesn't know
+ * (unread), and an older Suspected duplicates one already read.
  */
 export const homeNotifications: Notification[] = [
+  {
+    notification_id: "0190f5f2-7c00-7000-8000-000000000613",
+    kind: "MEMBER_REMOVED",
+    member: formerMember,
+    removed_by: { user_id: mockUserId, display_name: mockDisplayName },
+    created_at: "2026-11-24T18:05:00Z",
+    read: false,
+  },
+  {
+    notification_id: "0190f5f2-7c00-7000-8000-000000000612",
+    kind: "MEMBER_LEFT",
+    member: { user_id: "0190f5f2-7c00-7000-8000-0000000000c2" },
+    created_at: "2026-11-23T12:00:00Z",
+    read: false,
+  },
+  {
+    notification_id: "0190f5f2-7c00-7000-8000-000000000611",
+    kind: "MEMBER_JOINED",
+    member: formerMember,
+    created_at: "2026-11-22T20:15:00Z",
+    read: true,
+  },
   {
     notification_id: "0190f5f2-7c00-7000-8000-000000000601",
     kind: "SUSPECTED_DUPLICATES_FOUND",

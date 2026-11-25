@@ -2,10 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { expectAccessible } from "./axe";
 
-// Home in the default mock scenario (src/mocks/db.ts) has three Notifications,
-// newest first: Main's import found 1 Suspected duplicate (unread), a kind this
-// build doesn't know, BALANCE_CHECK_FAILED (unread), and an older Suspected
-// duplicates one (read).
+// Home in the default mock scenario (src/mocks/db.ts) has six Notifications,
+// newest first: the mock User removed Ana (unread), a member with no name left
+// (unread), Ana joined (read), Main's import found 1 Suspected duplicate
+// (unread), a kind this build doesn't know, BALANCE_CHECK_FAILED (unread), and
+// an older Suspected duplicates one (read).
 const home = "/households/0190f5f2-7c00-7000-8000-000000000001";
 const main = `${home}/accounts/0190f5f2-7c00-7000-8000-000000000101`;
 
@@ -16,11 +17,14 @@ test("the bell counts unread Notifications, and one opens its Suspected duplicat
   page,
 }) => {
   await page.goto(home);
-  await expect(bell(page)).toHaveAccessibleName("Notifications, 2 unread");
-  await expect(bell(page)).toHaveText("2");
+  await expect(bell(page)).toHaveAccessibleName("Notifications, 4 unread");
+  await expect(bell(page)).toHaveText("4");
 
   await bell(page).click();
   await expect(panel(page).getByRole("listitem")).toHaveText([
+    /^Unread: You removed AnaNov 24, 2026/,
+    /^Unread: A member left the HouseholdNov 23, 2026/,
+    /^Ana joined the HouseholdNov 22, 2026/,
     /^Unread: 1 Suspected duplicate to review in MainNov 21, 2026/,
     /^Unread: BALANCE_CHECK_FAILEDNov 20, 2026/,
     /^2 Suspected duplicates to review in MainOct 15, 2026/,
@@ -34,15 +38,54 @@ test("the bell counts unread Notifications, and one opens its Suspected duplicat
     .click();
   await expect(page).toHaveURL(`${main}/to-review?state=SUSPECTED_DUPLICATE`);
   await expect(panel(page)).toBeHidden();
-  await expect(bell(page)).toHaveAccessibleName("Notifications, 1 unread");
+  await expect(bell(page)).toHaveAccessibleName("Notifications, 3 unread");
 
   // Read for good.
   await page.reload();
-  await expect(bell(page)).toHaveAccessibleName("Notifications, 1 unread");
+  await expect(bell(page)).toHaveAccessibleName("Notifications, 3 unread");
   await bell(page).click();
-  await expect(panel(page).getByRole("listitem").first()).toHaveText(
+  await expect(panel(page).getByRole("listitem").nth(3)).toHaveText(
     /^1 Suspected duplicate to review in Main/,
   );
+});
+
+test("a member Notification opens Members and is read from then on", async ({ page }) => {
+  await page.goto(home);
+  await bell(page).click();
+
+  const members = panel(page).getByRole("button", { name: /^Ana joined the Household/ });
+  await expect(members).toBeVisible();
+  await expect(panel(page).getByRole("button", { name: /You removed Ana/ })).toBeVisible();
+
+  await panel(page)
+    .getByRole("button", { name: /^Unread: A member left the Household/ })
+    .click();
+  await expect(page).toHaveURL(`${home}/members`);
+  await expect(page.getByRole("heading", { level: 1, name: "Members" })).toBeVisible();
+  await expect(panel(page)).toBeHidden();
+  await expect(bell(page)).toHaveAccessibleName("Notifications, 3 unread");
+
+  await bell(page).click();
+  await panel(page)
+    .getByRole("button", { name: /^Unread: You removed Ana/ })
+    .click();
+  await expect(bell(page)).toHaveAccessibleName("Notifications, 2 unread");
+
+  // Read for good: no unread mark on either.
+  await page.reload();
+  await expect(bell(page)).toHaveAccessibleName("Notifications, 2 unread");
+  await bell(page).click();
+  await expect(panel(page).getByRole("listitem").nth(0)).toHaveText(/^You removed Ana/);
+  await expect(panel(page).getByRole("listitem").nth(1)).toHaveText(/^A member left the Household/);
+
+  // A read one still opens Members.
+  await page.goto(home);
+  await bell(page).click();
+  await panel(page)
+    .getByRole("button", { name: /^Ana joined the Household/ })
+    .click();
+  await expect(page).toHaveURL(`${home}/members`);
+  await expect(bell(page)).toHaveAccessibleName("Notifications, 2 unread");
 });
 
 test("a Statement import with Suspected duplicates shows up on the bell soon after", async ({
@@ -63,5 +106,5 @@ test("a Statement import with Suspected duplicates shows up on the bell soon aft
   await expect(page.getByText("Statement imported")).toBeVisible();
 
   // Reread about 3 s after the import, well before the 60 s poll.
-  await expect(bell(page)).toHaveAccessibleName("Notifications, 3 unread", { timeout: 8_000 });
+  await expect(bell(page)).toHaveAccessibleName("Notifications, 5 unread", { timeout: 8_000 });
 });
