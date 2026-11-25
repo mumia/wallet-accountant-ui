@@ -1,11 +1,12 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
 
 // The real-stack smoke test (`make local-smoke`, smoke/smoke.sh): this UI's
 // image on a fresh local cluster, with wallet-accountant and Zitadel. Everything
 // goes through the UI, nothing is seeded through the API: sign in, redeem the
 // bootstrap Invitation code, create a Household and a bank Account, give it a
 // Connection with a CSV mapping, import a statement, Accept its rows, and close
-// the month.
+// the month. Then a second User joins the Household through an Invitation
+// link, in a browser context of their own.
 //
 // Every date is relative to last month, so it passes on any day of the month.
 // The browser and this file both work in UTC (playwright.config.ts).
@@ -19,8 +20,9 @@ function env(name: string): string {
 }
 
 const base = env("WA_UI_BASE_URL");
-const user = env("WA_UI_USER");
-const password = env("WA_UI_PASSWORD");
+const firstUser = { login: env("WA_UI_USER"), password: env("WA_UI_PASSWORD") };
+const secondUser = { login: env("WA_UI_SECOND_USER"), password: env("WA_UI_SECOND_PASSWORD") };
+type ZitadelUser = typeof firstUser;
 const invitationCode = env("WA_INVITATION_CODE");
 
 const now = new Date();
@@ -46,6 +48,8 @@ const euros = (cents: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(cents / 100);
 
 const household = "Smoke home";
+const firstName = "Smoke tester";
+const secondName = "Smoke joiner";
 const account = "Smoke current account";
 const connection = "Bank export";
 const rows = [
@@ -89,15 +93,15 @@ const stat = (page: Page, term: string) =>
     .locator("xpath=following-sibling::dd[1]");
 
 /** Zitadel's v1 login: login name, then password; its optional prompts are skipped. */
-async function signInAtZitadel(page: Page) {
+async function signInAtZitadel(page: Page, user: ZitadelUser) {
   const config = (await (await page.request.get(`${base}/config.json`)).json()) as {
     oidc: { issuer: string };
   };
   const issuer = new URL(config.oidc.issuer);
   await page.waitForURL((url) => url.host === issuer.host);
-  await page.locator("#loginName").fill(user);
+  await page.locator("#loginName").fill(user.login);
   await page.locator("#submit-button").click();
-  await page.locator("#password").fill(password);
+  await page.locator("#password").fill(user.password);
   await page.locator("#submit-button").click();
   const skip = page.getByRole("button", { name: "Skip" });
   const left = page.waitForURL((url) => url.host !== issuer.host);
@@ -128,14 +132,31 @@ async function createCategory(page: Page, kind: "Expense" | "Income", name: stri
   await expect(page.getByRole("region", { name: kind })).toContainText(name);
 }
 
-test("a new User signs in, imports a statement and closes last month", async ({ page }) => {
+/** The second User's own browser: no cookies or storage of the first's. */
+const newContext = (browser: Browser) => browser.newContext({ locale: "en-US", timezoneId: "UTC" });
+
+const openMembers = (page: Page) =>
+  page
+    .getByRole("navigation", { name: "Household" })
+    .getByRole("link", { name: "Members" })
+    .click();
+
+/** The Members table's name cells, oldest member first. */
+const memberNames = (page: Page) =>
+  page.getByRole("table", { name: "Members" }).getByRole("row").locator("td:first-child");
+
+test("a new User signs in, imports a statement and closes last month; a second User joins", async ({
+  page,
+  browser,
+}) => {
+  let householdPath = "";
   await test.step("sign in, redeem the bootstrap code and create a Household", async () => {
     await page.goto(`${base}/`);
-    await signInAtZitadel(page);
+    await signInAtZitadel(page, firstUser);
 
     await expect(page).toHaveURL(`${base}/register`);
     await page.getByRole("textbox", { name: "Invitation code" }).fill(invitationCode);
-    await page.getByRole("textbox", { name: "Display name" }).fill("Smoke tester");
+    await page.getByRole("textbox", { name: "Display name" }).fill(firstName);
     await page.getByRole("button", { name: "Redeem" }).click();
 
     await expect(page).toHaveURL(`${base}/households/new`);
@@ -145,6 +166,7 @@ test("a new User signs in, imports a statement and closes last month", async ({ 
     await page.getByRole("button", { name: "Create Household" }).click();
 
     await expect(page).toHaveURL(/\/households\/[0-9a-f-]{36}$/);
+    householdPath = new URL(page.url()).pathname;
     await expect(main(page).getByText("Add your first Account.")).toBeVisible();
   });
 
@@ -268,5 +290,75 @@ test("a new User signs in, imports a statement and closes last month", async ({ 
 
     await expect(page).toHaveURL(new RegExp(`/months/${isoDate(thisMonth).slice(0, 7)}$`));
     await expect(page.getByText(`${closing} closed. ${opening} is open.`)).toBeVisible();
+  });
+  let invitationLink = "";
+  await test.step("invite someone from Members, and read the link once", async () => {
+    await openMembers(page);
+    await expect(page.getByRole("heading", { level: 1, name: "Members" })).toBeVisible();
+    await expect(memberNames(page)).toHaveText([`${firstName} (you)`]);
+
+    await page
+      .getByRole("region", { name: "Open Invitations" })
+      .getByRole("button", { name: "Invite someone" })
+      .click();
+    const dialog = page.getByRole("dialog", { name: `Invite someone to ${household}` });
+    await dialog.getByRole("button", { name: "Create Invitation" }).click();
+    const link = dialog.getByRole("textbox", { name: "Invitation link" });
+    await expect(link).not.toHaveValue("");
+    invitationLink = await link.inputValue();
+    expect(invitationLink.startsWith(`${base}/join?invitation_code=`)).toBe(true);
+    await dialog.getByRole("button", { name: "Done" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(
+      page.getByRole("table", { name: "Open Invitations" }).getByRole("row"),
+    ).toHaveCount(2);
+  });
+
+  const second = await newContext(browser);
+  try {
+    const joiner = await second.newPage();
+    await test.step("a second User opens the link, is sent to /register and Redeems", async () => {
+      await joiner.goto(invitationLink);
+      await signInAtZitadel(joiner, secondUser);
+
+      // Not a User yet: /join forwards to /register with the code.
+      const code = new URL(invitationLink).searchParams.get("invitation_code") ?? "";
+      await expect(joiner).toHaveURL(`${base}/register?invitation_code=${code}`);
+      await expect(joiner.getByRole("textbox", { name: "Invitation code" })).toHaveValue(code);
+      await joiner.getByRole("textbox", { name: "Display name" }).fill(secondName);
+      await joiner.getByRole("button", { name: "Redeem" }).click();
+
+      await expect(joiner).toHaveURL(`${base}${householdPath}`);
+      await expect(joiner.getByRole("button", { name: /^Household/ })).toContainText(household);
+    });
+
+    await test.step("both Users see two members", async () => {
+      await openMembers(joiner);
+      await expect(memberNames(joiner)).toHaveText([firstName, `${secondName} (you)`]);
+
+      await page.reload();
+      await expect(memberNames(page)).toHaveText([`${firstName} (you)`, secondName]);
+      // The Invitation was used up.
+      await expect(page.getByRole("region", { name: "Open Invitations" })).toContainText(
+        "No open Invitations.",
+      );
+    });
+  } finally {
+    await second.close();
+  }
+
+  await test.step("the first User's bell says the second joined", async () => {
+    const bell = page.getByRole("button", { name: /^Notifications/ });
+    // Raised as the join is projected: reload until it's there.
+    await expect(async () => {
+      await page.reload();
+      await bell.click();
+      await expect(
+        page
+          .getByRole("dialog", { name: "Notifications" })
+          .getByRole("listitem")
+          .filter({ hasText: `${secondName} joined the Household` }),
+      ).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
   });
 });

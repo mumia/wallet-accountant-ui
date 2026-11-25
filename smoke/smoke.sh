@@ -5,9 +5,10 @@
 # 1. refuse to start when the cluster exists, rather than delete it;
 # 2. `make local-up`, then `make local-deploy`, in the backend's checkout
 #    (WA_REPO), then this repo's `make local-deploy`;
-# 3. a Zitadel human user with a random password, and a bootstrap Invitation
-#    code (`make local-bootstrap`), which go into the test's environment only,
-#    never into a log;
+# 3. two Zitadel human users with random passwords (the first redeems the
+#    bootstrap Invitation code from `make local-bootstrap`, the second joins
+#    the first's Household), which go into the test's environment only, never
+#    into a log;
 # 4. the browser test (smoke/smoke.spec.ts) in Playwright's image, on the k3d
 #    cluster's Docker network; a failed run's traces and screenshots go to
 #    RESULTS_DIR;
@@ -84,19 +85,22 @@ $MAKE --no-print-directory local-deploy LOCAL_BUILD="$SMOKE_BUILD"
 # The setup Job restarts the UI once config.json holds the web app's client ID.
 $KUBECTL -n $NS rollout status deployment/wallet-accountant-ui --timeout=5m
 
-step "a Zitadel user, and a bootstrap Invitation code"
+step "two Zitadel users, and a bootstrap Invitation code"
 . "$wa/deploy/local/zitadel.sh"
 zitadel_env "$CTX" "$LOCAL_HTTPS_PORT"
 [ -n "$ZITADEL_PAT" ] || fail "no Zitadel machine user token; is the cluster up?"
 WA_UI_PASSWORD="Wa-$(openssl rand -hex 12)-1!"
 WA_UI_USER=$(zitadel_human_user ui-smoke "$WA_UI_PASSWORD") || fail "could not set up the Zitadel user ui-smoke"
+WA_UI_SECOND_PASSWORD="Wa-$(openssl rand -hex 12)-1!"
+WA_UI_SECOND_USER=$(zitadel_human_user ui-smoke-2 "$WA_UI_SECOND_PASSWORD") ||
+	fail "could not set up the Zitadel user ui-smoke-2"
 # The whole output first: a pipe that closes early would kill kubectl run
 # before it deletes the pod. Neither it nor the code is printed.
 out=$(wa_make -s local-bootstrap) || fail "make local-bootstrap failed"
 WA_INVITATION_CODE=$(echo "$out" | bootstrap_code)
 unset out
 [ -n "$WA_INVITATION_CODE" ] || fail "make local-bootstrap printed no Invitation code"
-export WA_UI_USER WA_UI_PASSWORD WA_INVITATION_CODE
+export WA_UI_USER WA_UI_PASSWORD WA_UI_SECOND_USER WA_UI_SECOND_PASSWORD WA_INVITATION_CODE
 
 step "the browser test"
 origin=https://wallet.localhost
@@ -109,7 +113,8 @@ docker run --rm --init --ipc=host \
 	--network "$CTX" --add-host wallet.localhost:127.0.0.1 --add-host auth.localhost:127.0.0.1 \
 	-v "$(pwd):/app:ro" -v "$NODE_VOLUME:/app/node_modules" -v "$CA:/ca.pem:ro" -v "$results:/results" \
 	-w /app -e npm_config_update_notifier=false \
-	-e WA_UI_BASE_URL="$origin" -e WA_UI_USER -e WA_UI_PASSWORD -e WA_INVITATION_CODE \
+	-e WA_UI_BASE_URL="$origin" -e WA_UI_USER -e WA_UI_PASSWORD \
+	-e WA_UI_SECOND_USER -e WA_UI_SECOND_PASSWORD -e WA_INVITATION_CODE \
 	-e WA_INGRESS="$CTX-serverlb:443" -e WA_CA_FILE=/ca.pem -e NODE_EXTRA_CA_CERTS=/ca.pem \
 	-e WA_TLS_NAMES="wallet.localhost auth.localhost" -e WA_RESULTS_DIR=/results \
 	"$PLAYWRIGHT_IMAGE" npx --no-install playwright test -c smoke/playwright.config.ts

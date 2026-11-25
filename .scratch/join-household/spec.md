@@ -220,7 +220,7 @@ All three use an AlertDialog with a title, a description and Cancel plus a destr
 | 06 | [Remove a member, or leave the Household](issues/06-remove-a-member-and-leave.md) | 03 | mocks now; real API after release |
 | 07 | [The "not a member of this Household" screen](issues/07-no-longer-a-member-screen.md) | | ready |
 | 08 | [Member Notifications in the bell](issues/08-member-notifications.md) | 03 | mocks now; real API after release |
-| 09 | [Real-stack smoke test: a second member joins](issues/09-smoke-test-a-second-member-joins.md) | 04, 05 | ⚠️ waits for a backend release with join-household |
+| 09 | [Real-stack smoke test: a second member joins](issues/09-smoke-test-a-second-member-joins.md) | 04, 05 | v0.8.0 carries join-household |
 
 02, 05 and 07 can start at once. 04, 06 and 08 can run in parallel after 03. Tickets that touch `src/mocks/handlers.ts` in parallel should expect merge conflicts there.
 
