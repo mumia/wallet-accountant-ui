@@ -80,6 +80,12 @@ export interface MockState {
    * reads of that Household (`GET /households/{id}`) have succeeded.
    */
   removal?: { householdId: string; remaining: number };
+  /**
+   * The other members of a Household leave just before the next
+   * `DELETE …/members/{user_id}` in it, as if from another browser: removing
+   * one of them gets 404 and leaving gets 409 `last-member`.
+   */
+  othersLeave?: boolean;
 }
 
 /** The one Invitation code the mock API accepts. */
