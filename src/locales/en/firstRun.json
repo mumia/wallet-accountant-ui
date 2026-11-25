@@ -5,9 +5,6 @@
     "code": "Invitation code",
     "codeRequired": "Type the Invitation code you were given",
     "codeTooLong": "An Invitation code has at most 256 characters",
-    "name": "Display name",
-    "nameRequired": "Type the name others in your Household will see",
-    "nameTooLong": "A display name has at most 64 characters",
     "redeem": "Redeem",
     "redeeming": "Redeeming…"
   },

@@ -25,6 +25,9 @@ export interface MonthClose {
   closed_at: string;
 }
 
+/** The seeded User's display name; the token's name is "Sam Example" (`src/mocks/browser.ts`). */
+export const mockDisplayName = "Sam";
+
 export interface MockState {
   registered: boolean;
   /** The User's Display name, once they have one (`POST /registrations` gives it). */
@@ -599,9 +602,10 @@ export const homeNotifications: Notification[] = [
 /**
  * Where a session starts: `new-user` has signed in but not redeemed an
  * Invitation, `registered` has no Household yet, `household` (the default) has
- * "Home" with two Accounts and "Cabin" with none.
+ * "Home" with two Accounts and "Cabin" with none, and `unnamed` is `household`
+ * for a User who registered before display names (v0.4.0) and has none.
  */
-export const scenarios = {
+const seededScenarios = {
   "new-user": () => ({
     registered: false,
     households: [],
@@ -612,6 +616,7 @@ export const scenarios = {
   }),
   registered: () => ({
     registered: true,
+    displayName: mockDisplayName,
     households: [],
     accounts: {},
     connections: {},
@@ -624,6 +629,7 @@ export const scenarios = {
     const savings = savingsData(home);
     return {
       registered: true,
+      displayName: mockDisplayName,
       households: [seededHousehold, secondHousehold],
       accounts: { [seededHousehold.household_id]: seededAccounts },
       connections: {
@@ -644,6 +650,15 @@ export const scenarios = {
       transactions: { [mainAccountId]: main, [savingsAccountId]: savings.ledger },
       monthCloses: { [mainAccountId]: mainCloses(main), [savingsAccountId]: savings.closes },
     };
+  },
+} satisfies Record<string, () => MockState>;
+
+export const scenarios = {
+  ...seededScenarios,
+  unnamed: () => {
+    const state: MockState = seededScenarios.household();
+    delete state.displayName;
+    return state;
   },
 } satisfies Record<string, () => MockState>;
 

@@ -13,6 +13,7 @@ import { FormAlert } from "../../components/form-alert";
 import { Button } from "../../components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
+import { displayNameSchema } from "../../lib/display-name";
 import { FirstRunCard } from "./first-run-card";
 
 /**
@@ -21,6 +22,7 @@ import { FirstRunCard } from "./first-run-card";
  */
 export function RegisterPage({ invitationCode }: { invitationCode?: string | undefined }) {
   const { t } = useTranslation("firstRun");
+  const { t: tCommon } = useTranslation();
   const auth = useAuth();
   const { api } = useApi();
   const queryClient = useQueryClient();
@@ -34,11 +36,10 @@ export function RegisterPage({ invitationCode }: { invitationCode?: string | und
       .trim()
       .min(1, t("register.codeRequired"))
       .max(256, t("register.codeTooLong")),
-    displayName: z
-      .string()
-      .trim()
-      .min(1, t("register.nameRequired"))
-      .max(64, t("register.nameTooLong")),
+    displayName: displayNameSchema({
+      required: tCommon("displayName.required"),
+      tooLong: tCommon("displayName.tooLong"),
+    }),
   });
   const form = useForm({
     resolver: zodResolver(schema),
@@ -93,7 +94,7 @@ export function RegisterPage({ invitationCode }: { invitationCode?: string | und
             {codeError !== undefined && <FieldError id={`${codeId}-error`}>{codeError}</FieldError>}
           </Field>
           <Field data-invalid={nameError !== undefined}>
-            <FieldLabel htmlFor={nameId}>{t("register.name")}</FieldLabel>
+            <FieldLabel htmlFor={nameId}>{tCommon("displayName.label")}</FieldLabel>
             <Input
               id={nameId}
               autoComplete="nickname"

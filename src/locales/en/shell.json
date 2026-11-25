@@ -27,5 +27,16 @@
     "suspected_other": "{{count}} Suspected duplicates to review in {{account}}",
     "unknownAccount": "an Account",
     "markFailed": "The Notification wasn't marked read"
+  },
+  "userMenu": {
+    "noName": "Your name isn't set",
+    "yourName": "Your name…",
+    "setYourName": "Set your name…"
+  },
+  "yourName": {
+    "title": "Your name",
+    "description": "Other members of your Households see this name.",
+    "save": "Save",
+    "saving": "Saving…"
   }
 }
