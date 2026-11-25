@@ -8,6 +8,8 @@
 // then removed from the address. `?mock-fail=<path end>:<count>` makes the next
 // <count> API requests whose path ends that way fail with a 503;
 // `?mock-fail=PATCH:<count>` (any method) fails the next <count> of that method.
+// `?mock-remove-me=<household ID>:<count>` has a member remove the User from that
+// Household after the next <count> reads of it, as if from another browser.
 import { HttpResponse } from "msw";
 import { setupWorker } from "msw/browser";
 import { User } from "oidc-client-ts";
@@ -54,6 +56,7 @@ function signIn(): void {
 
 const scenarioParameter = "mock-scenario";
 const failureParameter = "mock-fail";
+const removalParameter = "mock-remove-me";
 
 export async function startMockApi(): Promise<void> {
   const db = createMockDb(window.sessionStorage);
@@ -75,6 +78,15 @@ export async function startMockApi(): Promise<void> {
         : { pathEnd: failure[1], remaining },
     });
     url.searchParams.delete(failureParameter);
+    window.history.replaceState(window.history.state, "", url);
+  }
+  const removal = /^(.+):(\d+)$/.exec(url.searchParams.get(removalParameter) ?? "");
+  if (removal?.[1] !== undefined && removal[2] !== undefined) {
+    db.write({
+      ...db.read(),
+      removal: { householdId: removal[1], remaining: Number(removal[2]) },
+    });
+    url.searchParams.delete(removalParameter);
     window.history.replaceState(window.history.state, "", url);
   }
   const worker = setupWorker(
