@@ -3,6 +3,7 @@
   "overview": "Accounts overview",
   "accounts": "Accounts",
   "categories": "Categories",
+  "members": "Members",
   "addAccount": "Add Account",
   "toReview_one": "{{count}} row To review",
   "toReview_other": "{{count}} rows To review",
@@ -37,11 +38,5 @@
     "noName": "Your name isn't set",
     "yourName": "Your name…",
     "setYourName": "Set your name…"
-  },
-  "yourName": {
-    "title": "Your name",
-    "description": "Other members of your Households see this name.",
-    "save": "Save",
-    "saving": "Saving…"
   }
 }

@@ -3,7 +3,9 @@ import { HttpResponse } from "msw";
 import type { components } from "../api/schema.gen";
 import {
   householdInvitationCodes,
+  householdMembers,
   internalCategories,
+  mockUserId,
   validInvitationCode,
   type MockDb,
   type MockState,
@@ -29,7 +31,7 @@ const registrationRequired: Problem = {
 
 /** The mock's one User. `displayName` is absent for one who registered before v0.4.0. */
 const me = (displayName: string | undefined): components["schemas"]["Me"] => ({
-  user_id: "0190f5f2-7c00-7000-8000-0000000000aa",
+  user_id: mockUserId,
   is_instance_administrator: false,
   ...(displayName === undefined ? {} : { display_name: displayName }),
 });
@@ -57,10 +59,19 @@ function invitedHousehold(state: MockState, code: string): Household | undefined
     : undefined;
 }
 
+/** `state` with the mock User the newest member of `householdId`. */
+function withMe(state: MockState, householdId: string): MockState {
+  const others = householdMembers(state, householdId).filter(
+    ({ user_id }) => user_id !== mockUserId,
+  );
+  const me = { user_id: mockUserId, joined_at: new Date().toISOString() };
+  return { ...state, members: { ...state.members, [householdId]: [...others, me] } };
+}
+
 /** Join Household: the User becomes a member and the code is used up. */
 function joined(state: MockState, code: string, household: Household): MockState {
   return {
-    ...state,
+    ...withMe(state, household.household_id),
     households: [...state.households, household],
     categories: {
       ...state.categories,
@@ -285,7 +296,7 @@ export function createHandlers(db: MockDb) {
       }
       const household = { household_id: crypto.randomUUID(), name, base_currency };
       db.write({
-        ...state,
+        ...withMe(state, household.household_id),
         households: [...state.households, household],
         categories: { ...state.categories, [household.household_id]: internalCategories() },
       });
@@ -299,6 +310,23 @@ export function createHandlers(db: MockDb) {
         ? state.households.find(({ household_id }) => household_id === params.household_id)
         : undefined;
       return household === undefined ? response(404).json(notFound) : response(200).json(household);
+    }),
+
+    http.get("/households/{household_id}/members", ({ params, response }) => {
+      const state = db.read();
+      const isMember =
+        state.registered &&
+        state.households.some(({ household_id }) => household_id === params.household_id);
+      if (!isMember) {
+        return response(404).json(notFound);
+      }
+      const items = householdMembers(state, params.household_id).map(
+        ({ display_name, ...member }) => {
+          const name = member.user_id === mockUserId ? state.displayName : display_name;
+          return name === undefined ? member : { ...member, display_name: name };
+        },
+      );
+      return response(200).json({ items });
     }),
 
     http.get("/households/{household_id}/accounts", async ({ params, response }) => {

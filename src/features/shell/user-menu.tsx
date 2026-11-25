@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import { SidebarMenuButton } from "../../components/ui/sidebar";
-import { YourNameDialog } from "./your-name-dialog";
+import { YourNameDialog } from "../../components/your-name-dialog";
 
 /**
  * The User menu: who is signed in, Your name…, Appearance… and Sign out. The

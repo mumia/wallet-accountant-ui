@@ -1,5 +1,5 @@
 import { Link, useMatchRoute } from "@tanstack/react-router";
-import { FolderTreeIcon, LayoutListIcon, PlusIcon } from "lucide-react";
+import { FolderTreeIcon, LayoutListIcon, PlusIcon, UsersIcon } from "lucide-react";
 import { useEffect, useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -33,7 +33,7 @@ import { UserMenu } from "./user-menu";
 /**
  * The shell around every screen of a Household (spec, "Screens and routes"): a
  * left sidebar, a drawer on narrow screens, with the Household switcher,
- * Accounts, Categories, the Notifications bell and the User menu.
+ * Accounts, Categories, Members, the Notifications bell and the User menu.
  */
 export function HouseholdShell({
   householdId,
@@ -97,6 +97,19 @@ export function HouseholdShell({
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroup>
+            <SidebarGroup>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <NavLink
+                    to="/households/$householdId/members"
+                    householdId={householdId}
+                    icon={<UsersIcon aria-hidden="true" />}
+                  >
+                    {t("members")}
+                  </NavLink>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
           </nav>
         </SidebarContent>
         <SidebarFooter>
@@ -126,7 +139,10 @@ function NavLink({
   icon,
   children,
 }: {
-  to: "/households/$householdId" | "/households/$householdId/categories";
+  to:
+    | "/households/$householdId"
+    | "/households/$householdId/categories"
+    | "/households/$householdId/members";
   householdId: string;
   icon: ReactNode;
   children: ReactNode;

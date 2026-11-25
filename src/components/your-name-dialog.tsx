@@ -5,20 +5,14 @@ import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 
-import { useApi } from "../../api/context";
-import { FormAlert } from "../../components/form-alert";
-import { meChanged } from "../../components/me";
-import { Button } from "../../components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "../../components/ui/dialog";
-import { Field, FieldError, FieldGroup, FieldLabel } from "../../components/ui/field";
-import { Input } from "../../components/ui/input";
-import { displayNameSchema } from "../../lib/display-name";
+import { useApi } from "../api/context";
+import { FormAlert } from "./form-alert";
+import { meChanged } from "./me";
+import { Button } from "./ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Field, FieldError, FieldGroup, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
+import { displayNameSchema } from "../lib/display-name";
 
 /**
  * Your name (spec, "Display name"): the caller's display name, the name the
@@ -33,7 +27,7 @@ export function YourNameDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { t } = useTranslation("shell");
+  const { t } = useTranslation();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -62,8 +56,7 @@ function YourNameForm({
   displayName: string | undefined;
   onDone: () => void;
 }) {
-  const { t } = useTranslation("shell");
-  const { t: tCommon } = useTranslation();
+  const { t } = useTranslation();
   const { api } = useApi();
   const queryClient = useQueryClient();
   const nameId = useId();
@@ -71,8 +64,8 @@ function YourNameForm({
 
   const schema = z.object({
     displayName: displayNameSchema({
-      required: tCommon("displayName.required"),
-      tooLong: tCommon("displayName.tooLong"),
+      required: t("displayName.required"),
+      tooLong: t("displayName.tooLong"),
     }),
   });
   const form = useForm({
@@ -101,7 +94,7 @@ function YourNameForm({
       <FieldGroup>
         {change.isError && <FormAlert error={change.error} />}
         <Field data-invalid={nameError !== undefined}>
-          <FieldLabel htmlFor={nameId}>{tCommon("displayName.label")}</FieldLabel>
+          <FieldLabel htmlFor={nameId}>{t("displayName.label")}</FieldLabel>
           <Input
             id={nameId}
             autoComplete="nickname"

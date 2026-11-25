@@ -17,6 +17,7 @@ import { Route as HouseholdsHouseholdIdRouteRouteImport } from './routes/househo
 import { Route as HouseholdsNewRouteImport } from './routes/households/new'
 import { Route as HouseholdsHouseholdIdIndexRouteImport } from './routes/households/$householdId/index'
 import { Route as HouseholdsHouseholdIdCategoriesRouteImport } from './routes/households/$householdId/categories'
+import { Route as HouseholdsHouseholdIdMembersRouteImport } from './routes/households/$householdId/members'
 import { Route as HouseholdsHouseholdIdAccountsAccountIdRouteRouteImport } from './routes/households/$householdId/accounts/$accountId/route'
 import { Route as HouseholdsHouseholdIdAccountsAccountIdIndexRouteImport } from './routes/households/$householdId/accounts/$accountId/index'
 import { Route as HouseholdsHouseholdIdAccountsAccountIdToReviewRouteImport } from './routes/households/$householdId/accounts/$accountId/to-review'
@@ -70,6 +71,12 @@ const HouseholdsHouseholdIdCategoriesRoute =
   HouseholdsHouseholdIdCategoriesRouteImport.update({
     id: '/categories',
     path: '/categories',
+    getParentRoute: () => HouseholdsHouseholdIdRouteRoute,
+  } as any)
+const HouseholdsHouseholdIdMembersRoute =
+  HouseholdsHouseholdIdMembersRouteImport.update({
+    id: '/members',
+    path: '/members',
     getParentRoute: () => HouseholdsHouseholdIdRouteRoute,
   } as any)
 const HouseholdsHouseholdIdAccountsAccountIdRouteRoute =
@@ -151,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/households/new': typeof HouseholdsNewRoute
   '/households/$householdId/categories': typeof HouseholdsHouseholdIdCategoriesRoute
+  '/households/$householdId/members': typeof HouseholdsHouseholdIdMembersRoute
   '/households/$householdId/': typeof HouseholdsHouseholdIdIndexRoute
   '/households/$householdId/accounts/$accountId': typeof HouseholdsHouseholdIdAccountsAccountIdRouteRouteWithChildren
   '/households/$householdId/accounts/$accountId/to-review': typeof HouseholdsHouseholdIdAccountsAccountIdToReviewRoute
@@ -171,6 +179,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/households/new': typeof HouseholdsNewRoute
   '/households/$householdId/categories': typeof HouseholdsHouseholdIdCategoriesRoute
+  '/households/$householdId/members': typeof HouseholdsHouseholdIdMembersRoute
   '/households/$householdId': typeof HouseholdsHouseholdIdIndexRoute
   '/households/$householdId/accounts/$accountId/to-review': typeof HouseholdsHouseholdIdAccountsAccountIdToReviewRoute
   '/households/$householdId/accounts/$accountId/transactions': typeof HouseholdsHouseholdIdAccountsAccountIdTransactionsRoute
@@ -192,6 +201,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/households/new': typeof HouseholdsNewRoute
   '/households/$householdId/categories': typeof HouseholdsHouseholdIdCategoriesRoute
+  '/households/$householdId/members': typeof HouseholdsHouseholdIdMembersRoute
   '/households/$householdId/': typeof HouseholdsHouseholdIdIndexRoute
   '/households/$householdId/accounts/$accountId': typeof HouseholdsHouseholdIdAccountsAccountIdRouteRouteWithChildren
   '/households/$householdId/accounts/$accountId/to-review': typeof HouseholdsHouseholdIdAccountsAccountIdToReviewRoute
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/households/new'
     | '/households/$householdId/categories'
+    | '/households/$householdId/members'
     | '/households/$householdId/'
     | '/households/$householdId/accounts/$accountId'
     | '/households/$householdId/accounts/$accountId/to-review'
@@ -235,6 +246,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/households/new'
     | '/households/$householdId/categories'
+    | '/households/$householdId/members'
     | '/households/$householdId'
     | '/households/$householdId/accounts/$accountId/to-review'
     | '/households/$householdId/accounts/$accountId/transactions'
@@ -255,6 +267,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/households/new'
     | '/households/$householdId/categories'
+    | '/households/$householdId/members'
     | '/households/$householdId/'
     | '/households/$householdId/accounts/$accountId'
     | '/households/$householdId/accounts/$accountId/to-review'
@@ -334,6 +347,13 @@ declare module '@tanstack/react-router' {
       path: '/categories'
       fullPath: '/households/$householdId/categories'
       preLoaderRoute: typeof HouseholdsHouseholdIdCategoriesRouteImport
+      parentRoute: typeof HouseholdsHouseholdIdRouteRoute
+    }
+    '/households/$householdId/members': {
+      id: '/households/$householdId/members'
+      path: '/members'
+      fullPath: '/households/$householdId/members'
+      preLoaderRoute: typeof HouseholdsHouseholdIdMembersRouteImport
       parentRoute: typeof HouseholdsHouseholdIdRouteRoute
     }
     '/households/$householdId/accounts/$accountId': {
@@ -460,6 +480,7 @@ const HouseholdsHouseholdIdAccountsAccountIdRouteRouteWithChildren =
 
 interface HouseholdsHouseholdIdRouteRouteChildren {
   HouseholdsHouseholdIdCategoriesRoute: typeof HouseholdsHouseholdIdCategoriesRoute
+  HouseholdsHouseholdIdMembersRoute: typeof HouseholdsHouseholdIdMembersRoute
   HouseholdsHouseholdIdIndexRoute: typeof HouseholdsHouseholdIdIndexRoute
   HouseholdsHouseholdIdAccountsAccountIdRouteRoute: typeof HouseholdsHouseholdIdAccountsAccountIdRouteRouteWithChildren
 }
@@ -467,6 +488,7 @@ interface HouseholdsHouseholdIdRouteRouteChildren {
 const HouseholdsHouseholdIdRouteRouteChildren: HouseholdsHouseholdIdRouteRouteChildren =
   {
     HouseholdsHouseholdIdCategoriesRoute: HouseholdsHouseholdIdCategoriesRoute,
+    HouseholdsHouseholdIdMembersRoute: HouseholdsHouseholdIdMembersRoute,
     HouseholdsHouseholdIdIndexRoute: HouseholdsHouseholdIdIndexRoute,
     HouseholdsHouseholdIdAccountsAccountIdRouteRoute:
       HouseholdsHouseholdIdAccountsAccountIdRouteRouteWithChildren,

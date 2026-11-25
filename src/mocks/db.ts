@@ -13,6 +13,7 @@ type CsvMapping = components["schemas"]["CsvMapping"];
 
 type ImportedTransaction = components["schemas"]["ImportedTransaction"];
 type Notification = components["schemas"]["Notification"];
+type Member = components["schemas"]["Member"];
 
 /**
  * A row a Statement import brought in. A Suspected duplicate names the earlier
@@ -27,6 +28,15 @@ export interface MonthClose {
 
 /** The seeded User's display name; the token's name is "Sam Example" (`src/mocks/browser.ts`). */
 export const mockDisplayName = "Sam";
+
+/** The mock User's User ID, as `GET /me` gives it. */
+export const mockUserId = "0190f5f2-7c00-7000-8000-0000000000aa";
+
+/**
+ * A member of a Household as the mock keeps it. The mock User's own entry
+ * carries no name: `GET …/members` gives them their display name as it is now.
+ */
+export type MemberRecord = Member;
 
 export interface MockState {
   registered: boolean;
@@ -49,6 +59,11 @@ export interface MockState {
   statementFiles?: Record<string, string>;
   /** Each Account's Imported transactions, by Account ID. */
   importedRows?: Record<string, ImportedRow[]>;
+  /**
+   * Each Household's members, by Household ID, oldest first. A Household
+   * missing here has `seededMembers`.
+   */
+  members?: Record<string, MemberRecord[]>;
   /** Each Household's Notifications, by Household ID, newest first; `read` is the mock User's. */
   notifications?: Record<string, Notification[]>;
   /** Each Account's Month closes, by Account ID, then by month (`2026-03`). */
@@ -90,6 +105,57 @@ export const householdInvitationCodes = {
   "JOIN-BEACH-2026": invitingHousehold,
   "JOIN-HOME-2026": seededHousehold,
 } satisfies Record<string, Household>;
+
+/** The member who issued the Beach house codes, and its only member. */
+const beachHouseMember: MemberRecord = {
+  user_id: "0190f5f2-7c00-7000-8000-0000000000b0",
+  display_name: "Rui",
+  joined_at: "2026-05-02T16:20:00Z",
+};
+
+/**
+ * A Household's members before anyone joins or leaves: the mock User, who
+ * created Home and Cabin, or Rui for Beach house. Anything else has none.
+ */
+export function seededMembers(householdId: string): MemberRecord[] {
+  switch (householdId) {
+    case "0190f5f2-7c00-7000-8000-000000000001":
+      return [{ user_id: mockUserId, joined_at: "2026-01-01T09:00:00Z" }];
+    case "0190f5f2-7c00-7000-8000-000000000002":
+      return [{ user_id: mockUserId, joined_at: "2026-06-12T19:45:00Z" }];
+    case "0190f5f2-7c00-7000-8000-000000000003":
+      return [beachHouseMember];
+    default:
+      return [];
+  }
+}
+
+/** A Household's members as the mock keeps them now. */
+export function householdMembers(state: MockState, householdId: string): MemberRecord[] {
+  return state.members?.[householdId] ?? seededMembers(householdId);
+}
+
+/**
+ * `state` with one more member in the User's first Household, who joined in
+ * March 2026: named `displayName`, or with no name when it is empty
+ * (`?mock-member=`, `src/mocks/browser.ts`).
+ */
+export function withMember(state: MockState, displayName: string): MockState {
+  const household = state.households[0];
+  if (household === undefined) {
+    return state;
+  }
+  const members = householdMembers(state, household.household_id);
+  const member: MemberRecord = {
+    user_id: `0190f5f2-7c00-7000-8000-0000000000${(0xb1 + members.length).toString(16)}`,
+    joined_at: `2026-03-${String(10 + members.length).padStart(2, "0")}T18:30:00Z`,
+    ...(displayName === "" ? {} : { display_name: displayName }),
+  };
+  return {
+    ...state,
+    members: { ...state.members, [household.household_id]: [...members, member] },
+  };
+}
 
 /** A second Household, with no Accounts yet. */
 export const secondHousehold: Household = {

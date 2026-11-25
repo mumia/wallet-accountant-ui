@@ -119,5 +119,11 @@
     "label": "Display name",
     "required": "Type the name others in your Household will see",
     "tooLong": "A display name has at most 64 characters"
+  },
+  "yourName": {
+    "title": "Your name",
+    "description": "Other members of your Households see this name.",
+    "save": "Save",
+    "saving": "Saving…"
   }
 }
