@@ -64,6 +64,8 @@ export interface MockState {
    * missing here has `seededMembers`.
    */
   members?: Record<string, MemberRecord[]>;
+  /** Each Household's Invitations, by Household ID, in the order issued, open or not. */
+  invitations?: Record<string, InvitationRecord[]>;
   /** Each Household's Notifications, by Household ID, newest first; `read` is the mock User's. */
   notifications?: Record<string, Notification[]>;
   /** Each Account's Month closes, by Account ID, then by month (`2026-03`). */
@@ -154,6 +156,87 @@ export function withMember(state: MockState, displayName: string): MockState {
   return {
     ...state,
     members: { ...state.members, [household.household_id]: [...members, member] },
+  };
+}
+
+/**
+ * An Invitation as the mock keeps it: with its code, which only the response
+ * that issued it carries, and the Idempotency-Key that issued it, so a replay
+ * gets the same code. A redeemed or revoked one is no longer open.
+ */
+export interface InvitationRecord {
+  invitation_id: string;
+  code: string;
+  /** The User ID of the member who issued it. */
+  issued_by: string;
+  issued_at: string;
+  expires_at: string;
+  idempotency_key?: string;
+  closed?: "redeemed" | "revoked";
+}
+
+/** How long an Invitation's code works: 24 hours. */
+export const invitationLifetimeMs = 24 * 60 * 60 * 1000;
+
+/** A random code, like the backend's: 32 bytes as base64url. */
+export function randomInvitationCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...bytes))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+
+/** A Household's Invitations as the mock keeps them now, open or not. */
+export function householdInvitations(state: MockState, householdId: string): InvitationRecord[] {
+  return state.invitations?.[householdId] ?? [];
+}
+
+/** Whether `invitation` can still be redeemed or revoked at `now`. */
+export function isOpen(invitation: InvitationRecord, now: Date = new Date()): boolean {
+  return invitation.closed === undefined && new Date(invitation.expires_at) > now;
+}
+
+/**
+ * `state` with an open Invitation to the User's first Household, issued an
+ * hour ago by the member named `issuer`, by the first other member with no
+ * name when it is empty, or by the mock User when it is "me"
+ * (`?mock-invitation=`, `src/mocks/browser.ts`). An unknown name adds none.
+ */
+export function withInvitation(state: MockState, issuer: string): MockState {
+  const household = state.households[0];
+  if (household === undefined) {
+    return state;
+  }
+  const members = householdMembers(state, household.household_id);
+  const issuedBy =
+    issuer === "me"
+      ? mockUserId
+      : members.find(({ user_id, display_name }) =>
+          issuer === ""
+            ? user_id !== mockUserId && display_name === undefined
+            : display_name === issuer,
+        )?.user_id;
+  if (issuedBy === undefined) {
+    return state;
+  }
+  const issuedAt = new Date(Date.now() - 60 * 60 * 1000);
+  const invitation: InvitationRecord = {
+    invitation_id: crypto.randomUUID(),
+    code: randomInvitationCode(),
+    issued_by: issuedBy,
+    issued_at: issuedAt.toISOString(),
+    expires_at: new Date(issuedAt.getTime() + invitationLifetimeMs).toISOString(),
+  };
+  return {
+    ...state,
+    invitations: {
+      ...state.invitations,
+      [household.household_id]: [
+        ...householdInvitations(state, household.household_id),
+        invitation,
+      ],
+    },
   };
 }
 
