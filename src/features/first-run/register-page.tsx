@@ -47,11 +47,15 @@ export function RegisterPage({ invitationCode }: { invitationCode?: string | und
   });
   const redeem = api.useMutation("post", "/registrations");
 
-  // Redeemed, or already a User (409): either way `/` knows where to go next.
+  // Redeemed: `/` knows where to go next, which for an Invitation to a
+  // Household is that Household, the User's only one.
   const goHome = async () => {
     await queryClient.invalidateQueries({ queryKey: ["get", "/households"] });
     await navigate({ to: "/", replace: true });
   };
+  // Already a User (409): a User redeems an Invitation to a Household at /join.
+  const goJoin = (code: string) =>
+    navigate({ to: "/join", search: { invitation_code: code }, replace: true });
 
   const profile = auth.user?.profile;
   const identity = profile?.email ?? profile?.preferred_username ?? profile?.sub ?? "";
@@ -71,7 +75,7 @@ export function RegisterPage({ invitationCode }: { invitationCode?: string | und
                 onSuccess: () => void goHome(),
                 onError: (error) => {
                   if (errorStatus(error) === 409) {
-                    void goHome();
+                    void goJoin(code);
                   }
                 },
               },

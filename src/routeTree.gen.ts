@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as JoinRouteImport } from './routes/join'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as HouseholdsHouseholdIdRouteRouteImport } from './routes/households/$householdId/route'
@@ -31,6 +32,11 @@ import { Route as HouseholdsHouseholdIdAccountsAccountIdStatementImportsNewRoute
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinRoute = JoinRouteImport.update({
+  id: '/join',
+  path: '/join',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterRoute = RegisterRouteImport.update({
@@ -139,6 +145,7 @@ const HouseholdsHouseholdIdAccountsAccountIdStatementImportsNewRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/join': typeof JoinRoute
   '/register': typeof RegisterRoute
   '/households/$householdId': typeof HouseholdsHouseholdIdRouteRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
@@ -159,6 +166,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/join': typeof JoinRoute
   '/register': typeof RegisterRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/households/new': typeof HouseholdsNewRoute
@@ -178,6 +186,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/join': typeof JoinRoute
   '/register': typeof RegisterRoute
   '/households/$householdId': typeof HouseholdsHouseholdIdRouteRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/join'
     | '/register'
     | '/households/$householdId'
     | '/auth/callback'
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/join'
     | '/register'
     | '/auth/callback'
     | '/households/new'
@@ -238,6 +249,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/join'
     | '/register'
     | '/households/$householdId'
     | '/auth/callback'
@@ -259,6 +271,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  JoinRoute: typeof JoinRoute
   RegisterRoute: typeof RegisterRoute
   HouseholdsHouseholdIdRouteRoute: typeof HouseholdsHouseholdIdRouteRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
@@ -272,6 +285,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join': {
+      id: '/join'
+      path: '/join'
+      fullPath: '/join'
+      preLoaderRoute: typeof JoinRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register': {
@@ -459,6 +479,7 @@ const HouseholdsHouseholdIdRouteRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  JoinRoute: JoinRoute,
   RegisterRoute: RegisterRoute,
   HouseholdsHouseholdIdRouteRoute: HouseholdsHouseholdIdRouteRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,

@@ -33,6 +33,8 @@ export interface MockState {
   /** The User's Display name, once they have one (`POST /registrations` gives it). */
   displayName?: string;
   households: Household[];
+  /** The `householdInvitationCodes` already redeemed: each works once. */
+  redeemedCodes?: string[];
   /** Each Household's Accounts, by Household ID, in the order they were added. */
   accounts: Record<string, Account[]>;
   /** Each Account's Connections, by Account ID. */
@@ -66,6 +68,23 @@ export const seededHousehold: Household = {
   name: "Home",
   base_currency: "EUR",
 };
+
+/** A Household the mock User isn't a member of, which they can join with a code. */
+export const invitingHousehold: Household = {
+  household_id: "0190f5f2-7c00-7000-8000-000000000003",
+  name: "Beach house",
+  base_currency: "EUR",
+};
+
+/**
+ * Invitations to a Household, by code: one to "Beach house", which the mock
+ * User can join (once), and one to "Home", which they already belong to in the
+ * `household` scenario (409, the code stays unused). Any other code is invalid.
+ */
+export const householdInvitationCodes = {
+  "JOIN-BEACH-2026": invitingHousehold,
+  "JOIN-HOME-2026": seededHousehold,
+} satisfies Record<string, Household>;
 
 /** A second Household, with no Accounts yet. */
 export const secondHousehold: Household = {

@@ -11,5 +11,12 @@
   "createHousehold": {
     "title": "Create your Household",
     "welcome": "Welcome to Wallet Accountant. A Household holds the Accounts and Categories you track, shared with everyone in it."
+  },
+  "join": {
+    "title": "Join a Household",
+    "signedInAs": "You're signed in as {{identity}}. Someone has invited you to join their Household.",
+    "join": "Join",
+    "joining": "Joining…",
+    "yourHouseholds": "Go to your Households"
   }
 }
