@@ -26,6 +26,7 @@ import {
 import {
   flattenCategories,
   isUncategorised,
+  signOf,
   type CategoryNode,
   type FlatCategory,
 } from "../../lib/categories";
@@ -195,6 +196,7 @@ export function TransactionsTable({
                   label={{ text: t("categoryFor", { row: rowLabel(original) }) }}
                   categories={categories}
                   includeUncategorised={!closed || isUncategorised(category)}
+                  sign={signOf(original.amount.amount)}
                   value={original.category_id}
                   onValueChange={(categoryId) => {
                     const picked = categoryId === null ? undefined : kinds.get(categoryId);

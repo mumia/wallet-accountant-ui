@@ -7,8 +7,11 @@ import { initI18n } from "../app/i18n";
 import { categoryTree } from "../test/categories";
 import { CategoryPicker, topLevel } from "./category-picker";
 
-function Harness(props: Partial<Parameters<typeof CategoryPicker>[0]>) {
-  const [value, setValue] = useState<string | null>(null);
+function Harness({
+  initial = null,
+  ...props
+}: Partial<Parameters<typeof CategoryPicker>[0]> & { initial?: string | null }) {
+  const [value, setValue] = useState<string | null>(initial);
   return (
     <>
       <label id="category-label" htmlFor="category">
@@ -100,5 +103,64 @@ describe("CategoryPicker", () => {
     await user.click(screen.getByRole("option", { name: "Top level" }));
 
     expect(screen.getByRole("status")).toHaveTextContent(topLevel);
+  });
+
+  describe("follows the amount's sign", () => {
+    it("offers Expense, not Income, for money out", async () => {
+      const user = userEvent.setup();
+      render(<Harness sign="out" />);
+
+      await user.click(picker());
+
+      expect(optionNames()).toEqual([
+        "Uncategorised",
+        "Food",
+        "Food › Eating out",
+        "Food › Eating out › Coffee",
+        "Food › Groceries",
+        "Transport",
+      ]);
+      expect(screen.queryByRole("group", { name: "Income" })).not.toBeInTheDocument();
+    });
+
+    it("offers Income, not Expense, for money in", async () => {
+      const user = userEvent.setup();
+      render(<Harness sign="in" />);
+
+      await user.click(picker());
+
+      expect(optionNames()).toEqual(["Uncategorised", "Salary"]);
+      expect(screen.queryByRole("group", { name: "Expense" })).not.toBeInTheDocument();
+    });
+
+    it("offers both with no sign", async () => {
+      const user = userEvent.setup();
+      render(<Harness sign={undefined} />);
+
+      await user.click(picker());
+
+      expect(screen.getByRole("group", { name: "Expense" })).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: "Income" })).toBeInTheDocument();
+    });
+
+    it("offers only Uncategorised for a mixed selection, which offers no kind", async () => {
+      const user = userEvent.setup();
+      render(<Harness kinds={[]} initial="uncategorised" />);
+
+      await user.click(picker());
+
+      expect(optionNames()).toEqual(["Uncategorised"]);
+    });
+
+    it("still shows a Category that breaks the rule, but doesn't offer it", async () => {
+      const user = userEvent.setup();
+      render(<Harness sign="out" initial="salary" />);
+
+      expect(picker()).toHaveValue("Salary");
+      await user.click(picker());
+      await user.clear(picker());
+
+      expect(optionNames()).not.toContain("Salary");
+    });
   });
 });

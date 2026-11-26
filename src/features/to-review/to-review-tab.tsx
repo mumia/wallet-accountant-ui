@@ -20,7 +20,14 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { toReviewMonths } from "../../lib/account-months";
-import { flattenCategories, isUncategorised, type CategoryNode } from "../../lib/categories";
+import {
+  commonSign,
+  fitsSign,
+  flattenCategories,
+  isUncategorised,
+  type AmountSign,
+  type CategoryNode,
+} from "../../lib/categories";
 import { formatMonth, monthOf, type Month } from "../../lib/month";
 import { ReviewTable } from "./review-table";
 import {
@@ -223,6 +230,19 @@ function ReviewLists({
     const row = visible.get(id);
     return row === undefined ? [] : [row];
   });
+  // The bulk Category fits every selected row's sign (spec, "The sign rule"):
+  // a selection mixing money out and in can only be Accepted as Uncategorised.
+  const bulkSign = commonSign(selectedRows.map(({ amount }) => amount.amount));
+  const bulkFits = (categoryId: string) => {
+    const category = flattenCategories(categories ?? []).find(({ id }) => id === categoryId);
+    return (
+      category === undefined ||
+      (bulkSign === "mixed" ? isUncategorised(category) : fitsSign(category, bulkSign))
+    );
+  };
+  if (bulkCategory !== undefined && !bulkFits(bulkCategory)) {
+    setBulkCategory(undefined);
+  }
 
   const run = async (decision: Decision, rows: ImportedTransaction[], category?: string) => {
     const ids = rows.map(({ imported_transaction_id: id }) => id);
@@ -345,6 +365,7 @@ function ReviewLists({
       <BulkBar
         count={selectedRows.length}
         categories={categories}
+        sign={bulkSign}
         category={bulkCategory ?? uncategorised}
         onCategoryChange={setBulkCategory}
         canAccept={allPending}
@@ -450,6 +471,7 @@ function ReviewLists({
 function BulkBar({
   count,
   categories,
+  sign,
   category,
   onCategoryChange,
   canAccept,
@@ -461,6 +483,7 @@ function BulkBar({
 }: {
   count: number;
   categories: CategoryNode[] | undefined;
+  sign: AmountSign | "mixed" | undefined;
   category: string | undefined;
   onCategoryChange: (categoryId: string) => void;
   canAccept: boolean;
@@ -472,6 +495,8 @@ function BulkBar({
 }) {
   const { t } = useTranslation("toReview");
   const labelId = useId();
+  const hintId = useId();
+  const mixed = sign === "mixed";
   return (
     <div
       role="group"
@@ -499,7 +524,9 @@ function BulkBar({
                   id="bulk-category"
                   label={{ text: t("bulk.categoryForSelected") }}
                   categories={categories}
+                  {...(mixed ? { kinds: [] } : { sign })}
                   value={category ?? null}
+                  aria-describedby={mixed ? hintId : undefined}
                   onValueChange={(categoryId) => {
                     if (categoryId !== null) {
                       onCategoryChange(categoryId);
@@ -510,6 +537,11 @@ function BulkBar({
               <Button size="sm" onClick={onAccept}>
                 {t("bulk.accept")}
               </Button>
+              {mixed && (
+                <p id={hintId} className="basis-full px-1 text-sm text-muted-foreground">
+                  {t("bulk.oneDirection")}
+                </p>
+              )}
             </div>
           )}
           {canKeep && (

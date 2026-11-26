@@ -103,6 +103,24 @@ test("changes a Category in its row", async ({ page }) => {
   await expect(picker(page, bolNov7)).toHaveValue("Food › Groceries");
 });
 
+test("a row's picker offers only the Categories that fit its sign", async ({ page }) => {
+  await page.goto(`${main}?booking_month=2026-11`);
+  const salary = /^Category for Nov 25, 2026, Salary, €3,200\.00$/;
+
+  // Money in: Income, never Expense.
+  await picker(page, salary).click();
+  await expect(page.getByRole("option")).toHaveText(["Uncategorised", "Salary"]);
+  await expectAccessible(page, comboboxListOpen);
+  await page.keyboard.press("Escape");
+
+  // Money out: Expense, never Income.
+  await picker(page, bolNov7).click();
+  await expect(page.getByRole("option", { name: "Transport" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Salary" })).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Income" })).toHaveCount(0);
+  await expectAccessible(page, comboboxListOpen);
+});
+
 test("a failed save rolls back, with a toast naming the row", async ({ page }) => {
   // The save and its two retries fail.
   await page.goto(`${main}?booking_month=2026-11&mock-fail=PATCH:3`);

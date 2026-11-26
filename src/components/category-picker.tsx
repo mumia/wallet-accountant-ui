@@ -1,7 +1,13 @@
 import { useMemo, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 
-import { flattenCategories, isUncategorised, type CategoryNode } from "../lib/categories";
+import {
+  fitsSign,
+  flattenCategories,
+  isUncategorised,
+  type AmountSign,
+  type CategoryNode,
+} from "../lib/categories";
 import {
   Combobox,
   ComboboxCollection,
@@ -59,6 +65,11 @@ interface CategoryPickerProps {
   onValueChange: (value: string | null) => void;
   /** Which kinds to offer, in this order after Uncategorised; both by default. */
   kinds?: readonly KindGroup[];
+  /**
+   * The amount's sign (spec, "The sign rule"): Expense Categories are offered
+   * only for money out, Income ones only for money in. None filters nothing.
+   */
+  sign?: AmountSign | undefined;
   /** Whether to offer Uncategorised first; true by default. */
   includeUncategorised?: boolean;
   /** Categories not to offer, such as one being moved and its sub-Categories. */
@@ -84,7 +95,8 @@ interface CategoryPickerProps {
  * The Category picker (spec, "Accessibility"): every Category an indented
  * option, searchable by its full path ("Food › Groceries"), grouped as
  * Uncategorised, then Expense, then Income. Parents can be picked; Internal
- * Categories other than Uncategorised are never offered.
+ * Categories other than Uncategorised are never offered. Given the amount's
+ * sign, it offers only the kind that fits it.
  */
 export function CategoryPicker({
   id,
@@ -92,6 +104,7 @@ export function CategoryPicker({
   value,
   onValueChange,
   kinds = kindGroups,
+  sign,
   includeUncategorised = true,
   exclude,
   topLevelLabel,
@@ -104,10 +117,9 @@ export function CategoryPicker({
 }: CategoryPickerProps) {
   const { t } = useTranslation();
 
-  const groups = useMemo(() => {
-    const flat = flattenCategories(categories).filter(
-      ({ id: category }) => !exclude?.has(category),
-    );
+  const { groups, all } = useMemo(() => {
+    const every = flattenCategories(categories);
+    const flat = every.filter(({ id: category }) => !exclude?.has(category));
     const option = (category: (typeof flat)[number]): PickerOption => ({
       value: category.id,
       label: category.path.join(" › "),
@@ -120,14 +132,12 @@ export function CategoryPicker({
     });
     const result: PickerGroup[] = [];
     const first: PickerOption[] = [];
-    if (topLevelLabel !== undefined) {
-      first.push({
-        value: topLevel,
-        label: topLevelLabel,
-        ancestors: "",
-        name: topLevelLabel,
-        depth: 0,
-      });
+    const top: PickerOption | undefined =
+      topLevelLabel === undefined
+        ? undefined
+        : { value: topLevel, label: topLevelLabel, ancestors: "", name: topLevelLabel, depth: 0 };
+    if (top !== undefined) {
+      first.push(top);
     }
     if (includeUncategorised) {
       first.push(...flat.filter(isUncategorised).map(option));
@@ -136,16 +146,18 @@ export function CategoryPicker({
       result.push({ value: "first", label: undefined, items: first });
     }
     for (const kind of kinds) {
-      const items = flat.filter((category) => category.kind === kind).map(option);
+      const items = flat
+        .filter((category) => category.kind === kind && fitsSign(category, sign))
+        .map(option);
       if (items.length > 0) {
         result.push({ value: kind, label: t(`categoryPicker.kinds.${kind}`), items });
       }
     }
-    return result;
-  }, [categories, exclude, includeUncategorised, kinds, t, topLevelLabel]);
+    // A Category that isn't offered, such as one breaking the sign rule, still shows.
+    return { groups: result, all: [...(top === undefined ? [] : [top]), ...every.map(option)] };
+  }, [categories, exclude, includeUncategorised, kinds, sign, t, topLevelLabel]);
 
-  const selected =
-    groups.flatMap(({ items }) => items).find((option) => option.value === value) ?? null;
+  const selected = all.find((option) => option.value === value) ?? null;
 
   return (
     <Combobox

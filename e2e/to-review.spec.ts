@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { expectAccessible } from "./axe";
+import { comboboxListOpen, expectAccessible } from "./axe";
 
 // Main in the default mock scenario (src/mocks/db.ts) has, To review: one
 // Suspected duplicate (Shell Station 42, resembling the Accepted Shell row of
@@ -15,6 +15,7 @@ const jumbo = "Nov 17, 2026, Jumbo, -€12.35";
 const ikea = "Nov 2, 2026, Ikea, -€89.00";
 const shell = "Nov 14, 2026, Shell Station 42, -€38.50";
 const cafe = "Nov 19, 2026, Café de Jaren, -€18.00";
+const tikkie = "Nov 20, 2026, Tikkie from Sam, €15.00";
 
 const section = (page: Page, name: string) => page.getByRole("region", { name });
 const rowOf = (page: Page, label: string) =>
@@ -51,6 +52,66 @@ test("a Pending row is Accepted with the Category picked in its row", async ({ p
   await expect(page.getByRole("combobox", { name: `Category for ${jumbo}` })).toHaveValue(
     "Food › Groceries",
   );
+});
+
+test("a row's picker offers only the Categories that fit its sign", async ({ page }) => {
+  await page.goto(toReview);
+
+  // Money in: Income, never Expense.
+  await page.getByRole("combobox", { name: `Category for ${tikkie}` }).click();
+  await expect(page.getByRole("option", { name: "Salary" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Uncategorised" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Transport" })).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Expense" })).toHaveCount(0);
+  await expectAccessible(page, comboboxListOpen);
+  await page.keyboard.press("Escape");
+
+  // Money out: Expense, never Income.
+  await page.getByRole("combobox", { name: `Category for ${jumbo}` }).click();
+  await expect(page.getByRole("option", { name: "Transport" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Salary" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+});
+
+test("a bulk Category fits the selection's sign, and a mixed one only Uncategorised", async ({
+  page,
+}) => {
+  await page.goto(toReview);
+  const bulk = page.getByRole("combobox", { name: "Category for the selected rows" });
+  const hint = "Select only money out, or only money in, to pick a Category";
+
+  // All money out.
+  await page.getByRole("checkbox", { name: `Select ${jumbo}` }).click();
+  await page.getByRole("checkbox", { name: `Select ${cafe}` }).click();
+  await bulk.click();
+  await expect(page.getByRole("option", { name: "Transport" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Salary" })).toHaveCount(0);
+  await page.getByRole("option", { name: "Transport" }).click();
+  await expect(bulk).toHaveValue("Transport");
+  await expect(page.getByText(hint)).toHaveCount(0);
+
+  // Money in too: the chosen Category no longer fits.
+  await page.getByRole("checkbox", { name: `Select ${tikkie}` }).click();
+  await expect(bulk).toHaveValue("Uncategorised");
+  await expect(bulk).toHaveAccessibleDescription(hint);
+  await expectAccessible(page);
+  await bulk.click();
+  await expect(page.getByRole("option")).toHaveText(["Uncategorised"]);
+  await expectAccessible(page, comboboxListOpen);
+  await page.keyboard.press("Escape");
+
+  // Back to money out: the reset Category stays reset.
+  await page.getByRole("checkbox", { name: `Select ${tikkie}` }).click();
+  await expect(page.getByText(hint)).toHaveCount(0);
+  await expect(bulk).toHaveValue("Uncategorised");
+  await bulk.fill("Groceries");
+  await page.getByRole("option", { name: "Food › Groceries" }).click();
+  await page.getByRole("button", { name: "Accept", exact: true }).click();
+
+  const toast = page.getByRole("region", { name: /Notifications/ });
+  await expect(toast.getByText("2 Accepted")).toBeVisible();
+  await expect(rowOf(page, jumbo)).toHaveCount(0);
+  await expect(rowOf(page, tikkie)).toHaveCount(1);
 });
 
 test("a kept Suspected duplicate moves to Pending, still showing what it resembles", async ({
