@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { useWindowRows } from "../../components/use-window-rows";
-import type { CategoryNode } from "../../lib/categories";
+import { signOf, type CategoryNode } from "../../lib/categories";
 import { formatMoney } from "../../lib/money";
 import { clickHeader, clickRow, headerState } from "../../lib/selection";
 import type { ImportedTransaction } from "./to-review-query";
@@ -237,6 +237,7 @@ export function ReviewTable({
                         id={`review-category-${id}`}
                         label={{ text: t("categoryFor", { row: label }) }}
                         categories={categories}
+                        sign={signOf(row.amount.amount)}
                         value={categoryOf(row) ?? null}
                         onValueChange={(categoryId) => {
                           if (categoryId !== null) {

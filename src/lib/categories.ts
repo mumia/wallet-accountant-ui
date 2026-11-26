@@ -64,3 +64,43 @@ export function selfAndDescendants(tree: readonly CategoryNode[], id: string): S
   find(tree);
   return ids;
 }
+
+/** Which way an amount moves money: out (negative) or in (positive). */
+export type AmountSign = "out" | "in";
+
+/** An amount's sign, from its decimal string; none for zero. */
+export function signOf(amount: string): AmountSign | undefined {
+  if (/^-?0*(\.0*)?$/.test(amount)) {
+    return undefined;
+  }
+  return amount.startsWith("-") ? "out" : "in";
+}
+
+/**
+ * The one sign of several amounts, such as a bulk selection's: "mixed" when
+ * money goes both ways, none when there's no amount with a sign.
+ */
+export function commonSign(amounts: readonly string[]): AmountSign | "mixed" | undefined {
+  const signs = new Set(amounts.map(signOf).filter((sign) => sign !== undefined));
+  if (signs.size > 1) {
+    return "mixed";
+  }
+  const [sign] = signs;
+  return sign;
+}
+
+/**
+ * Whether a Category's kind fits an amount's sign (spec, "The sign rule"):
+ * Expense for money out, Income for money in, anything else both ways. No sign
+ * fits every kind.
+ */
+export function fitsSign(category: { kind: string }, sign: AmountSign | undefined): boolean {
+  switch (category.kind) {
+    case "EXPENSE":
+      return sign !== "in";
+    case "INCOME":
+      return sign !== "out";
+    default:
+      return true;
+  }
+}

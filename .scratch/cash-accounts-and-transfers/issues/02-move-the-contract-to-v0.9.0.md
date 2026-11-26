@@ -1,6 +1,6 @@
 # 02: Move the contract to backend v0.9.0
 
-Status: in-review
+Status: resolved
 Blocked by: —
 Waits on backend: no. v0.9.0 is released.
 
@@ -41,3 +41,4 @@ No new screen comes in this ticket.
   - 482 unit tests;
   - 118 of 118 e2e;
   - the image test, with `min-api-version v0.9.0`.
+- 2026-11-26: merged in #48.

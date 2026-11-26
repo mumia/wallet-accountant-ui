@@ -40,6 +40,7 @@
     "label": "Selected rows",
     "acceptAs": "Accept as",
     "categoryForSelected": "Category for the selected rows",
+    "oneDirection": "Select only money out, or only money in, to pick a Category",
     "accept": "Accept",
     "keep": "Keep",
     "discard": "Discard",
