@@ -27,7 +27,8 @@ test("adding an Account lands on its getting-started checklist", async ({ page }
   const dialog = await openAddAccount(page);
 
   await expect(dialog.getByRole("radio", { name: "Bank account" })).toBeChecked();
-  await expect(dialog.getByRole("radio", { name: /Cash/ })).toHaveCount(0);
+  // The Opening count is only for Cash.
+  await expect(dialog.getByRole("textbox", { name: /Opening count/ })).toHaveCount(0);
   // Cabin's Base currency.
   await expect(dialog.getByRole("combobox", { name: "Account currency" })).toHaveValue(
     "USD — US Dollar",
@@ -149,6 +150,112 @@ test("an Account with statements opens on Transactions, and tabs keep the month"
   await expect(page).toHaveURL(`${main}/statement-imports/new`);
 });
 
+/** Adds a cash Account named Wallet to Home, counted at €40.00 today. */
+async function addWallet(page: Page) {
+  await page.goto(home);
+  const dialog = await openAddAccount(page);
+  await dialog.getByRole("textbox", { name: "Name" }).fill("Wallet");
+  await dialog.getByRole("radio", { name: "Cash" }).check();
+  await dialog.getByRole("textbox", { name: "Opening count (EUR)" }).fill("40");
+  await dialog.getByRole("textbox", { name: "Opening count again (EUR)" }).fill("40.00");
+  await dialog.getByRole("button", { name: "Add Account" }).click();
+  await expect(page).toHaveURL(/\/transactions$/);
+  return page.url().replace(/\/transactions$/, "");
+}
+
+test("adding a cash Account asks for the Opening count twice and lands on Transactions", async ({
+  page,
+}) => {
+  await page.goto(home);
+  const dialog = await openAddAccount(page);
+  const start = dialog.getByRole("textbox", { name: "Start date" });
+  const count = dialog.getByRole("textbox", { name: "Opening count (EUR)" });
+  const again = dialog.getByRole("textbox", { name: "Opening count again (EUR)" });
+
+  // Cash reveals the two counts and starts today.
+  await dialog.getByRole("radio", { name: "Cash" }).check();
+  await expect(count).toBeVisible();
+  await expect(count).toHaveAccessibleDescription("The cash in it on the start date.");
+  await expect(again).toBeVisible();
+  await expect(start).toHaveValue(usDate(now));
+  await expect(start).toHaveAccessibleDescription(/The day you count the cash/);
+  await expectAccessible(page);
+
+  // Required, then different.
+  await dialog.getByRole("textbox", { name: "Name" }).fill("Wallet");
+  await dialog.getByRole("button", { name: "Add Account" }).click();
+  await expect(count).toHaveAccessibleDescription(/Type the Opening count/);
+  await expect(again).toHaveAccessibleDescription("Type the Opening count again");
+  await count.fill("40");
+  await again.fill("45");
+  await dialog.getByRole("button", { name: "Add Account" }).click();
+  await expect(again).toHaveAccessibleDescription("The two counts differ. Count again.");
+  await expect(again).toHaveAttribute("aria-invalid", "true");
+  await expectAccessible(page);
+
+  // They agree.
+  await again.fill("40.00");
+  await dialog.getByRole("button", { name: "Add Account" }).click();
+
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(new RegExp(`^.*${home}/accounts/[0-9a-f-]{36}/transactions$`));
+  await expect(page.getByRole("heading", { level: 1, name: "Wallet" })).toBeVisible();
+  await expect(page.getByText("Cash · EUR · €40.00")).toBeVisible();
+  await expect(page.getByRole("row", { name: /Opening balance/ })).toBeVisible();
+  // Only Transactions and Months, and nothing to import.
+  const tabs = page.getByRole("navigation", { name: "Account" });
+  await expect(tabs.getByRole("link")).toHaveText(["Transactions", "Months"]);
+  await expect(page.getByRole("link", { name: "Import statement" })).toHaveCount(0);
+  await expectAccessible(page);
+});
+
+test("the start date follows the kind until the member picks one", async ({ page }) => {
+  await page.goto(home);
+  const dialog = await openAddAccount(page);
+  const start = dialog.getByRole("textbox", { name: "Start date" });
+
+  await dialog.getByRole("radio", { name: "Cash" }).check();
+  await expect(start).toHaveValue(usDate(now));
+  await dialog.getByRole("radio", { name: "Loan" }).check();
+  await expect(start).toHaveValue(usDate(firstOfMonth));
+
+  // Once edited, switching the kind keeps it.
+  const lastOfPreviousMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+  await start.fill(usDate(lastOfPreviousMonth));
+  await dialog.getByRole("radio", { name: "Cash" }).check();
+  await expect(start).toHaveValue(usDate(lastOfPreviousMonth));
+});
+
+test("a cash Account's statement-only routes go to Transactions", async ({ page }) => {
+  const wallet = await addWallet(page);
+
+  for (const path of [
+    "",
+    "/to-review",
+    "/statement-imports",
+    "/statement-imports/new",
+    "/connections",
+    "/connections/new",
+  ]) {
+    await page.goto(`${wallet}${path}`);
+    await expect(page).toHaveURL(`${wallet}/transactions`);
+  }
+  await expect(page.getByRole("heading", { level: 1, name: "Wallet" })).toBeVisible();
+});
+
+test("the overview shows no To review count for a cash Account", async ({ page }) => {
+  await addWallet(page);
+  await page.goto(home);
+
+  const row = page.getByRole("row", { name: /Wallet/ });
+  await expect(row.getByRole("cell").nth(2)).toHaveText(
+    "—Nothing to review: a cash Account has no statements",
+  );
+  await expect(row.getByRole("link", { name: /To review/ })).toHaveCount(0);
+  await expect(row.getByRole("cell").nth(4)).toHaveText("€40.00");
+  await expectAccessible(page);
+});
+
 test.describe("on a narrow screen", () => {
   test.use({ viewport: { width: 320, height: 640 } });
 
@@ -162,7 +269,10 @@ test.describe("on a narrow screen", () => {
 
     await page.goto(cabin);
     const dialog = await openAddAccount(page);
-    await expect(dialog.getByRole("button", { name: "Add Account" })).toBeInViewport({ ratio: 0 });
+    // The dialog scrolls to its button.
+    const submit = dialog.getByRole("button", { name: "Add Account" });
+    await submit.scrollIntoViewIfNeeded();
+    await expect(submit).toBeInViewport();
     await expectAccessible(page);
   });
 });

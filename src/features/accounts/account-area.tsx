@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
+import { isCash } from "../../lib/account-query";
 import { RenameAccountDialog } from "./rename-account-dialog";
 
 const tabClass =
@@ -19,9 +20,12 @@ const tabClass =
 
 /**
  * An Account's area (spec, "Screens and routes"): its header with "Import
- * statement" and a small menu (Rename…), and the tabs To review, Transactions, Months, Statement imports
- * and Connections. While the Account awaits its first Statement import no tab
- * is selected and the getting-started checklist shows.
+ * statement" and a small menu (Rename…), and the tabs To review, Transactions,
+ * Months, Statement imports and Connections. While the Account awaits its first
+ * Statement import no tab is selected and the getting-started checklist shows.
+ *
+ * A cash Account (cash-accounts-and-transfers spec, "Cash Account screens") has
+ * no statements: no Import statement, and only the Transactions and Months tabs.
  */
 export function AccountArea({
   householdId,
@@ -46,6 +50,7 @@ export function AccountArea({
   const params = { householdId, accountId };
   const month = { booking_month };
   const [renaming, setRenaming] = useState(false);
+  const statements = !isCash(account);
 
   return (
     <div className="mx-auto grid max-w-5xl gap-4">
@@ -58,14 +63,16 @@ export function AccountArea({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            to="/households/$householdId/accounts/$accountId/statement-imports/new"
-            params={params}
-            className={buttonVariants()}
-          >
-            <UploadIcon aria-hidden="true" />
-            {t("area.importStatement")}
-          </Link>
+          {statements && (
+            <Link
+              to="/households/$householdId/accounts/$accountId/statement-imports/new"
+              params={params}
+              className={buttonVariants()}
+            >
+              <UploadIcon aria-hidden="true" />
+              {t("area.importStatement")}
+            </Link>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="outline" size="icon" aria-label={t("area.actions")} />}
@@ -92,14 +99,16 @@ export function AccountArea({
         onOpenChange={setRenaming}
       />
       <nav aria-label={t("area.tabs")} className="flex overflow-x-auto border-b">
-        <Link
-          to="/households/$householdId/accounts/$accountId/to-review"
-          params={params}
-          search={month}
-          className={tabClass}
-        >
-          {t("area.toReview")}
-        </Link>
+        {statements && (
+          <Link
+            to="/households/$householdId/accounts/$accountId/to-review"
+            params={params}
+            search={month}
+            className={tabClass}
+          >
+            {t("area.toReview")}
+          </Link>
+        )}
         <Link
           to="/households/$householdId/accounts/$accountId/transactions"
           params={params}
@@ -115,21 +124,25 @@ export function AccountArea({
         >
           {t("area.months")}
         </Link>
-        <Link
-          to="/households/$householdId/accounts/$accountId/statement-imports"
-          params={params}
-          activeOptions={{ exact: true }}
-          className={tabClass}
-        >
-          {t("area.statementImports")}
-        </Link>
-        <Link
-          to="/households/$householdId/accounts/$accountId/connections"
-          params={params}
-          className={tabClass}
-        >
-          {t("area.connections")}
-        </Link>
+        {statements && (
+          <>
+            <Link
+              to="/households/$householdId/accounts/$accountId/statement-imports"
+              params={params}
+              activeOptions={{ exact: true }}
+              className={tabClass}
+            >
+              {t("area.statementImports")}
+            </Link>
+            <Link
+              to="/households/$householdId/accounts/$accountId/connections"
+              params={params}
+              className={tabClass}
+            >
+              {t("area.connections")}
+            </Link>
+          </>
+        )}
       </nav>
       {children}
     </div>

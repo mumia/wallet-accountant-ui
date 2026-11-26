@@ -111,6 +111,15 @@ export function connectionHandlers(db: MockDb) {
       if (nameOutOfBounds(body.name)) {
         return response.untyped(nameBadRequest());
       }
+      if (account.kind === "CASH") {
+        return response(422).json(
+          unprocessable(
+            "invalid-connection",
+            "Invalid Connection",
+            "A cash Account is kept by hand and takes no Connection: record its Transactions directly.",
+          ),
+        );
+      }
       const connections = db.read().connections[account.account_id] ?? [];
       if (body.name.trim() === "") {
         return response(422).json(invalidName);

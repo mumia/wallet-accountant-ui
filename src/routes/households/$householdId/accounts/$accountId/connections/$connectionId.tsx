@@ -2,11 +2,14 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { ConnectionEditor } from "../../../../../../features/connections/connection-editor";
 import { connectionEditorSearch } from "../../../../../../lib/search";
+import { redirectCashAccount } from "../../../../../../lib/account-query";
 
 export const Route = createFileRoute(
   "/households/$householdId/accounts/$accountId/connections/$connectionId",
 )({
+  // A cash Account has no statements: it goes to its Transactions.
   validateSearch: connectionEditorSearch,
+  beforeLoad: ({ context, params }) => redirectCashAccount(context, params),
   loader: async ({
     context: { api, queryClient },
     params: { householdId, accountId, connectionId },
