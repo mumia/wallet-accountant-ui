@@ -343,11 +343,18 @@ export interface paths {
     /**
      * Add an Account
      * @description Adds an Account with a name, a kind, an Account currency and a start
-     *     date. The new Account awaits its first Statement import and has no
-     *     balance: its Opening balance is worked out from that import, never
-     *     typed (ADR-0018). Cash Accounts are not supported yet; a `CASH` or
-     *     unknown kind, an unknown currency or a blank name gets 422 with the
-     *     problem type `/problems/invalid-account`.
+     *     date. A statement Account (any kind but `CASH`) awaits its first
+     *     Statement import and has no balance: its Opening balance is worked
+     *     out from that import, never typed (ADR-0018). A cash Account is kept
+     *     entirely by hand: it takes `opening_count`, the cash counted on the
+     *     start date, and `opening_count_confirmation`, the same count typed
+     *     again. Its Opening balance is recorded from the count at once, so it
+     *     never awaits a Statement import and has a balance from the start. Two
+     *     counts that differ get 422 `/problems/opening-count-mismatch`. An
+     *     unknown kind, an unknown currency, a blank name, a cash Account
+     *     without both counts, a count in another currency than the Account's
+     *     or with more decimal places than it has, or a count sent for any
+     *     other kind gets 422 with the problem type `/problems/invalid-account`.
      */
     post: operations["addAccount"];
     delete?: never;
@@ -384,6 +391,35 @@ export interface paths {
     patch: operations["changeAccount"];
     trace?: never;
   };
+  "/households/{household_id}/accounts/{account_id}/opening-count": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Correct a cash Account's Opening count
+     * @description Replaces a cash Account's Opening count while its start date's month
+     *     is still the Account's open month (ADR-0018). The Opening balance
+     *     Transaction is reversed, linked to its reversal, and a new one is
+     *     recorded on the start date from the new count, typed twice. The same
+     *     count again records nothing. Two counts that differ get 422
+     *     `/problems/opening-count-mismatch`; a count in another currency or
+     *     with more decimal places than the Account's gets 422
+     *     `/problems/invalid-account`; an Account that isn't cash gets 422
+     *     `/problems/not-a-cash-account`; and once the start month has closed,
+     *     409 `/problems/opening-count-locked`.
+     */
+    post: operations["recountOpening"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/households/{household_id}/accounts/{account_id}/connections": {
     parameters: {
       query?: never;
@@ -408,7 +444,8 @@ export interface paths {
      *     422 with the problem type `/problems/invalid-connection`; an empty or
      *     too long name gets 400. An invalid
      *     mapping gets 422 with `/problems/invalid-csv-mapping`, and nothing is
-     *     created.
+     *     created. A cash Account is kept by hand and takes no Connection: it
+     *     gets 422 `/problems/invalid-connection`.
      */
     post: operations["createConnection"];
     delete?: never;
@@ -508,12 +545,44 @@ export interface paths {
      *     each with its signed amount on this Account (positive is money in),
      *     Booking date, Transaction date, description and Category. Sorted by
      *     Booking date, then in the order they were recorded, and paged with a
-     *     cursor. `booking_month` keeps only one Booking month. The list is
-     *     always current: it is read in the request's own transaction.
+     *     cursor. `booking_month` keeps only one Booking month, and
+     *     `in_transit=true` only the Transfer legs that are In transit: not
+     *     Matched and not reversed. The list is always current: it is read in
+     *     the request's own transaction.
      */
     get: operations["listAccountTransactions"];
     put?: never;
-    post?: never;
+    /**
+     * Record a cash Transaction
+     * @description Records a Transaction on a cash Account, which is kept entirely by
+     *     hand. `date` is both its Booking date and its Transaction date, and
+     *     `amount` is signed (positive is money in), in the Account currency.
+     *     The other side is `category_id`, with the Category rules of Accept
+     *     (absent, or the Uncategorised Category, leaves it in Uncategorised;
+     *     any other Internal Category gets 422 `/problems/internal-category`;
+     *     a Category that isn't one of the Household's 422
+     *     `/problems/invalid-category`), or `counterpart_account_id`, which
+     *     makes it a Transfer leg against the Account transfer Category. A
+     *     leg whose counterpart is a statement Account stays In transit until
+     *     that Account's row is Accepted as a Transfer and Matched to it. A
+     *     leg whose counterpart is another cash Account records that
+     *     Account's leg too, with the opposite amount and the same date,
+     *     description and payee, and confirms the Match between them: the
+     *     response is this Account's leg, with its `match_id`. Both
+     *     `category_id` and `counterpart_account_id`, a counterpart that is
+     *     the Account itself, isn't one of the Household's, or has another
+     *     Account currency get 422 `/problems/invalid-transfer` with a
+     *     `reason`. An Account that isn't cash gets 422
+     *     `/problems/not-a-cash-account`: statement Accounts take
+     *     Transactions only from their statements. A zero amount, one in
+     *     another currency or with more decimal places than the Account's, a
+     *     date after today (UTC) or before the Account's start date gets 422
+     *     `/problems/invalid-transaction`. A date in a closed month of either
+     *     Account gets 409 `/problems/month-closed`, naming the Account in
+     *     `account_id`; months after the open month are fine for a cash
+     *     Account (ADR-0024).
+     */
+    post: operations["recordCashTransaction"];
     delete?: never;
     options?: never;
     head?: never;
@@ -634,7 +703,18 @@ export interface paths {
      *     don't count), or the computed closing balance differs from the
      *     Statement balance (both amounts and the difference are given). Nothing
      *     is ever booked to make the balances meet: a gap is closed by
-     *     correcting the entry that is wrong (ADR-0018). A month already closed
+     *     correcting the entry that is wrong (ADR-0018). A cash Account's month
+     *     closes by a Cash count instead: `statement_balance` is the amount
+     *     counted and `counted_on` the day it was counted, after the month's
+     *     last day and no later than today (UTC); otherwise 422
+     *     `/problems/invalid-count-date`. The count is compared with the
+     *     Opening balance plus every Transaction booked up to the end of
+     *     `counted_on` (a gap gives that `computed_balance`, the count as
+     *     `statement_balance` and the `difference`: record what really
+     *     happened, such as a loss against an Expense Category). The month-end
+     *     balance the count proves is stored as the month's Statement balance.
+     *     `counted_on` is required for a cash Account and refused with 400
+     *     `/problems/invalid-month-closing` for any other. A month already closed
      *     gets 409 `/problems/month-already-closed`, and an Account awaiting its
      *     first Statement import 409
      *     `/problems/account-awaiting-first-statement-import`. A Statement
@@ -669,7 +749,10 @@ export interface paths {
      *     the Account's latest closed month (`NOT_LATEST_CLOSED`), or the open
      *     month has Accepted Transactions that aren't reversed
      *     (`OPEN_MONTH_HAS_ACCEPTED_TRANSACTIONS`, with the `open_month` and
-     *     the `accepted` count): reverse them first. Retrying with the same
+     *     the `accepted` count): reverse them first. A cash Account has no
+     *     Accepted Transactions, so that condition never applies to it: its
+     *     later months' Transactions stay, and the month must be closed again
+     *     with a new Cash count. Retrying with the same
      *     Idempotency-Key returns the original result.
      */
     post: operations["reopenAccountMonth"];
@@ -707,10 +790,82 @@ export interface paths {
      *     one booked in a month that isn't open yet 409
      *     `/problems/month-not-open-yet` (ADR-0024); both name the
      *     `booking_month`, and the second also the Account's `open_month`.
+     *
+     *     With `transfer_account_id` instead of `category_id`, the row is
+     *     Accepted as a Transfer to or from that cash Account: the Transaction
+     *     recorded is the row's Transfer leg, against the Account transfer
+     *     Category, and the cash Account gets the opposite leg, dated on the
+     *     row's Transaction date, with its description and payee. The two legs
+     *     are Matched in the same transaction. With `match_transaction_id`, no
+     *     cash leg is recorded: the given leg, one the cash Account already
+     *     has In transit (see `listTransferSuggestions`), is Matched instead.
+     *     A cash leg dated in a closed month of the cash Account gets 409
+     *     `/problems/month-closed`, naming the cash Account in `account_id`.
+     *     Refused Transfers get 422 `/problems/invalid-transfer` with a
+     *     `reason`: both `category_id` and `transfer_account_id`
+     *     (`CATEGORY_AND_TRANSFER`), `match_transaction_id` alone
+     *     (`MATCH_WITHOUT_TRANSFER`), a counterpart that isn't a cash Account
+     *     (`COUNTERPART_NOT_CASH`; Transfers between statement Accounts come
+     *     later), the row's own Account (`SAME_ACCOUNT`), another Account
+     *     currency (`CURRENCY_MISMATCH`), an Account that isn't the
+     *     Household's (`UNKNOWN_ACCOUNT`), or a leg to match that isn't an In
+     *     transit leg on the cash Account naming this row's Account with the
+     *     opposite amount (`NOT_A_MATCHING_LEG`).
+     *
      *     Retrying with the same Idempotency-Key and body returns the original
      *     result and never books twice.
      */
     post: operations["acceptImportedTransaction"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/households/{household_id}/imported-transactions/{imported_transaction_id}/transfer-suggestions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Cash legs an Imported transaction could be Matched to
+     * @description Lists the Transfer legs on the cash Account `account_id` that could
+     *     be the other side of this Imported transaction: not Matched and not
+     *     reversed, naming the row's Account as their counterpart, with the
+     *     opposite amount, and dated within 7 days either side of the row's
+     *     Transaction date. Closest date first. They are worked out on each
+     *     request and never stored; a User confirms one by Accepting the row
+     *     with it as `match_transaction_id`. An `account_id` that isn't a
+     *     cash Account of the Household gets 422 `/problems/invalid-transfer`
+     *     (`COUNTERPART_NOT_CASH` or `UNKNOWN_ACCOUNT`).
+     */
+    get: operations["listTransferSuggestions"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/households/{household_id}/matches/{match_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * A Match
+     * @description Returns a confirmed Match: the two Transfer legs it links, who
+     *     confirmed it and when. A Match removed by reversing one of its legs
+     *     gets 404.
+     */
+    get: operations["getMatch"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -744,7 +899,9 @@ export interface paths {
      *     `/problems/transaction-is-a-reversal`, and the Opening balance
      *     Transaction 422 `/problems/opening-balance-transaction`. In a closed
      *     month the Category can still change, but not to Uncategorised: that
-     *     gets 422 `/problems/uncategorised-in-closed-month` (ADR-0024).
+     *     gets 422 `/problems/uncategorised-in-closed-month` (ADR-0024). A
+     *     Transfer leg's other side is always the Account transfer Category:
+     *     it gets 422 `/problems/transfer-leg`.
      */
     patch: operations["changeTransaction"];
     trace?: never;
@@ -773,6 +930,15 @@ export interface paths {
      *     voiding the first Statement import changes it). A Transaction booked
      *     in a closed month gets 409 `/problems/month-closed`, naming the
      *     `booking_month`: Reopen back to it first (ADR-0024).
+     *
+     *     Reversing a Matched Transfer leg removes its Match. When the leg is
+     *     an Accepted row's, a cash leg recorded automatically by that Accept
+     *     is reversed with it; a cash leg entered by hand stays, In transit,
+     *     to be Matched again. Reversing a cash leg alone leaves the other leg
+     *     In transit. Reversing either leg of a Transfer between two cash
+     *     Accounts reverses both. When any Transaction it would reverse is
+     *     booked in a closed month of its Account, nothing is reversed: 409
+     *     `/problems/month-closed`, naming that Account in `account_id`.
      */
     post: operations["reverseTransaction"];
     delete?: never;
@@ -1277,7 +1443,11 @@ export interface components {
        */
       parent_id?: string | null;
     };
-    /** @description A new Account. There is no Opening balance field; the first Statement import works it out (ADR-0018). */
+    /**
+     * @description A new Account. There is no Opening balance field: a statement
+     *     Account's first Statement import works it out, and a cash Account's
+     *     comes from its Opening count, typed twice (ADR-0018).
+     */
     AccountCreation: {
       /**
        * @description The Account's name
@@ -1292,6 +1462,13 @@ export interface components {
        * @example 2026-01-01
        */
       start_date: string;
+      opening_count?: components["schemas"]["Money"];
+      opening_count_confirmation?: components["schemas"]["Money"];
+    };
+    /** @description A cash Account's new Opening count, typed twice */
+    OpeningRecount: {
+      opening_count: components["schemas"]["Money"];
+      opening_count_confirmation: components["schemas"]["Money"];
     };
     /** @description An Account */
     Account: {
@@ -1350,10 +1527,12 @@ export interface components {
       items: components["schemas"]["Account"][];
     };
     /**
-     * @description What sort of place the Account is. `CASH` is not supported yet and is refused.
+     * @description What sort of place the Account is. `CASH` is kept entirely by hand;
+     *     every other kind is a statement Account, which takes Transactions
+     *     only from its statements.
      * @example BANK_ACCOUNT
      */
-    AccountKind: "BANK_ACCOUNT" | "CREDIT_CARD" | "LOAN" | "CRYPTO_WALLET" | `${string}`;
+    AccountKind: "BANK_ACCOUNT" | "CREDIT_CARD" | "LOAN" | "CRYPTO_WALLET" | "CASH" | `${string}`;
     /**
      * @description Where the Connection's transactions come from. `BANK_FEED` is not supported yet and is refused.
      * @example STATEMENT_FILE_IMPORT
@@ -1987,6 +2166,18 @@ export interface components {
        * @description The Imported transaction whose Accept recorded it
        */
       imported_transaction_id?: string;
+      /**
+       * Format: uuid
+       * @description The other Account of the Transfer, when this is a Transfer leg
+       */
+      counterpart_account_id?: string;
+      /**
+       * Format: uuid
+       * @description The Match linking this Transfer leg to the other one; absent while it is In transit
+       */
+      match_id?: string;
+      /** @description Whether an Accept as Transfer recorded this cash leg automatically */
+      created_by_transfer?: boolean;
     };
     /**
      * @description A Transaction as seen from its Account: its signed amount there
@@ -2054,6 +2245,96 @@ export interface components {
        * @description The Transaction that reversed this one, once it is reversed
        */
       reversed_by_transaction_id?: string;
+      /**
+       * Format: uuid
+       * @description The other Account of the Transfer, when this is a Transfer leg
+       */
+      counterpart_account_id?: string;
+      /**
+       * Format: uuid
+       * @description The Match linking this Transfer leg to the other one; absent while it is In transit
+       */
+      match_id?: string;
+      /** @description Whether an Accept as Transfer recorded this cash leg automatically */
+      created_by_transfer?: boolean;
+    };
+    /** @description A list of Transactions */
+    TransactionList: {
+      /** @description The Transactions */
+      items: components["schemas"]["Transaction"][];
+    };
+    /**
+     * @description A Transaction on a cash Account. Its other side is `category_id`, or
+     *     `counterpart_account_id` for a Transfer leg, never both; neither
+     *     leaves it in Uncategorised.
+     */
+    CashTransactionCreation: {
+      /**
+       * Format: date
+       * @description The day it happened, both its Booking date and its Transaction date; not after today
+       * @example 2026-11-25
+       */
+      date: string;
+      amount: components["schemas"]["Money"];
+      /**
+       * @description What it was
+       * @example Coffee
+       */
+      description: string;
+      /**
+       * @description Who was paid, or who paid
+       * @example Café Central
+       */
+      payee?: string;
+      /**
+       * Format: uuid
+       * @description The Category on the other side, with Accept's Category rules
+       */
+      category_id?: string;
+      /**
+       * Format: uuid
+       * @description The other Account, which makes this a Transfer leg
+       */
+      counterpart_account_id?: string;
+    };
+    /** @description A confirmed link between two records of the same money movement */
+    Match: {
+      /**
+       * Format: uuid
+       * @description The Match's ID (UUIDv7)
+       */
+      match_id: string;
+      /**
+       * @description What the Match links; `ACCOUNT_TRANSFER` is the two legs of a Transfer
+       * @example ACCOUNT_TRANSFER
+       */
+      kind: "ACCOUNT_TRANSFER" | `${string}`;
+      /** @description The two Transactions it links */
+      legs: components["schemas"]["MatchLeg"][];
+      /**
+       * Format: uuid
+       * @description The User who confirmed it
+       */
+      confirmed_by: string;
+      /**
+       * Format: date-time
+       * @description When it was confirmed
+       * @example 2026-11-25T18:00:00Z
+       */
+      confirmed_at: string;
+    };
+    /** @description One Transaction a Match links */
+    MatchLeg: {
+      /**
+       * Format: uuid
+       * @description The Transaction
+       */
+      transaction_id: string;
+      /**
+       * Format: uuid
+       * @description The Account it is on
+       */
+      account_id: string;
     };
     /** @description A change to a Transaction */
     TransactionChange: {
@@ -2166,6 +2447,18 @@ export interface components {
        *     Uncategorised Category, leaves it in Uncategorised
        */
       category_id?: string;
+      /**
+       * Format: uuid
+       * @description The cash Account on the other side, which Accepts the row as a
+       *     Transfer instead of with a Category
+       */
+      transfer_account_id?: string;
+      /**
+       * Format: uuid
+       * @description An In transit leg on `transfer_account_id` to Match the row to,
+       *     instead of recording a new cash leg
+       */
+      match_transaction_id?: string;
     };
     /** @description A page of an Account's Imported transactions */
     ImportedTransactionPage: {
@@ -2231,6 +2524,19 @@ export interface components {
        * @example false
        */
       reopen_blocked: boolean;
+      /**
+       * Format: date
+       * @description The day a closed cash month's Cash count was taken; absent otherwise
+       * @example 2026-12-03
+       */
+      counted_on?: string;
+      /**
+       * Format: int32
+       * @description The month's Transfer legs that are In transit: not Matched and
+       *     not reversed. They never stop a Month close.
+       * @example 0
+       */
+      transfer_legs_in_transit: number;
     };
     /** @description An Account's Booking months */
     AccountMonthList: {
@@ -2242,7 +2548,9 @@ export interface components {
      *     current state. When it is about a month (`/problems/month-closed`,
      *     `/problems/month-not-open-yet`, `/problems/month-not-ended`,
      *     `/problems/statement-import-touches-closed-month`), `booking_month`
-     *     names it and `open_month` gives the Account's open month
+     *     names it, `open_month` gives the Account's open month and
+     *     `account_id` the Account, which can be another than the request's
+     *     own, such as the cash Account of a Transfer
      */
     MonthProblem: {
       /**
@@ -2277,6 +2585,11 @@ export interface components {
        * @example 2026-02
        */
       open_month?: string;
+      /**
+       * Format: uuid
+       * @description The Account whose month it is
+       */
+      account_id?: string;
     };
     /**
      * @description Problem details (RFC 9457) of a refused Reopen. `reasons` lists every
@@ -2327,9 +2640,58 @@ export interface components {
        */
       accepted?: number;
     };
-    /** @description The Statement balance a month closes with */
+    /**
+     * @description The Statement balance a month closes with; for a cash Account, the
+     *     amount counted and the day it was counted
+     */
     MonthClosing: {
       statement_balance: components["schemas"]["Money"];
+      /**
+       * Format: date
+       * @description The day a cash Account's cash was counted: after the month's last
+       *     day and no later than today. Required for a cash Account, refused
+       *     for any other.
+       * @example 2026-12-03
+       */
+      counted_on?: string;
+    };
+    /**
+     * @description Problem details (RFC 9457) of a request that can't be carried out.
+     *     A refused Transfer (`/problems/invalid-transfer`) gives its `reason`.
+     */
+    TransferProblem: {
+      /**
+       * Format: uri-reference
+       * @description Identifies the problem type
+       * @example /problems/invalid-transfer
+       */
+      type: string;
+      /**
+       * @description A short, human-readable summary of the problem type
+       * @example Invalid Transfer
+       */
+      title: string;
+      /**
+       * Format: int32
+       * @description The HTTP status code
+       * @example 422
+       */
+      status: number;
+      /** @description A human-readable explanation of this occurrence */
+      detail?: string;
+      /**
+       * @description Why the Transfer is refused
+       * @example COUNTERPART_NOT_CASH
+       */
+      reason?:
+        | "CATEGORY_AND_TRANSFER"
+        | "MATCH_WITHOUT_TRANSFER"
+        | "COUNTERPART_NOT_CASH"
+        | "SAME_ACCOUNT"
+        | "CURRENCY_MISMATCH"
+        | "UNKNOWN_ACCOUNT"
+        | "NOT_A_MATCHING_LEG"
+        | `${string}`;
     };
     /**
      * @description Problem details (RFC 9457) of a refused Month close. `reasons` lists
@@ -2574,6 +2936,18 @@ export interface components {
         "application/problem+json": components["schemas"]["MonthProblem"];
       };
     };
+    /**
+     * @description The request is well-formed but can't be carried out; a refused
+     *     Transfer (`/problems/invalid-transfer`) says why in `reason`
+     */
+    TransferRefused: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/problem+json": components["schemas"]["TransferProblem"];
+      };
+    };
     /** @description The month can't be reopened (`reasons` lists every failed condition) */
     MonthReopenRefused: {
       headers: {
@@ -2621,6 +2995,8 @@ export interface components {
     ImportedTransactionID: string;
     /** @description The Transaction's ID */
     TransactionID: string;
+    /** @description The Match's ID */
+    MatchID: string;
     /** @description Only this Booking month, written YYYY-MM */
     BookingMonth: string;
     /** @description The Booking month, written YYYY-MM */
@@ -3232,6 +3608,48 @@ export interface operations {
       default: components["responses"]["Problem"];
     };
   };
+  recountOpening: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description A key the client chooses for one request, such as a UUID. Sending the
+         *     request again with the same key and body returns the stored response
+         *     without repeating it; the same key with a different body gets 422.
+         *     Keys are scoped to the caller.
+         */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        /** @description The Household's ID */
+        household_id: components["parameters"]["HouseholdID"];
+        /** @description The Account's ID */
+        account_id: components["parameters"]["AccountID"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["OpeningRecount"];
+      };
+    };
+    responses: {
+      /** @description The Account with its new balance */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Account"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["UnprocessableEntity"];
+      default: components["responses"]["Problem"];
+    };
+  };
   listConnections: {
     parameters: {
       query?: never;
@@ -3417,6 +3835,8 @@ export interface operations {
       query?: {
         /** @description Only this Booking month, written YYYY-MM */
         booking_month?: components["parameters"]["BookingMonth"];
+        /** @description When true, only the Account's Transfer legs that are In transit */
+        in_transit?: boolean;
         /** @description Where the page starts, the `next_cursor` of the previous page; absent for the first page */
         cursor?: components["parameters"]["Cursor"];
         /** @description The most items a page holds */
@@ -3445,6 +3865,48 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      default: components["responses"]["Problem"];
+    };
+  };
+  recordCashTransaction: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description A key the client chooses for one request, such as a UUID. Sending the
+         *     request again with the same key and body returns the stored response
+         *     without repeating it; the same key with a different body gets 422.
+         *     Keys are scoped to the caller.
+         */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        /** @description The Household's ID */
+        household_id: components["parameters"]["HouseholdID"];
+        /** @description The Account's ID */
+        account_id: components["parameters"]["AccountID"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CashTransactionCreation"];
+      };
+    };
+    responses: {
+      /** @description The recorded Transaction, on this Account */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Transaction"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["MonthConflict"];
+      422: components["responses"]["TransferRefused"];
       default: components["responses"]["Problem"];
     };
   };
@@ -3668,7 +4130,68 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["MonthConflict"];
-      422: components["responses"]["UnprocessableEntity"];
+      422: components["responses"]["TransferRefused"];
+      default: components["responses"]["Problem"];
+    };
+  };
+  listTransferSuggestions: {
+    parameters: {
+      query: {
+        /** @description The cash Account whose legs are suggested */
+        account_id: string;
+      };
+      header?: never;
+      path: {
+        /** @description The Household's ID */
+        household_id: components["parameters"]["HouseholdID"];
+        /** @description The Imported transaction's ID */
+        imported_transaction_id: components["parameters"]["ImportedTransactionID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The suggested legs */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TransactionList"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      404: components["responses"]["NotFound"];
+      422: components["responses"]["TransferRefused"];
+      default: components["responses"]["Problem"];
+    };
+  };
+  getMatch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The Household's ID */
+        household_id: components["parameters"]["HouseholdID"];
+        /** @description The Match's ID */
+        match_id: components["parameters"]["MatchID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The Match */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Match"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      404: components["responses"]["NotFound"];
       default: components["responses"]["Problem"];
     };
   };

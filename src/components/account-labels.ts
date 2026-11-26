@@ -14,6 +14,7 @@ export const kindKeys = {
   CREDIT_CARD: "account.kinds.CREDIT_CARD",
   LOAN: "account.kinds.LOAN",
   CRYPTO_WALLET: "account.kinds.CRYPTO_WALLET",
+  CASH: "account.kinds.CASH",
 } as const;
 
 function isKnownKind(kind: string): kind is keyof typeof kindKeys {

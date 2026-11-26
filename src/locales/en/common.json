@@ -85,7 +85,8 @@
       "BANK_ACCOUNT": "Bank account",
       "CREDIT_CARD": "Credit card",
       "LOAN": "Loan",
-      "CRYPTO_WALLET": "Crypto wallet"
+      "CRYPTO_WALLET": "Crypto wallet",
+      "CASH": "Cash"
     }
   },
   "sidebar": {

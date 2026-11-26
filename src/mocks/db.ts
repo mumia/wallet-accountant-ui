@@ -296,11 +296,13 @@ const id = () => `0190f5f2-7c00-7000-8000-${(nextId++).toString(16).padStart(12,
 
 /** The Internal Categories every Household is created with. */
 export function internalCategories(): Category[] {
-  return ["Household transfer", "Opening balance", "Uncategorised"].map((name) => ({
-    category_id: id(),
-    name,
-    kind: "INTERNAL",
-  }));
+  return ["Account transfer", "Household transfer", "Opening balance", "Uncategorised"].map(
+    (name) => ({
+      category_id: id(),
+      name,
+      kind: "INTERNAL",
+    }),
+  );
 }
 
 function homeCategories(): Category[] {

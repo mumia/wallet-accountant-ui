@@ -16,6 +16,7 @@ const node = (
 
 /** A small Category tree for tests, sorted by name as the API sorts it. */
 export const categoryTree: CategoryNode[] = [
+  node("account-transfer", "Account transfer", "INTERNAL"),
   node("food", "Food", "EXPENSE", undefined, [
     node("eating-out", "Eating out", "EXPENSE", "food", [
       node("coffee", "Coffee", "EXPENSE", "eating-out"),
