@@ -1,6 +1,7 @@
 import { HttpResponse } from "msw";
 
-import type { components } from "../api/schema.gen";
+import { parseExactJson } from "../api/exact-json";
+import type { components, Decimal } from "../api/schema.gen";
 import {
   householdInvitationCodes,
   householdMembers,
@@ -12,6 +13,7 @@ import {
 } from "./db";
 import { badRequest, http, withExactAmounts } from "./http";
 import { withCounts } from "./months";
+import { currencyPlaces, fromUnits, toUnits } from "./statement-files";
 import { connectionHandlers } from "./connection-handlers";
 import { importedTransactionHandlers } from "./imported-transaction-handlers";
 import { invitationByCode, invitationHandlers, withRedeemed } from "./invitation-handlers";
@@ -20,6 +22,12 @@ import { statementImportHandlers } from "./statement-import-handlers";
 import { transactionHandlers } from "./transaction-handlers";
 
 type Problem = components["schemas"]["Problem"];
+type Account = components["schemas"]["Account"];
+type AccountCreation = components["schemas"]["AccountCreation"];
+type Money = components["schemas"]["Money"];
+
+/** Digits after the decimal point, trailing zeros aside. */
+const decimalPlaces = (amount: string) => (amount.split(".")[1] ?? "").replace(/0+$/, "").length;
 
 // The backend's problems, word for word
 // (../wallet-accountant/internal/households/adapters/http/handler.go).
@@ -541,35 +549,91 @@ export function createHandlers(db: MockDb) {
       if (accounts === undefined) {
         return response(404).json(notFound);
       }
-      const { name, kind, currency, start_date } = await request.json();
-      if (name.trim() === "" || kind === "CASH") {
-        return response(422).json({
+      // The counts are exact JSON numbers: read them as text, never as JS numbers.
+      const body = parseExactJson(await new Response(request.body).text()) as AccountCreation;
+      const { name, kind, currency, start_date } = body;
+      const invalid = (detail: string) =>
+        response(422).json({
           type: "/problems/invalid-account",
           title: "Invalid Account",
           status: 422,
-          detail:
-            name.trim() === ""
-              ? "The name must not be blank."
-              : "The mock adds cash Accounts from cash-accounts-and-transfers ticket 04.",
+          detail,
         });
+      if (name.trim() === "") {
+        return invalid("The name must not be blank.");
       }
-      const account = {
+      const cash = kind === "CASH";
+      const { opening_count: count, opening_count_confirmation: again } = body;
+      if (!cash && (count !== undefined || again !== undefined)) {
+        return invalid(
+          "Only a cash Account takes an Opening count: a statement Account's first Statement import works out its Opening balance.",
+        );
+      }
+      const places = currencyPlaces(currency);
+      let opening: Money | undefined;
+      if (cash) {
+        if (count === undefined || again === undefined) {
+          return invalid("A cash Account needs opening_count and opening_count_confirmation.");
+        }
+        if (count.currency !== currency || again.currency !== currency) {
+          return invalid("The Opening count must be in the Account currency.");
+        }
+        if ([count, again].some(({ amount }) => decimalPlaces(amount) > places)) {
+          return invalid("The Opening count has more decimal places than the Account currency.");
+        }
+        if (toUnits(count.amount, places) !== toUnits(again.amount, places)) {
+          return response(422).json({
+            type: "/problems/opening-count-mismatch",
+            title: "Opening counts differ",
+            status: 422,
+            detail: "The Opening count and its confirmation differ: count the cash again.",
+          });
+        }
+        opening = {
+          amount: fromUnits(toUnits(count.amount, places), places) as Decimal,
+          currency,
+        };
+      }
+      const account: Account = {
         account_id: crypto.randomUUID(),
         name,
         kind,
         currency,
         start_date,
-        awaiting_first_statement_import: true,
+        // A cash Account's Opening balance comes from its count, at once.
+        awaiting_first_statement_import: !cash,
+        ...(opening === undefined ? {} : { balance: opening }),
         open_month: start_date.slice(0, 7),
         pending: 0,
         suspected_duplicates: 0,
       };
       const state = db.read();
+      const openingCategory = (state.categories[params.household_id] ?? []).find(
+        (category) => category.kind === "INTERNAL" && category.name === "Opening balance",
+      );
       db.write({
         ...state,
         accounts: { ...state.accounts, [params.household_id]: [...accounts, account] },
+        ...(opening === undefined || openingCategory === undefined
+          ? {}
+          : {
+              transactions: {
+                ...state.transactions,
+                [account.account_id]: [
+                  {
+                    transaction_id: crypto.randomUUID(),
+                    booking_date: start_date,
+                    transaction_date: start_date,
+                    description: "Opening balance",
+                    amount: opening,
+                    category_id: openingCategory.category_id,
+                    category_name: openingCategory.name,
+                  },
+                ],
+              },
+            }),
       });
-      return response(201).json(account);
+      return response.untyped(await withExactAmounts(response(201).json(account)));
     }),
 
     ...invitationHandlers(db),

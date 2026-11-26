@@ -1,13 +1,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useId } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useId, useState } from "react";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 
 import { useApi } from "../../api/context";
 import { kindKeys } from "../../components/account-labels";
+import { AmountInput } from "../../components/amount-input";
 import { CurrencyCombobox } from "../../components/currency-combobox";
 import { DateInput } from "../../components/date-input";
 import { FormAlert } from "../../components/form-alert";
@@ -30,14 +31,14 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
 import { firstOfMonth, formatDate, today, type IsoDate } from "../../lib/date";
+import type { Decimal } from "../../lib/money";
 
-/**
- * The statement kinds, in the contract's order. Cash isn't offered yet: it needs
- * the Opening count fields (cash-accounts-and-transfers ticket 04).
- */
-const kinds = (Object.keys(kindKeys) as (keyof typeof kindKeys)[]).filter(
-  (kind) => kind !== "CASH",
-);
+/** The kinds, in the contract's order: the four statement kinds, then Cash. */
+const kinds = Object.keys(kindKeys) as (keyof typeof kindKeys)[];
+type Kind = (typeof kinds)[number];
+
+/** A new Account's start date: today for Cash, counted now; else the 1st of the month. */
+const defaultStartDate = (kind: Kind) => (kind === "CASH" ? today() : firstOfMonth());
 
 /** Add Account (spec, "Add Account"): the dialog, opened from the sidebar or the overview. */
 export function AddAccountDialog({
@@ -52,7 +53,8 @@ export function AddAccountDialog({
   const { t } = useTranslation("accounts");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      {/* Five kinds and Cash's two counts can be taller than a small screen: it scrolls. */}
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{t("add.title")}</DialogTitle>
           <DialogDescription>{t("add.description")}</DialogDescription>
@@ -88,24 +90,62 @@ function AddAccountForm({ householdId, onAdded }: { householdId: string; onAdded
   const currencies = api.useQuery("get", "/currencies");
   const latest = today();
 
-  const schema = z.object({
-    name: z.string().trim().min(1, t("add.nameRequired")).max(200, t("add.nameTooLong")),
-    kind: z.enum(kinds),
-    currency: z.string().min(1, t("add.currencyRequired")),
-    startDate: z
-      .string()
-      .min(1, t("add.startDateInvalid", { example: formatDate(firstOfMonth()) }))
-      .refine((date) => date <= latest, t("add.startDateTooLate")),
-  });
+  const schema = z
+    .object({
+      name: z.string().trim().min(1, t("add.nameRequired")).max(200, t("add.nameTooLong")),
+      kind: z.enum(kinds),
+      currency: z.string().min(1, t("add.currencyRequired")),
+      startDate: z
+        .string()
+        .min(1, t("add.startDateInvalid", { example: formatDate(firstOfMonth()) }))
+        .refine((date) => date <= latest, t("add.startDateTooLate")),
+      // Only a cash Account has the Opening count, typed twice.
+      openingCount: z.custom<Decimal | null>(),
+      openingCountAgain: z.custom<Decimal | null>(),
+    })
+    .superRefine(({ kind, openingCount, openingCountAgain }, context) => {
+      if (kind !== "CASH") {
+        return;
+      }
+      if (openingCount === null) {
+        context.addIssue({
+          code: "custom",
+          path: ["openingCount"],
+          message: t("add.openingCountRequired"),
+        });
+      }
+      if (openingCountAgain === null) {
+        context.addIssue({
+          code: "custom",
+          path: ["openingCountAgain"],
+          message: t("add.openingCountAgainRequired"),
+        });
+      } else if (openingCount !== null && openingCount !== openingCountAgain) {
+        // Both are canonical decimal text in the currency's places, so equal counts read alike.
+        context.addIssue({
+          code: "custom",
+          path: ["openingCountAgain"],
+          message: t("add.openingCountsDiffer"),
+        });
+      }
+    });
   const form = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
       name: "",
-      kind: "BANK_ACCOUNT" as const,
+      kind: "BANK_ACCOUNT" as Kind,
       currency: household.base_currency,
-      startDate: firstOfMonth(),
+      startDate: defaultStartDate("BANK_ACCOUNT"),
+      openingCount: null,
+      openingCountAgain: null,
     },
   });
+  // Switching the kind moves the start date to the kind's default, until the member picks one.
+  const [startDateEdited, setStartDateEdited] = useState(false);
+  const [kind, currency] = useWatch({ control: form.control, name: ["kind", "currency"] });
+  const cash = kind === "CASH";
+  const decimalPlaces =
+    currencies.data?.items.find(({ code }) => code === currency)?.decimal_places ?? 2;
   const add = api.useMutation("post", "/households/{household_id}/accounts");
 
   const openAccount = async (accountId: string) => {
@@ -127,9 +167,30 @@ function AddAccountForm({ householdId, onAdded }: { householdId: string; onAdded
     <form
       noValidate
       onSubmit={(event) => {
-        void form.handleSubmit(({ name, kind, currency, startDate }) => {
+        void form.handleSubmit((values) => {
+          const counts =
+            values.kind === "CASH" &&
+            values.openingCount !== null &&
+            values.openingCountAgain !== null
+              ? {
+                  opening_count: { amount: values.openingCount, currency: values.currency },
+                  opening_count_confirmation: {
+                    amount: values.openingCountAgain,
+                    currency: values.currency,
+                  },
+                }
+              : {};
           add.mutate(
-            { ...path, body: { name, kind, currency, start_date: startDate } },
+            {
+              ...path,
+              body: {
+                name: values.name,
+                kind: values.kind,
+                currency: values.currency,
+                start_date: values.startDate,
+                ...counts,
+              },
+            },
             { onSuccess: (account) => void openAccount(account.account_id) },
           );
         })(event);
@@ -163,18 +224,21 @@ function AddAccountForm({ householdId, onAdded }: { householdId: string; onAdded
               <RadioGroup
                 aria-labelledby={kindId}
                 value={field.value}
-                onValueChange={(kind: (typeof kinds)[number]) => {
-                  field.onChange(kind);
+                onValueChange={(next: Kind) => {
+                  field.onChange(next);
+                  if (!startDateEdited) {
+                    form.setValue("startDate", defaultStartDate(next));
+                  }
                 }}
                 className="grid-cols-2"
               >
-                {kinds.map((kind) => (
+                {kinds.map((option) => (
                   <Label
-                    key={kind}
+                    key={option}
                     className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border p-3"
                   >
-                    <RadioGroupItem value={kind} />
-                    {tCommon(kindKeys[kind])}
+                    <RadioGroupItem value={option} />
+                    {tCommon(kindKeys[option])}
                   </Label>
                 ))}
               </RadioGroup>
@@ -193,7 +257,12 @@ function AddAccountForm({ householdId, onAdded }: { householdId: string; onAdded
                 id={currencyId}
                 label={{ id: `${currencyId}-label` }}
                 value={field.value}
-                onValueChange={field.onChange}
+                onValueChange={(next) => {
+                  field.onChange(next);
+                  // A count typed in one currency isn't one in another.
+                  form.setValue("openingCount", null);
+                  form.setValue("openingCountAgain", null);
+                }}
                 onBlur={field.onBlur}
                 name={field.name}
                 inputRef={field.ref}
@@ -204,7 +273,9 @@ function AddAccountForm({ householdId, onAdded }: { householdId: string; onAdded
                   `${currencyId}-help`,
                 )}
               />
-              <FieldDescription id={`${currencyId}-help`}>{t("add.currencyHelp")}</FieldDescription>
+              <FieldDescription id={`${currencyId}-help`}>
+                {cash ? t("add.currencyHelpCash") : t("add.currencyHelp")}
+              </FieldDescription>
               {errors.currency?.message !== undefined && (
                 <FieldError id={`${currencyId}-error`}>{errors.currency.message}</FieldError>
               )}
@@ -221,6 +292,7 @@ function AddAccountForm({ householdId, onAdded }: { householdId: string; onAdded
                 id={startId}
                 value={field.value === "" ? null : (field.value as IsoDate)}
                 onValueChange={(date) => {
+                  setStartDateEdited(true);
                   field.onChange(date ?? "");
                 }}
                 onBlur={field.onBlur}
@@ -234,13 +306,61 @@ function AddAccountForm({ householdId, onAdded }: { householdId: string; onAdded
                   `${startId}-help`,
                 )}
               />
-              <FieldDescription id={`${startId}-help`}>{t("add.startDateHelp")}</FieldDescription>
+              <FieldDescription id={`${startId}-help`}>
+                {cash ? t("add.startDateHelpCash") : t("add.startDateHelp")}
+              </FieldDescription>
               {errors.startDate?.message !== undefined && (
                 <FieldError id={`${startId}-error`}>{errors.startDate.message}</FieldError>
               )}
             </Field>
           )}
         />
+        {cash && (
+          <>
+            <Controller
+              control={form.control}
+              name="openingCount"
+              render={({ field }) => (
+                <AmountInput
+                  // A new currency starts the text over.
+                  key={currency}
+                  label={t("add.openingCount")}
+                  currency={currency}
+                  decimalPlaces={decimalPlaces}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  required
+                  description={t("add.openingCountHelp")}
+                  {...(errors.openingCount?.message === undefined
+                    ? {}
+                    : { error: errors.openingCount.message })}
+                />
+              )}
+            />
+            <Controller
+              control={form.control}
+              name="openingCountAgain"
+              render={({ field }) => (
+                <AmountInput
+                  key={currency}
+                  label={t("add.openingCountAgain")}
+                  currency={currency}
+                  decimalPlaces={decimalPlaces}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  required
+                  {...(errors.openingCountAgain?.message === undefined
+                    ? {}
+                    : { error: errors.openingCountAgain.message })}
+                />
+              )}
+            />
+          </>
+        )}
         <Button type="submit" disabled={add.isPending}>
           {add.isPending ? t("add.adding") : t("add.submit")}
         </Button>

@@ -10,7 +10,8 @@
     "toReviewLink_one": "{{count}} row To review in {{account}}",
     "toReviewLink_other": "{{count}} rows To review in {{account}}",
     "month": "Month",
-    "openMonth": "Open month: {{month}}"
+    "openMonth": "Open month: {{month}}",
+    "toReviewNone": "Nothing to review: a cash Account has no statements"
   },
   "add": {
     "title": "Add Account",
@@ -23,10 +24,18 @@
     "currency": "Account currency",
     "currencyRequired": "Choose the Account currency",
     "currencyHelp": "The currency of this Account's statements. It can't be changed later.",
+    "currencyHelpCash": "The currency of the cash. It can't be changed later.",
     "startDate": "Start date",
     "startDateInvalid": "Type a date, such as {{example}}",
     "startDateTooLate": "The start date can't be later than today",
     "startDateHelp": "The day this Account's history begins. Your first statement file must cover from this day to today; rows booked before it are ignored. It can't be changed later.",
+    "startDateHelpCash": "The day you count the cash. It can't be changed later.",
+    "openingCount": "Opening count",
+    "openingCountHelp": "The cash in it on the start date.",
+    "openingCountRequired": "Type the Opening count",
+    "openingCountAgain": "Opening count again",
+    "openingCountAgainRequired": "Type the Opening count again",
+    "openingCountsDiffer": "The two counts differ. Count again.",
     "submit": "Add Account",
     "adding": "Adding…"
   },

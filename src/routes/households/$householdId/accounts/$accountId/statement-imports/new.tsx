@@ -2,11 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { StatementImportPage } from "../../../../../../features/statement-import/statement-import-page";
 import { newStatementImportSearch } from "../../../../../../lib/search";
+import { redirectCashAccount } from "../../../../../../lib/account-query";
 
 export const Route = createFileRoute(
   "/households/$householdId/accounts/$accountId/statement-imports/new",
 )({
+  // A cash Account has no statements: it goes to its Transactions.
   validateSearch: newStatementImportSearch,
+  beforeLoad: ({ context, params }) => redirectCashAccount(context, params),
   loader: ({ context: { api, queryClient }, params: { householdId, accountId } }) =>
     Promise.all([
       queryClient.query(

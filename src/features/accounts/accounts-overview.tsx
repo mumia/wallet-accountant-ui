@@ -15,8 +15,12 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
+import type { components } from "../../api/schema.gen";
 import { toReviewCount } from "../../lib/account-months";
+import { isCash } from "../../lib/account-query";
 import { formatMonth, type Month } from "../../lib/month";
+
+type Account = components["schemas"]["Account"];
 
 /**
  * The Household's home (spec, "Screens and routes"): its Accounts with their
@@ -126,15 +130,21 @@ export function AccountsOverview({ householdId }: { householdId: string }) {
   );
 }
 
-/** The Account's rows To review, linking to its To review tab when there are any. */
-function ToReview({
-  householdId,
-  account,
-}: {
-  householdId: string;
-  account: { account_id: string; name: string; pending: number; suspected_duplicates: number };
-}) {
+/**
+ * The Account's rows To review, linking to its To review tab when there are
+ * any; "—" for a cash Account.
+ */
+function ToReview({ householdId, account }: { householdId: string; account: Account }) {
   const { t } = useTranslation("accounts");
+  if (isCash(account)) {
+    // Kept by hand: it never has rows to review.
+    return (
+      <span className="text-muted-foreground">
+        <span aria-hidden="true">—</span>
+        <span className="sr-only">{t("overview.toReviewNone")}</span>
+      </span>
+    );
+  }
   const count = toReviewCount(account);
   if (count === 0) {
     return <span className="text-muted-foreground">0</span>;

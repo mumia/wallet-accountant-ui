@@ -1,14 +1,14 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { GettingStarted } from "../../../../../features/accounts/getting-started";
-import { loadAccount } from "../../../../../lib/account-query";
+import { isCash, loadAccount } from "../../../../../lib/account-query";
 
 // The getting-started checklist while the Account awaits its first Statement
-// import; afterwards the Account opens on Transactions.
+// import; afterwards, and always for a cash Account, it opens on Transactions.
 export const Route = createFileRoute("/households/$householdId/accounts/$accountId/")({
   beforeLoad: async ({ context, params }) => {
     const account = await loadAccount(context, params.householdId, params.accountId);
-    if (!account.awaiting_first_statement_import) {
+    if (isCash(account) || !account.awaiting_first_statement_import) {
       throw redirect({
         to: "/households/$householdId/accounts/$accountId/transactions",
         params,
