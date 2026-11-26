@@ -23,7 +23,7 @@ No new screen comes in this ticket.
 - [x] Mock:
   - the seeded Internal Categories gain "Account transfer";
   - `AccountKind` accepts `CASH` in types, but the `POST …/accounts` mock still refuses it until ticket 04
-- [ ] `make check` passes: the contract check against v0.9.0, and the image's `min-api-version` v0.9.0
+- [x] `make check` passes: the contract check against v0.9.0, and the image's `min-api-version` v0.9.0
 
 ## Spec
 
@@ -36,3 +36,8 @@ No new screen comes in this ticket.
   - **Accept's 422:** the `TransferProblem` change needed no code change, because Accept's errors go through `errorText` like any other problem.
   - **Labels:** `kindKeys` gained `CASH` ("Cash"). Add Account filters it out until ticket 04, and the mock's `POST …/accounts` still refuses it.
   - **Categories:** "Account transfer" was added to the mock's Internal Categories and to the shared test tree (`src/test/categories.ts`), so the picker tests already show that it's never offered.
+- 2026-11-26: `make check` passed:
+  - lint, typecheck, build, audit and the contract check against v0.9.0;
+  - 482 unit tests;
+  - 118 of 118 e2e;
+  - the image test, with `min-api-version v0.9.0`.
