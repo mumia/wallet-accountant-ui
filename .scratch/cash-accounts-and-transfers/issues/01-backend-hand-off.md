@@ -1,8 +1,8 @@
 # 01: Backend hand-off: cash Accounts and Transfers
 
-Status: needs-triage
+Status: resolved
 Blocked by: —
-Waits on backend: the release that merges `cash-accounts-and-transfers` (see "Tag to pin").
+Waits on backend: no. v0.9.0 is released.
 
 ## Why
 
@@ -231,3 +231,9 @@ Nothing is reversed.
 - Editing a Transaction.
 - Split cash Transactions.
 - Category totals and Budgets.
+
+## Answer
+
+Resolved on 2026-11-26 by [spec.md](../spec.md), which was grilled from this hand-off. The backend tagged the release as **v0.9.0**, and ticket 02 pins it.
+
+The spec adds one rule the backend doesn't have yet: a Category's kind must fit the amount's sign. That rule is requested in `../wallet-accountant/.scratch/category-direction/`, and ticket 11 picks it up here.
