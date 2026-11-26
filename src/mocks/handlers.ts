@@ -550,7 +550,7 @@ export function createHandlers(db: MockDb) {
           detail:
             name.trim() === ""
               ? "The name must not be blank."
-              : "Cash Accounts are not supported yet.",
+              : "The mock adds cash Accounts from cash-accounts-and-transfers ticket 04.",
         });
       }
       const account = {

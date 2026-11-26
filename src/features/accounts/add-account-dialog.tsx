@@ -31,8 +31,13 @@ import { Label } from "../../components/ui/label";
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
 import { firstOfMonth, formatDate, today, type IsoDate } from "../../lib/date";
 
-/** Every kind the contract lists, in this order; Cash is never offered (the backend refuses it). */
-const kinds = Object.keys(kindKeys) as (keyof typeof kindKeys)[];
+/**
+ * The statement kinds, in the contract's order. Cash isn't offered yet: it needs
+ * the Opening count fields (cash-accounts-and-transfers ticket 04).
+ */
+const kinds = (Object.keys(kindKeys) as (keyof typeof kindKeys)[]).filter(
+  (kind) => kind !== "CASH",
+);
 
 /** Add Account (spec, "Add Account"): the dialog, opened from the sidebar or the overview. */
 export function AddAccountDialog({

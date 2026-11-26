@@ -8,6 +8,7 @@ describe("the Category tree", () => {
     const flat = flattenCategories(categoryTree);
 
     expect(flat.map(({ path }) => path.join(" › "))).toEqual([
+      "Account transfer",
       "Food",
       "Food › Eating out",
       "Food › Eating out › Coffee",

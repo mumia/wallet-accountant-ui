@@ -122,6 +122,14 @@ export function accountMonth(state: MockState, account: Account, month: string):
         transaction.reversal_of_transaction_id === undefined &&
         transaction.reversed_by_transaction_id === undefined,
     ).length,
+    transfer_legs_in_transit: ledger.filter(
+      (transaction) =>
+        monthOf(transaction.booking_date) === month &&
+        transaction.counterpart_account_id !== undefined &&
+        transaction.match_id === undefined &&
+        transaction.reversal_of_transaction_id === undefined &&
+        transaction.reversed_by_transaction_id === undefined,
+    ).length,
     unchecked_statement_imports: importsOf(state, account.account_id)
       .filter(
         (item) =>
