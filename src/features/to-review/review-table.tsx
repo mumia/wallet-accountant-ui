@@ -90,8 +90,13 @@ export interface ReviewTableProps {
   onSelectionChange: (selected: Set<string>) => void;
   /** Pending only: the Household's Categories, for each row's picker. */
   categories?: CategoryNode[] | undefined;
-  /** Pending only: the Category a row's Accept sends. */
+  /** Pending only: the Category a row's Accept sends, or a Transfer's picker value. */
   categoryOf?: (row: ImportedTransaction) => string | undefined;
+  /**
+   * Pending only: the cash Accounts a row can be Accepted as a Transfer with
+   * (cash-accounts-and-transfers spec, "Accept as Transfer"). None by default.
+   */
+  transfersOf?: (row: ImportedTransaction) => readonly { account_id: string; name: string }[];
   onCategoryChange?: (row: ImportedTransaction, categoryId: string) => void;
   onAccept?: (row: ImportedTransaction) => void;
   onKeep?: (row: ImportedTransaction) => void;
@@ -120,6 +125,7 @@ export function ReviewTable({
   onSelectionChange,
   categories,
   categoryOf,
+  transfersOf = () => [],
   onCategoryChange,
   onAccept,
   onKeep,
@@ -238,6 +244,7 @@ export function ReviewTable({
                         label={{ text: t("categoryFor", { row: label }) }}
                         categories={categories}
                         sign={signOf(row.amount.amount)}
+                        transfers={transfersOf(row)}
                         value={categoryOf(row) ?? null}
                         onValueChange={(categoryId) => {
                           if (categoryId !== null) {
