@@ -1,6 +1,6 @@
 # 06: Close and reopen a cash month by a count
 
-Status: in-review
+Status: done
 Blocked by: 05
 Waits on backend: no
 

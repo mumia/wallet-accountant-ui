@@ -1,6 +1,6 @@
 # 08: Transfer legs: record them, and show them in Transactions
 
-Status: in-review
+Status: done
 Blocked by: 05
 Waits on backend: no
 

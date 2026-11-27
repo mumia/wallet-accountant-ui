@@ -1,6 +1,6 @@
 # 04: Add a cash Account, and its Account area
 
-Status: in-review
+Status: done
 Blocked by: 02
 Waits on backend: no
 

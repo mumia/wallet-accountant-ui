@@ -1,6 +1,6 @@
 # 12: Real-stack smoke test: cash and an ATM Transfer
 
-Status: in-review
+Status: done
 Blocked by: 06, 07, 10
 Waits on backend: no. v0.9.0 is released.
 
