@@ -12,7 +12,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
-import { isCash } from "../../lib/account-query";
+import { canCorrectOpeningCount, isCash } from "../../lib/account-query";
+import { CorrectOpeningCountDialog } from "./correct-opening-count-dialog";
 import { RenameAccountDialog } from "./rename-account-dialog";
 
 const tabClass =
@@ -26,6 +27,7 @@ const tabClass =
  *
  * A cash Account (cash-accounts-and-transfers spec, "Cash Account screens") has
  * no statements: no Import statement, and only the Transactions and Months tabs.
+ * Its menu adds Correct opening count… while the start date's month is open.
  */
 export function AccountArea({
   householdId,
@@ -50,6 +52,7 @@ export function AccountArea({
   const params = { householdId, accountId };
   const month = { booking_month };
   const [renaming, setRenaming] = useState(false);
+  const [recounting, setRecounting] = useState(false);
   const statements = !isCash(account);
 
   return (
@@ -87,6 +90,15 @@ export function AccountArea({
               >
                 {t("area.rename")}
               </DropdownMenuItem>
+              {canCorrectOpeningCount(account) && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setRecounting(true);
+                  }}
+                >
+                  {t("area.correctOpeningCount")}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -98,6 +110,14 @@ export function AccountArea({
         open={renaming}
         onOpenChange={setRenaming}
       />
+      {isCash(account) && (
+        <CorrectOpeningCountDialog
+          householdId={householdId}
+          account={account}
+          open={recounting}
+          onOpenChange={setRecounting}
+        />
+      )}
       <nav aria-label={t("area.tabs")} className="flex overflow-x-auto border-b">
         {statements && (
           <Link

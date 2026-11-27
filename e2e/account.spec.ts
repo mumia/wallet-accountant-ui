@@ -256,6 +256,88 @@ test("the overview shows no To review count for a cash Account", async ({ page }
   await expectAccessible(page);
 });
 
+async function openCorrectOpeningCount(page: Page) {
+  await page.getByRole("button", { name: "More Account actions" }).click();
+  await page.getByRole("menuitem", { name: "Correct opening count…" }).click();
+  return page.getByRole("dialog", { name: "Correct opening count" });
+}
+
+test("correcting the Opening count in the start month changes the balance", async ({ page }) => {
+  await addWallet(page);
+  const dialog = await openCorrectOpeningCount(page);
+  const count = dialog.getByRole("textbox", { name: "Opening count (EUR)" });
+  const again = dialog.getByRole("textbox", { name: "Opening count again (EUR)" });
+  await expect(count).toHaveAccessibleDescription(/^The cash in it on /);
+  await expectAccessible(page);
+
+  // Required, then different: the same check as Add Account.
+  await dialog.getByRole("button", { name: "Correct opening count" }).click();
+  await expect(count).toHaveAccessibleDescription(/Type the Opening count/);
+  await expect(again).toHaveAccessibleDescription("Type the Opening count again");
+  await count.fill("45");
+  await again.fill("54");
+  await dialog.getByRole("button", { name: "Correct opening count" }).click();
+  await expect(again).toHaveAccessibleDescription("The two counts differ. Count again.");
+  await expectAccessible(page);
+
+  await again.fill("45.00");
+  await dialog.getByRole("button", { name: "Correct opening count" }).click();
+
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("Cash · EUR · €45.00")).toBeVisible();
+  await expect(page.getByRole("row", { name: /Opening balance.*€45\.00/ })).toBeVisible();
+});
+
+test("a statement Account has no Correct opening count…", async ({ page }) => {
+  await page.goto(`${main}/transactions`);
+  await page.getByRole("button", { name: "More Account actions" }).click();
+
+  await expect(page.getByRole("menuitem")).toHaveText(["Rename…"]);
+});
+
+test("once the start month closes, the Opening count is locked and the item is gone", async ({
+  page,
+}) => {
+  // October 2026 has ended.
+  await page.clock.setFixedTime(new Date("2026-11-22T10:00:00Z"));
+  await page.goto(home);
+  // The mock API serves the page once it shows.
+  await expect(page.getByRole("heading", { level: 1, name: "Accounts" })).toBeVisible();
+  // Wallet, counted at €40.00 on 15 October.
+  const walletId = await page.evaluate(async (path) => {
+    const response = await fetch(`/api${path}/accounts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"name":"Wallet","kind":"CASH","currency":"EUR","start_date":"2026-10-15","opening_count":{"amount":40.00,"currency":"EUR"},"opening_count_confirmation":{"amount":40.00,"currency":"EUR"}}',
+    });
+    return ((await response.json()) as { account_id: string }).account_id;
+  }, home);
+  const wallet = `${home}/accounts/${walletId}`;
+  await page.goto(`${wallet}/transactions`);
+  const dialog = await openCorrectOpeningCount(page);
+
+  // Another member closes October meanwhile.
+  await page.evaluate(async (path) => {
+    await fetch(`/api${path}/months/2026-10/close`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"statement_balance":{"amount":40.00,"currency":"EUR"}}',
+    });
+  }, wallet);
+  await dialog.getByRole("textbox", { name: "Opening count (EUR)" }).fill("45");
+  await dialog.getByRole("textbox", { name: "Opening count again (EUR)" }).fill("45");
+  await dialog.getByRole("button", { name: "Correct opening count" }).click();
+
+  await expect(dialog.getByRole("alert")).toContainText("Opening count locked");
+  await expect(dialog.getByRole("alert")).toContainText("Reopen back to it first.");
+  await expectAccessible(page);
+
+  await page.reload();
+  await page.getByRole("button", { name: "More Account actions" }).click();
+  await expect(page.getByRole("menuitem")).toHaveText(["Rename…"]);
+  await expect(page.getByText("Cash · EUR · €40.00")).toBeVisible();
+});
+
 test.describe("on a narrow screen", () => {
   test.use({ viewport: { width: 320, height: 640 } });
 

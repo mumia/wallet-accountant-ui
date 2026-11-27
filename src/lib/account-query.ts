@@ -12,6 +12,15 @@ import type { QueryClient } from "@tanstack/react-query";
 export const isCash = (account: { kind: components["schemas"]["AccountKind"] }) =>
   account.kind === "CASH";
 
+/**
+ * Whether a cash Account's Opening count can still be corrected: only while its
+ * open month is the start date's month (cash-accounts-and-transfers spec,
+ * "Correct opening count…").
+ */
+export const canCorrectOpeningCount = (
+  account: Pick<components["schemas"]["Account"], "kind" | "start_date" | "open_month">,
+) => isCash(account) && account.open_month === account.start_date.slice(0, 7);
+
 /** `GET …/accounts/{id}` through the cache; a 404 is "not found". */
 export async function loadAccount(
   { api, queryClient }: { api: Api["api"]; queryClient: QueryClient },
