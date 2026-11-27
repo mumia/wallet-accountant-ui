@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { comboboxListOpen, expectAccessible } from "./axe";
+import { forceCategory } from "./force-category";
 
 // Home in the default mock scenario (src/mocks/db.ts). Each test adds its own
 // cash Account, Wallet, counted at €40.00.
@@ -183,5 +184,25 @@ test("a server problem shows in the sheet, with the input kept", async ({ page }
   await expect(sheet.getByRole("alert")).toContainText("October 2026 is closed.");
   await expect(sheet.getByRole("textbox", { name: "Description" })).toHaveValue("Bus ticket");
   await expect(sheet.getByRole("textbox", { name: "Amount (EUR)" })).toHaveValue("-3.00");
+  await expectAccessible(page);
+});
+
+test("a Category the server refuses for the amount's sign shows in the sheet", async ({ page }) => {
+  await addWallet(page, "2026-11-01");
+  await page.getByRole("button", { name: "Record a Transaction" }).click();
+  const sheet = sheetOf(page);
+  await sheet.getByRole("textbox", { name: "Amount (EUR)" }).fill("-2.50");
+  await pickOtherSide(page, "Food › Groceries");
+  await sheet.getByRole("textbox", { name: "Description" }).fill("Coffee");
+
+  // An Income Category on money out, past the picker.
+  await forceCategory(page, home, "Salary");
+  await sheet.getByRole("button", { name: "Save", exact: true }).click();
+
+  await expect(sheet.getByRole("alert")).toContainText("Category doesn't fit the amount");
+  await expect(sheet.getByRole("alert")).toContainText(
+    "An Income Category takes only money in, and this amount is money out.",
+  );
+  await expect(sheet.getByRole("textbox", { name: "Description" })).toHaveValue("Coffee");
   await expectAccessible(page);
 });

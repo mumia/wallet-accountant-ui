@@ -561,7 +561,10 @@ export interface paths {
      *     (absent, or the Uncategorised Category, leaves it in Uncategorised;
      *     any other Internal Category gets 422 `/problems/internal-category`;
      *     a Category that isn't one of the Household's 422
-     *     `/problems/invalid-category`), or `counterpart_account_id`, which
+     *     `/problems/invalid-category`; an Expense Category on money in, or
+     *     an Income Category on money out, 422 `/problems/category-direction`,
+     *     naming `category_id`, `category_kind` and the amount's
+     *     `direction`), or `counterpart_account_id`, which
      *     makes it a Transfer leg against the Account transfer Category. A
      *     leg whose counterpart is a statement Account stays In transit until
      *     that Account's row is Accepted as a Transfer and Matched to it. A
@@ -786,6 +789,11 @@ export interface paths {
      *     `/problems/imported-transaction-suspected-duplicate`; any other Internal
      *     Category gets 422 `/problems/internal-category`, and a Category that
      *     isn't one of the Household's gets 422 `/problems/invalid-category`.
+     *     An Expense Category takes only money out (a negative amount) and an
+     *     Income Category only money in (a positive one); Uncategorised and a
+     *     zero amount take either. A Category of the wrong kind gets 422
+     *     `/problems/category-direction`, naming `category_id`,
+     *     `category_kind` and the amount's `direction`, and nothing is booked.
      *     A row booked in a closed month gets 409 `/problems/month-closed`, and
      *     one booked in a month that isn't open yet 409
      *     `/problems/month-not-open-yet` (ADR-0024); both name the
@@ -901,7 +909,11 @@ export interface paths {
      *     month the Category can still change, but not to Uncategorised: that
      *     gets 422 `/problems/uncategorised-in-closed-month` (ADR-0024). A
      *     Transfer leg's other side is always the Account transfer Category:
-     *     it gets 422 `/problems/transfer-leg`.
+     *     it gets 422 `/problems/transfer-leg`. Only then is the Category's
+     *     kind checked against the amount's sign, in closed months too: an
+     *     Expense Category on money in, or an Income Category on money out,
+     *     gets 422 `/problems/category-direction`, naming `category_id`,
+     *     `category_kind` and the amount's `direction`.
      */
     patch: operations["changeTransaction"];
     trace?: never;
@@ -2658,6 +2670,9 @@ export interface components {
     /**
      * @description Problem details (RFC 9457) of a request that can't be carried out.
      *     A refused Transfer (`/problems/invalid-transfer`) gives its `reason`.
+     *     A Category whose kind doesn't fit the amount's sign
+     *     (`/problems/category-direction`) gives `category_id`,
+     *     `category_kind` and `direction`.
      */
     TransferProblem: {
       /**
@@ -2692,6 +2707,23 @@ export interface components {
         | "UNKNOWN_ACCOUNT"
         | "NOT_A_MATCHING_LEG"
         | `${string}`;
+      /**
+       * Format: uuid
+       * @description The Category refused for its kind
+       */
+      category_id?: string;
+      /**
+       * @description The refused Category's kind: an Income Category takes only money
+       *     in, an Expense Category only money out
+       * @example EXPENSE
+       */
+      category_kind?: "INCOME" | "EXPENSE" | `${string}`;
+      /**
+       * @description Which way the amount moves on the Account: `IN` (positive) or
+       *     `OUT` (negative)
+       * @example IN
+       */
+      direction?: "IN" | "OUT" | `${string}`;
     };
     /**
      * @description Problem details (RFC 9457) of a refused Month close. `reasons` lists
@@ -2938,7 +2970,10 @@ export interface components {
     };
     /**
      * @description The request is well-formed but can't be carried out; a refused
-     *     Transfer (`/problems/invalid-transfer`) says why in `reason`
+     *     Transfer (`/problems/invalid-transfer`) says why in `reason`, and a
+     *     Category of the wrong kind for the amount's sign
+     *     (`/problems/category-direction`) names it with its kind and the
+     *     amount's direction
      */
     TransferRefused: {
       headers: {
@@ -4225,7 +4260,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
-      422: components["responses"]["UnprocessableEntity"];
+      422: components["responses"]["TransferRefused"];
       default: components["responses"]["Problem"];
     };
   };

@@ -3,6 +3,7 @@
 // with the backend's rules and its problems word for word
 // (../wallet-accountant/internal/ingestion/adapters/http/importedtransactions.go).
 import type { components } from "../api/schema.gen";
+import { categoryDirection } from "./category-direction";
 import type { ImportedRow, MockDb, MockState } from "./db";
 import { http, withExactAmounts } from "./http";
 import { monthOf, monthWords } from "./months";
@@ -244,6 +245,10 @@ export function importedTransactionHandlers(db: MockDb) {
           detail:
             "Internal Categories belong to the system: only Uncategorised can be chosen when accepting.",
         });
+      }
+      const misdirected = categoryDirection(category, row.amount.amount);
+      if (misdirected !== undefined) {
+        return response(422).json(misdirected);
       }
       const transaction: AccountTransaction = {
         transaction_id: crypto.randomUUID(),

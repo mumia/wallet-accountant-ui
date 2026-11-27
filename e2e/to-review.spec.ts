@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { comboboxListOpen, expectAccessible } from "./axe";
+import { forceCategory } from "./force-category";
 
 // Main in the default mock scenario (src/mocks/db.ts) has, To review: one
 // Suspected duplicate (Shell Station 42, resembling the Accepted Shell row of
@@ -112,6 +113,29 @@ test("a bulk Category fits the selection's sign, and a mixed one only Uncategori
   await expect(toast.getByText("2 Accepted")).toBeVisible();
   await expect(rowOf(page, jumbo)).toHaveCount(0);
   await expect(rowOf(page, tikkie)).toHaveCount(1);
+});
+
+test("a Category the server refuses for the row's sign is a toast, and the row stays", async ({
+  page,
+}) => {
+  await page.goto(toReview);
+  await expect(page.getByText("6 Pending rows")).toBeVisible();
+  const picker = page.getByRole("combobox", { name: `Category for ${cafe}` });
+  await picker.fill("Groceries");
+  await page.getByRole("option", { name: "Food › Groceries" }).click();
+
+  // An Income Category on money out, past the picker.
+  await forceCategory(page, home, "Salary");
+  await page.getByRole("button", { name: `Accept ${cafe}` }).click();
+
+  const toast = page.getByRole("region", { name: /Notifications/ });
+  await expect(toast).toContainText(cafe);
+  await expect(toast).toContainText(
+    "Category doesn't fit the amount: An Income Category takes only money in",
+  );
+  await expect(rowOf(page, cafe)).toHaveCount(1);
+  await expect(page.getByText("6 Pending rows")).toBeVisible();
+  await expectAccessible(page);
 });
 
 test("a kept Suspected duplicate moves to Pending, still showing what it resembles", async ({
