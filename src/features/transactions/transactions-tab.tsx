@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useApi } from "../../api/context";
 import { useErrorText } from "../../components/error-text";
 import { MonthField, type MonthChoice } from "../../components/month-field";
+import { useRecordTransaction } from "../../components/record-transaction";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { defaultBookingMonth, toReviewCountIn, transactionMonths } from "../../lib/account-months";
@@ -236,6 +237,7 @@ function OneMonth({
   onShowEverything: () => void;
 }) {
   const { t } = useTranslation("transactions");
+  const record = useRecordTransaction();
   const query = useMonthTransactions(householdId, accountId, month);
   // Under the filter, a row given a Category (or reversed) stays until the
   // filter changes or the page reloads, so it doesn't vanish under the User's
@@ -267,6 +269,17 @@ function OneMonth({
         message={t("empty.allCategorised", { month: formatMonth(month) })}
         action={t("empty.showAllTransactions")}
         onAction={onShowEverything}
+      />
+    ) : record !== undefined ? (
+      // A cash Account's rows are recorded by hand.
+      <Empty
+        message={t("empty.monthCash", { month: formatMonth(month) })}
+        action={t("empty.recordOne")}
+        onAction={() => {
+          record();
+        }}
+        secondary={t("empty.showAllMonths")}
+        onSecondary={onShowAll}
       />
     ) : (
       <Empty
@@ -317,6 +330,7 @@ function AllMonths({
   highlighted: string | undefined;
 }) {
   const { t } = useTranslation("transactions");
+  const record = useRecordTransaction();
   const query = useAllTransactions(householdId, accountId);
   const rows = useMemo(() => query.data?.pages.flatMap(({ items }) => items) ?? [], [query.data]);
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;
@@ -336,7 +350,15 @@ function AllMonths({
     return <LoadFailed error={query.error} onRetry={() => void query.refetch()} />;
   }
   if (rows.length === 0) {
-    return (
+    return record !== undefined ? (
+      <Empty
+        message={t("empty.noneCash")}
+        action={t("empty.recordOne")}
+        onAction={() => {
+          record();
+        }}
+      />
+    ) : (
       <Card>
         <CardContent>
           <p>{t("empty.none")}</p>

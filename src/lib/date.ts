@@ -81,3 +81,8 @@ export function parseDateInput(text: string, locale?: string): IsoDate | undefin
 export function formatDateLong(date: IsoDate, locale?: string): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(fromIsoDate(date));
 }
+
+/** Today as the backend reckons it: the date in UTC, whatever the browser's zone. */
+export function todayUtc(now: Date = new Date()): IsoDate {
+  return now.toISOString().slice(0, 10) as IsoDate;
+}

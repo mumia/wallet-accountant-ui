@@ -13,6 +13,8 @@ interface DateInputProps {
   value: IsoDate | null;
   onValueChange: (value: IsoDate | null) => void;
   onBlur?: () => void;
+  /** The earliest date the calendar offers; typing an earlier one is the form's to refuse. */
+  min?: IsoDate;
   /** The latest date the calendar offers; typing a later one is the form's to refuse. */
   max?: IsoDate;
   name?: string;
@@ -33,6 +35,7 @@ export function DateInput({
   value,
   onValueChange,
   onBlur,
+  min,
   max,
   name,
   inputRef,
@@ -119,7 +122,10 @@ export function DateInput({
                   },
                 }}
                 {...(selected === undefined ? {} : { defaultMonth: selected })}
-                {...(max === undefined ? {} : { disabled: { after: fromIsoDate(max) } })}
+                disabled={[
+                  ...(min === undefined ? [] : [{ before: fromIsoDate(min) }]),
+                  ...(max === undefined ? [] : [{ after: fromIsoDate(max) }]),
+                ]}
                 onSelect={(date: Date | undefined) => {
                   if (date !== undefined) {
                     onValueChange(toIsoDate(date));

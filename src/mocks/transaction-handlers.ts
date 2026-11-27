@@ -1,14 +1,18 @@
-// The mock API's corrections of a Transaction: a Category change and Reverse
-// (ADR-0018, ADR-0024 in the backend), with the backend's rules and problems
-// word for word (../wallet-accountant/internal/ledger/adapters/http/corrections.go).
-import type { components } from "../api/schema.gen";
+// The mock API's writes of a Transaction: recording a cash one, a Category
+// change and Reverse (ADR-0018, ADR-0024 in the backend), with the backend's
+// rules and problems word for word
+// (../wallet-accountant/internal/ledger/adapters/http/corrections.go, cash.go).
+import { parseExactJson } from "../api/exact-json";
+import type { components, Decimal } from "../api/schema.gen";
 import type { MockDb, MockState } from "./db";
 import { http, withExactAmounts } from "./http";
 import { monthOf, monthWords } from "./months";
+import { currencyPlaces, fromUnits, toUnits } from "./statement-files";
 
 type Problem = components["schemas"]["Problem"];
 type AccountTransaction = components["schemas"]["AccountTransaction"];
 type Account = components["schemas"]["Account"];
+type CashTransactionCreation = components["schemas"]["CashTransactionCreation"];
 
 const notFound: Problem = { type: "about:blank", title: "Not Found", status: 404 };
 
@@ -32,7 +36,7 @@ const openingBalanceTransaction = problem(
   "The Opening balance Transaction changes only by voiding the first Statement import.",
 );
 
-function monthClosed(month: string, openMonth: string) {
+function monthClosed(month: string, openMonth: string, accountId?: string) {
   return {
     type: "/problems/month-closed",
     title: "Month closed",
@@ -40,7 +44,22 @@ function monthClosed(month: string, openMonth: string) {
     detail: `${monthWords(month)} is closed. Reopen it to change its entries.`,
     booking_month: month,
     open_month: openMonth,
+    ...(accountId === undefined ? {} : { account_id: accountId }),
   };
+}
+
+const invalidTransaction = (detail: string) =>
+  problem(422, "invalid-transaction", "Invalid Transaction", detail);
+
+/** Digits after the decimal point, trailing zeros aside. */
+const decimalPlaces = (amount: string) => (amount.split(".")[1] ?? "").replace(/0+$/, "").length;
+
+/** The ledger with `transaction` after every one booked on or before its date. */
+function inBookingOrder(ledger: AccountTransaction[], transaction: AccountTransaction) {
+  const at = ledger.findIndex(({ booking_date }) => booking_date > transaction.booking_date);
+  return at === -1
+    ? [...ledger, transaction]
+    : [...ledger.slice(0, at), transaction, ...ledger.slice(at)];
 }
 
 /** The Transaction with its Account, when the caller can see it. */
@@ -74,6 +93,176 @@ function isOpeningBalance(state: MockState, householdId: string, transaction: Ac
 
 export function transactionHandlers(db: MockDb) {
   return [
+    http.post(
+      "/households/{household_id}/accounts/{account_id}/transactions",
+      async ({ params, request, response }) => {
+        const state = db.read();
+        const isMember =
+          state.registered &&
+          state.households.some(({ household_id }) => household_id === params.household_id);
+        const accounts = isMember ? (state.accounts[params.household_id] ?? []) : [];
+        const account = accounts.find(({ account_id }) => account_id === params.account_id);
+        if (account === undefined) {
+          return response(404).json(notFound);
+        }
+        const respond = async (transaction: AccountTransaction, payee: string | undefined) =>
+          response.untyped(
+            await withExactAmounts(
+              response(201).json({
+                ...transaction,
+                account_id: account.account_id,
+                ...(payee === undefined ? {} : { payee }),
+              }),
+            ),
+          );
+        // A replay with the same Idempotency-Key answers with what it recorded.
+        const key = request.headers.get("Idempotency-Key") ?? undefined;
+        const replayed = key === undefined ? undefined : state.cashRecords?.[key];
+        const earlier = state.transactions[replayed?.accountId ?? ""]?.find(
+          ({ transaction_id }) => transaction_id === replayed?.transactionId,
+        );
+        if (replayed !== undefined && earlier !== undefined) {
+          return respond(earlier, replayed.payee);
+        }
+
+        // The amount is an exact JSON number: read it as text, never as a JS number.
+        const body = parseExactJson(
+          await new Response(request.body).text(),
+        ) as CashTransactionCreation;
+        if (body.category_id !== undefined && body.counterpart_account_id !== undefined) {
+          return response(422).json({
+            ...problem(
+              422,
+              "invalid-transfer",
+              "Invalid Transfer",
+              "A Transfer leg is booked against Account transfer: send category_id or counterpart_account_id, not both.",
+            ),
+            reason: "CATEGORY_AND_TRANSFER",
+          });
+        }
+        if (account.kind !== "CASH") {
+          return response(422).json(
+            problem(
+              422,
+              "not-a-cash-account",
+              "Not a cash Account",
+              "Only a cash Account takes Transactions by hand: a statement Account takes them only from its statements.",
+            ),
+          );
+        }
+        const places = currencyPlaces(account.currency);
+        if (body.amount.currency !== account.currency) {
+          return response(422).json(
+            invalidTransaction("The amount must be in the Account currency."),
+          );
+        }
+        if (
+          toUnits(body.amount.amount, Math.max(places, decimalPlaces(body.amount.amount))) === 0n
+        ) {
+          return response(422).json(invalidTransaction("The amount must not be zero."));
+        }
+        if (body.date > new Date().toISOString().slice(0, 10)) {
+          return response(422).json(
+            invalidTransaction("The date is after today: planned money belongs to Planning."),
+          );
+        }
+        if (body.counterpart_account_id !== undefined) {
+          // Transfer legs come with cash-accounts-and-transfers ticket 08.
+          return response.untyped(
+            Response.json(
+              { type: "about:blank", title: "Not in the mock yet", status: 500 },
+              { status: 500 },
+            ),
+          );
+        }
+        const categories = state.categories[params.household_id] ?? [];
+        const isUncategorised = ({ kind, name }: { kind: string; name: string }) =>
+          kind === "INTERNAL" && name === "Uncategorised";
+        const category =
+          body.category_id === undefined
+            ? categories.find(isUncategorised)
+            : categories.find(({ category_id }) => category_id === body.category_id);
+        if (category === undefined) {
+          return response(422).json(
+            problem(
+              422,
+              "invalid-category",
+              "Invalid Category",
+              "The category_id is not one of the Household's Categories.",
+            ),
+          );
+        }
+        if (category.kind === "INTERNAL" && !isUncategorised(category)) {
+          return response(422).json(
+            problem(
+              422,
+              "internal-category",
+              "Internal Category",
+              "Internal Categories belong to the system: only Uncategorised can be chosen.",
+            ),
+          );
+        }
+        if (body.date < account.start_date) {
+          return response(422).json(
+            invalidTransaction("The date is before the Account's start date."),
+          );
+        }
+        const month = monthOf(body.date);
+        if (month < account.open_month) {
+          return response(409).json(monthClosed(month, account.open_month, account.account_id));
+        }
+        if (decimalPlaces(body.amount.amount) > places) {
+          return response(422).json(
+            invalidTransaction("The amount has more decimal places than the Account currency."),
+          );
+        }
+
+        const amount = fromUnits(toUnits(body.amount.amount, places), places) as Decimal;
+        const recorded: AccountTransaction = {
+          transaction_id: crypto.randomUUID(),
+          booking_date: body.date,
+          transaction_date: body.date,
+          description: body.description,
+          amount: { amount, currency: account.currency },
+          category_id: category.category_id,
+          category_name: category.name,
+        };
+        const ledger = inBookingOrder(state.transactions[account.account_id] ?? [], recorded);
+        const balance = toUnits(account.balance?.amount ?? "0", places) + toUnits(amount, places);
+        db.write({
+          ...state,
+          accounts: {
+            ...state.accounts,
+            [params.household_id]: accounts.map((candidate) =>
+              candidate.account_id === account.account_id
+                ? {
+                    ...candidate,
+                    balance: {
+                      amount: fromUnits(balance, places) as Decimal,
+                      currency: account.currency,
+                    },
+                  }
+                : candidate,
+            ),
+          },
+          transactions: { ...state.transactions, [account.account_id]: ledger },
+          ...(key === undefined
+            ? {}
+            : {
+                cashRecords: {
+                  ...state.cashRecords,
+                  [key]: {
+                    accountId: account.account_id,
+                    transactionId: recorded.transaction_id,
+                    ...(body.payee === undefined ? {} : { payee: body.payee }),
+                  },
+                },
+              }),
+        });
+        return respond(recorded, body.payee);
+      },
+    ),
+
     http.patch(
       "/households/{household_id}/transactions/{transaction_id}",
       async ({ params, request, response }) => {

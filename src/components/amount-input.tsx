@@ -1,4 +1,4 @@
-import { useId, useState, type ClipboardEventHandler } from "react";
+import { useId, useState, type ClipboardEventHandler, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 
 import { formatDecimal, parseAmountInput, type Decimal } from "../lib/money";
@@ -24,6 +24,7 @@ interface AmountInputProps {
   /** Called on a paste; `event.preventDefault()` refuses it. */
   onPaste?: ClipboardEventHandler<HTMLInputElement>;
   name?: string;
+  inputRef?: Ref<HTMLInputElement>;
   required?: boolean;
   disabled?: boolean;
   /** For tests; the User's locale otherwise. */
@@ -47,6 +48,7 @@ export function AmountInput({
   onBlur,
   onPaste,
   name,
+  inputRef,
   required,
   disabled,
   locale,
@@ -94,6 +96,7 @@ export function AmountInput({
       <Input
         id={id}
         name={name}
+        ref={inputRef}
         type="text"
         inputMode="decimal"
         autoComplete="off"
