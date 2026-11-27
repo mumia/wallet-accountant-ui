@@ -575,7 +575,9 @@ export interface paths {
      *     `category_id` and `counterpart_account_id`, a counterpart that is
      *     the Account itself, isn't one of the Household's, or has another
      *     Account currency get 422 `/problems/invalid-transfer` with a
-     *     `reason`. An Account that isn't cash gets 422
+     *     `reason`. So does a date before a cash counterpart's start date
+     *     (`BEFORE_START_DATE`, naming the counterpart in `account_id`). An
+     *     Account that isn't cash gets 422
      *     `/problems/not-a-cash-account`: statement Accounts take
      *     Transactions only from their statements. A zero amount, one in
      *     another currency or with more decimal places than the Account's, a
@@ -816,9 +818,12 @@ export interface paths {
      *     (`COUNTERPART_NOT_CASH`; Transfers between statement Accounts come
      *     later), the row's own Account (`SAME_ACCOUNT`), another Account
      *     currency (`CURRENCY_MISMATCH`), an Account that isn't the
-     *     Household's (`UNKNOWN_ACCOUNT`), or a leg to match that isn't an In
+     *     Household's (`UNKNOWN_ACCOUNT`), a leg to match that isn't an In
      *     transit leg on the cash Account naming this row's Account with the
-     *     opposite amount (`NOT_A_MATCHING_LEG`).
+     *     opposite amount (`NOT_A_MATCHING_LEG`), or a row dated before the
+     *     cash Account's start date, when the cash Account didn't exist yet
+     *     (`BEFORE_START_DATE`, naming the cash Account in `account_id`).
+     *     Nothing is booked, and the row stays pending.
      *
      *     Retrying with the same Idempotency-Key and body returns the original
      *     result and never books twice.
@@ -2669,7 +2674,8 @@ export interface components {
     };
     /**
      * @description Problem details (RFC 9457) of a request that can't be carried out.
-     *     A refused Transfer (`/problems/invalid-transfer`) gives its `reason`.
+     *     A refused Transfer (`/problems/invalid-transfer`) gives its `reason`,
+     *     and for `BEFORE_START_DATE` the cash Account in `account_id`.
      *     A Category whose kind doesn't fit the amount's sign
      *     (`/problems/category-direction`) gives `category_id`,
      *     `category_kind` and `direction`.
@@ -2706,7 +2712,15 @@ export interface components {
         | "CURRENCY_MISMATCH"
         | "UNKNOWN_ACCOUNT"
         | "NOT_A_MATCHING_LEG"
+        | "BEFORE_START_DATE"
         | `${string}`;
+      /**
+       * Format: uuid
+       * @description The cash Account the Transfer is refused for: for
+       *     `BEFORE_START_DATE`, the one whose start date is after the
+       *     leg's date
+       */
+      account_id?: string;
       /**
        * Format: uuid
        * @description The Category refused for its kind

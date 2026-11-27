@@ -407,6 +407,50 @@ describe("Transfer legs", () => {
     expect(await transactionsOf(wallet.account_id)).toHaveLength(1);
   });
 
+  const on = (date: string, counterpart: string) =>
+    `"date":"${date}","amount":{"amount":-15,"currency":"EUR"},"description":"For the market","counterpart_account_id":"${counterpart}"`;
+
+  it("refuses a date before the cash Counterpart's start date, naming it, and books neither leg", async () => {
+    const wallet = await addWallet("2026-01-05");
+    const purse = await addWallet("2026-02-01", "Purse");
+
+    const { status, body } = await record(wallet.account_id, on("2026-01-20", purse.account_id));
+
+    expect(status).toBe(422);
+    expect(body as TransferProblem).toMatchObject({
+      type: "/problems/invalid-transfer",
+      reason: "BEFORE_START_DATE",
+      account_id: purse.account_id,
+      detail: expect.stringContaining(
+        "The date, 2026-01-20, is before the counterpart cash Account's start date, 2026-02-01",
+      ) as unknown,
+    });
+    expect(await balanceOf(wallet.account_id)).toMatchObject({ amount: "40.00" });
+    expect(await balanceOf(purse.account_id)).toMatchObject({ amount: "40.00" });
+  });
+
+  it("takes a date on the cash Counterpart's start date", async () => {
+    const wallet = await addWallet("2026-01-05");
+    const purse = await addWallet("2026-02-01", "Purse");
+
+    const { status } = await record(wallet.account_id, on("2026-02-01", purse.account_id));
+
+    expect(status).toBe(201);
+  });
+
+  it("refuses a date before the Account's own start date as invalid-transaction, whatever the Counterpart", async () => {
+    const wallet = await addWallet("2026-02-01");
+    const purse = await addWallet("2026-03-01", "Purse");
+
+    const { status, body } = await record(wallet.account_id, on("2026-01-20", purse.account_id));
+
+    expect(status).toBe(422);
+    expect(body).toMatchObject({
+      type: "/problems/invalid-transaction",
+      detail: "The date is before the Account's start date.",
+    });
+  });
+
   it("refuses a date in the Counterpart's closed month, naming it, and books neither leg", async () => {
     const wallet = await addWallet("2026-01-05");
     const purse = await addWallet("2026-01-05", "Purse");
