@@ -31,6 +31,7 @@ import {
   type CategoryNode,
 } from "../../lib/categories";
 import { formatMonth, monthOf, type Month } from "../../lib/month";
+import { canTakeLegOn } from "../../lib/transfers";
 import { ReviewTable } from "./review-table";
 import {
   suggestionsParams,
@@ -140,7 +141,11 @@ export function ToReviewTab({
   );
 }
 
-const noTransfers: readonly { account_id: string; name: string }[] = [];
+interface TransferChoice {
+  account_id: string;
+  name: string;
+}
+const noTransfers: readonly TransferChoice[] = [];
 
 function uncategorisedId(categories: CategoryNode[] | undefined): string | undefined {
   return flattenCategories(categories ?? []).find(isUncategorised)?.id;
@@ -219,19 +224,32 @@ function ReviewLists({
   };
   const categoryOf = (row: ImportedTransaction) =>
     chosen.get(row.imported_transaction_id) ?? uncategorised;
-  // A row is a Transfer only with a cash Account in its currency (spec, "Accept as Transfer").
-  // By currency, so each row's picker gets the same list from render to render.
+  // A row is a Transfer only with a cash Account in its currency (spec, "Accept as Transfer")
+  // that had started by the row's Transaction date, the date its cash leg is booked on.
+  // Built once per currency and start date, so each row's picker gets the same
+  // list from render to render: the one for the latest start date by the row's.
   const cashByCurrency = useMemo(() => {
-    const byCurrency = new Map<string, { account_id: string; name: string }[]>();
-    for (const account of accounts ?? []) {
-      if (isCash(account) && account.account_id !== accountId) {
-        byCurrency.set(account.currency, [...(byCurrency.get(account.currency) ?? []), account]);
-      }
+    const cash = (accounts ?? []).filter(
+      (account) => isCash(account) && account.account_id !== accountId,
+    );
+    const byCurrency = new Map<string, { from: string; list: TransferChoice[] }[]>();
+    for (const currency of new Set(cash.map((account) => account.currency))) {
+      const inCurrency = cash.filter((account) => account.currency === currency);
+      const starts = [...new Set(inCurrency.map(({ start_date }) => start_date))].sort();
+      byCurrency.set(
+        currency,
+        starts.map((from) => ({
+          from,
+          list: inCurrency.filter((account) => canTakeLegOn(account, from)),
+        })),
+      );
     }
     return byCurrency;
   }, [accounts, accountId]);
-  const transfersOf = (row: ImportedTransaction) =>
-    cashByCurrency.get(row.amount.currency) ?? noTransfers;
+  const transfersOf = (row: ImportedTransaction): readonly TransferChoice[] =>
+    (cashByCurrency.get(row.amount.currency) ?? []).findLast(
+      ({ from }) => from <= row.transaction_date,
+    )?.list ?? noTransfers;
 
   const suspectedRows = (suspectedQuery.data ?? []).filter(
     ({ imported_transaction_id: id }) => !removed.has(id) && !kept.has(id),
@@ -309,9 +327,7 @@ function ReviewLists({
    */
   const acceptRow = async (row: ImportedTransaction) => {
     const cashId = counterpartOf(categoryOf(row) ?? null);
-    const cash = cashByCurrency
-      .get(row.amount.currency)
-      ?.find(({ account_id }) => account_id === cashId);
+    const cash = transfersOf(row).find(({ account_id }) => account_id === cashId);
     if (cash === undefined) {
       await run("accept", [row]);
       return;

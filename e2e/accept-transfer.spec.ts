@@ -36,12 +36,12 @@ async function apiCall(page: Page, method: string, path: string, body?: string) 
 }
 
 /** Adds a cash Account, returning its ID. */
-async function addCash(page: Page, name: string, currency = "EUR") {
+async function addCash(page: Page, name: string, currency = "EUR", startDate = "2026-11-01") {
   const account = await apiCall(
     page,
     "POST",
     `${home}/accounts`,
-    `{"name":"${name}","kind":"CASH","currency":"${currency}","start_date":"2026-11-01","opening_count":{"amount":40.00,"currency":"${currency}"},"opening_count_confirmation":{"amount":40.00,"currency":"${currency}"}}`,
+    `{"name":"${name}","kind":"CASH","currency":"${currency}","start_date":"${startDate}","opening_count":{"amount":40.00,"currency":"${currency}"},"opening_count_confirmation":{"amount":40.00,"currency":"${currency}"}}`,
   );
   return account.account_id ?? "";
 }
@@ -104,6 +104,24 @@ test("the row's picker offers cash Accounts in the row's currency, by its sign",
   await page.getByRole("checkbox", { name: `Select ${cafe}` }).check();
   await page.getByRole("combobox", { name: "Category for the selected rows" }).click();
   await expect(page.getByRole("group", { name: "Transfer" })).toHaveCount(0);
+});
+
+test("the row's picker leaves out a cash Account that started after the row's date", async ({
+  page,
+}) => {
+  await start(page);
+  // Its cash leg would be booked on Nov 19 for Café de Jaren, before Late started.
+  await addCash(page, "Late", "EUR", "2026-11-20");
+  await page.goto(toReview);
+
+  await page.getByRole("combobox", { name: `Category for ${cafe}` }).click();
+  const transfers = page.getByRole("group", { name: "Transfer" }).getByRole("option");
+  await expect(transfers).toHaveText(["Transfer to Wallet"]);
+  await page.keyboard.press("Escape");
+
+  // Tikkie from Sam is on Late's start date.
+  await page.getByRole("combobox", { name: `Category for ${tikkie}` }).click();
+  await expect(transfers).toHaveText(["Transfer from Wallet", "Transfer from Late"]);
 });
 
 test("with nothing noted in Wallet, Accept records Wallet's side at once", async ({ page }) => {

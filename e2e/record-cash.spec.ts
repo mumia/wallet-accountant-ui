@@ -162,6 +162,43 @@ test("a date before the open month is refused", async ({ page }) => {
   await expect(page.getByRole("row", { name: /Bus ticket/ })).toBeVisible();
 });
 
+test("a cash Counterpart that hadn't started by the date is refused", async ({ page }) => {
+  await addWallet(page, "2026-11-01");
+  const purse = await page.evaluate(async (path) => {
+    const response = await fetch(`/api${path}/accounts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"name":"Purse","kind":"CASH","currency":"EUR","start_date":"2026-11-20","opening_count":{"amount":40.00,"currency":"EUR"},"opening_count_confirmation":{"amount":40.00,"currency":"EUR"}}',
+    });
+    return response.status;
+  }, home);
+  expect(purse).toBe(201);
+  await page.reload();
+
+  await page.getByRole("button", { name: "Record a Transaction" }).click();
+  const sheet = sheetOf(page);
+  await sheet.getByRole("textbox", { name: "Amount (EUR)" }).fill("-15");
+  await pickOtherSide(page, "Transfer to Purse");
+  await sheet.getByRole("textbox", { name: "Description" }).fill("For the market");
+  const date = sheet.getByRole("textbox", { name: "Date" });
+  await date.fill("11/10/2026");
+  await sheet.getByRole("button", { name: "Save", exact: true }).click();
+
+  const picker = sheet.getByRole("combobox", { name: "Other side" });
+  await expect(picker).toHaveAccessibleDescription(
+    /Purse starts on November 20, 2026: pick that date or later, or another Account/,
+  );
+  await expect(sheet).toBeVisible();
+  await expectAccessible(page);
+
+  // Purse's start date fits, and the message goes with the new date.
+  await date.fill("11/20/2026");
+  await expect(picker).not.toHaveAccessibleDescription(/Purse starts on/);
+  await sheet.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByRole("row", { name: /For the market/ })).toBeVisible();
+});
+
 test("a server problem shows in the sheet, with the input kept", async ({ page }) => {
   const wallet = await addWallet(page, "2026-10-15");
   await page.getByRole("button", { name: "Record a Transaction" }).click();

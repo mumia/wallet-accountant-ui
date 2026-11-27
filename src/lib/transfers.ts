@@ -8,6 +8,17 @@ import type { AmountSign } from "./categories";
 
 type AccountKind = components["schemas"]["AccountKind"];
 
+/**
+ * Whether a Transfer on `date` (an ISO date) can book a leg on this Account.
+ * A cash Account holds no money before its start date, so the Ledger refuses
+ * a leg booked earlier (422 `invalid-transfer`, `BEFORE_START_DATE`). A
+ * statement Account's leg is In transit, booked by its own import, so any
+ * date fits it.
+ */
+export function canTakeLegOn(account: { kind: AccountKind; start_date: string }, date: string) {
+  return !isCash(account) || account.start_date <= date;
+}
+
 /** A Transfer leg, recognised by its Counterpart Account. */
 export function isTransferLeg(transaction: { counterpart_account_id?: string | undefined }) {
   return transaction.counterpart_account_id !== undefined;
