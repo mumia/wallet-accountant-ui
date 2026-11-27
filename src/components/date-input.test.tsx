@@ -7,12 +7,27 @@ import { initI18n } from "../app/i18n";
 import type { IsoDate } from "../lib/date";
 import { DateInput } from "./date-input";
 
-function Harness({ initial = null }: { initial?: IsoDate | null }) {
+function Harness({
+  initial = null,
+  min,
+  max,
+}: {
+  initial?: IsoDate | null;
+  min?: IsoDate;
+  max?: IsoDate;
+}) {
   const [value, setValue] = useState<IsoDate | null>(initial);
   return (
     <>
       <label htmlFor="start">Start date</label>
-      <DateInput id="start" value={value} onValueChange={setValue} locale="en-GB" />
+      <DateInput
+        id="start"
+        value={value}
+        onValueChange={setValue}
+        locale="en-GB"
+        {...(min === undefined ? {} : { min })}
+        {...(max === undefined ? {} : { max })}
+      />
       <output>{value ?? "none"}</output>
     </>
   );
@@ -68,5 +83,16 @@ describe("DateInput", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("2026-10-31");
     expect(screen.getByRole("textbox", { name: "Start date" })).toHaveValue("31/10/2026");
+  });
+
+  it("disables the days before `min` and after `max` in the calendar", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial="2026-11-10" min="2026-11-03" max="2026-11-20" />);
+
+    await user.click(screen.getByRole("button", { name: "Choose a date" }));
+    expect(await screen.findByRole("button", { name: /\b2 November 2026/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /\b3 November 2026/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /\b20 November 2026/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /\b21 November 2026/ })).toBeDisabled();
   });
 });

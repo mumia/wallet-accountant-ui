@@ -25,7 +25,10 @@
     "showAllMonths": "Show all months",
     "goToReview": "Go to To review",
     "allCategorised": "Everything in {{month}} has a Category ✓",
-    "showAllTransactions": "Show all Transactions"
+    "showAllTransactions": "Show all Transactions",
+    "noneCash": "No Transactions yet",
+    "monthCash": "No Transactions in {{month}} yet",
+    "recordOne": "Record one"
   },
   "reversalOf": "Reversal of {{row}}",
   "reversalOfUnknown": "Reversal",
@@ -44,5 +47,31 @@
     "backToReview": "Its Imported transaction is back in To review.",
     "open": "Open",
     "failed": "{{row}} wasn't reversed"
+  },
+  "record": {
+    "title": "Record a Transaction",
+    "description": "Cash paid or received from {{account}}, in {{currency}}.",
+    "amount": "Amount",
+    "amountHelp": "Use a minus for money out, e.g. {{example}}",
+    "amountRequired": "Type the amount",
+    "amountZero": "The amount can't be zero",
+    "otherSide": "Other side",
+    "otherSideHelp": "Leave empty for Uncategorised.",
+    "clearedExpense": "{{category}} was cleared: Expense Categories are for money out.",
+    "clearedIncome": "{{category}} was cleared: Income Categories are for money in.",
+    "date": "Date",
+    "dateInvalid": "Type a date, such as {{example}}",
+    "dateBeforeStart": "The date can't be before the Account's start date, {{date}}",
+    "dateInClosedMonth": "The months before {{month}} are closed: pick {{date}} or later",
+    "dateTooLate": "The date can't be later than today",
+    "descriptionField": "Description",
+    "descriptionRequired": "Say what it was",
+    "descriptionTooLong": "A description has at most 500 characters",
+    "payee": "Payee (optional)",
+    "payeeHelp": "Who was paid, or who paid.",
+    "payeeTooLong": "A payee has at most 200 characters",
+    "saveAndAddAnother": "Save and add another",
+    "save": "Save",
+    "saved": "Recorded: {{description}}, {{amount}}"
   }
 }

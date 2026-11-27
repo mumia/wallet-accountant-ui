@@ -1,10 +1,11 @@
 import { Link, useSearch } from "@tanstack/react-router";
-import { EllipsisIcon, UploadIcon } from "lucide-react";
+import { EllipsisIcon, PlusIcon, UploadIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useApi } from "../../api/context";
 import { useAccountLabels } from "../../components/account-labels";
+import { useRecordTransaction } from "../../components/record-transaction";
 import { Button, buttonVariants } from "../../components/ui/button";
 import {
   DropdownMenu,
@@ -27,7 +28,9 @@ const tabClass =
  *
  * A cash Account (cash-accounts-and-transfers spec, "Cash Account screens") has
  * no statements: no Import statement, and only the Transactions and Months tabs.
- * Its menu adds Correct opening count… while the start date's month is open.
+ * Its header has Record a Transaction instead, which opens the sheet the
+ * route provides, and its menu adds Correct opening count… while the start
+ * date's month is open.
  */
 export function AccountArea({
   householdId,
@@ -54,6 +57,7 @@ export function AccountArea({
   const [renaming, setRenaming] = useState(false);
   const [recounting, setRecounting] = useState(false);
   const statements = !isCash(account);
+  const record = useRecordTransaction();
 
   return (
     <div className="mx-auto grid max-w-5xl gap-4">
@@ -75,6 +79,16 @@ export function AccountArea({
               <UploadIcon aria-hidden="true" />
               {t("area.importStatement")}
             </Link>
+          )}
+          {record !== undefined && (
+            <Button
+              onClick={() => {
+                record();
+              }}
+            >
+              <PlusIcon aria-hidden="true" />
+              {t("area.recordTransaction")}
+            </Button>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger

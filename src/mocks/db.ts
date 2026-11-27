@@ -71,6 +71,11 @@ export interface MockState {
   /** Each Account's Month closes, by Account ID, then by month (`2026-03`). */
   monthCloses?: Record<string, Record<string, MonthClose>>;
   /**
+   * The Transaction each recorded cash Transaction's Idempotency-Key recorded,
+   * by key, so a replay answers with it again.
+   */
+  cashRecords?: Record<string, { accountId: string; transactionId: string; payee?: string }>;
+  /**
    * The next `remaining` requests whose path ends with `pathEnd` (and that use
    * `method`, when given) fail with a 503.
    */

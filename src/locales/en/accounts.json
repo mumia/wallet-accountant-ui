@@ -41,6 +41,7 @@
   },
   "area": {
     "importStatement": "Import statement",
+    "recordTransaction": "Record a Transaction",
     "actions": "More Account actions",
     "rename": "Rename…",
     "correctOpeningCount": "Correct opening count…",
