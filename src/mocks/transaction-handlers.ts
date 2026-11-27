@@ -63,6 +63,147 @@ function inBookingOrder(ledger: AccountTransaction[], transaction: AccountTransa
     : [...ledger.slice(0, at), transaction, ...ledger.slice(at)];
 }
 
+interface Reversing {
+  account: Account;
+  transaction: AccountTransaction;
+}
+
+/**
+ * Whether reversing the leg `self` reverses the leg it was Matched to,
+ * `other`, as the backend's cascades (ledger/app/corrections.go) decides: the
+ * cash leg an Accept as Transfer recorded on its own, and either leg of a
+ * cash ↔ cash Transfer, can't stand alone.
+ */
+const cascades = (self: Reversing, other: Reversing) =>
+  (other.transaction.created_by_transfer === true &&
+    self.transaction.created_by_transfer !== true) ||
+  (self.account.kind === "CASH" && other.account.kind === "CASH");
+
+/**
+ * Reverses a Transaction as the backend's Reverse does: a Matched leg's Match
+ * is removed, both legs unmatched, and the other leg reversed too when it
+ * cascades; every one reversed is checked against its Account's closed months
+ * in Account ID order, the first refusal naming that Account and reversing
+ * nothing. A cash Account's balance follows; an Accepted row goes back to
+ * pending.
+ */
+function reverseWithCascade(
+  state: MockState,
+  householdId: string,
+  account: Account,
+  transaction: AccountTransaction,
+):
+  { problem: ReturnType<typeof monthClosed> } | { state: MockState; reversal: AccountTransaction } {
+  const accounts = state.accounts[householdId] ?? [];
+  const self: Reversing = { account, transaction };
+  const matchId = transaction.match_id;
+  let other: Reversing | undefined;
+  if (matchId !== undefined) {
+    const counterpart = accounts.find(
+      ({ account_id }) => account_id === transaction.counterpart_account_id,
+    );
+    const leg = state.transactions[counterpart?.account_id ?? ""]?.find(
+      (candidate) => candidate.match_id === matchId,
+    );
+    if (counterpart !== undefined && leg !== undefined) {
+      other = { account: counterpart, transaction: leg };
+    }
+  }
+  const reversing = (other !== undefined && cascades(self, other) ? [self, other] : [self]).sort(
+    (a, b) => (a.account.account_id < b.account.account_id ? -1 : 1),
+  );
+  for (const { account: on, transaction: original } of reversing) {
+    const month = monthOf(original.booking_date);
+    if (month < on.open_month) {
+      return { problem: monthClosed(month, on.open_month, on.account_id) };
+    }
+  }
+
+  const unmatched = (candidate: AccountTransaction) => {
+    if (matchId === undefined || candidate.match_id !== matchId) {
+      return candidate;
+    }
+    const without = { ...candidate };
+    delete without.match_id;
+    return without;
+  };
+  let next: MockState = {
+    ...state,
+    transactions: Object.fromEntries(
+      Object.entries(state.transactions).map(([accountId, ledger]) => [
+        accountId,
+        ledger.map(unmatched),
+      ]),
+    ),
+  };
+  let ownReversal: AccountTransaction | undefined;
+  for (const { account: on, transaction: original } of reversing) {
+    const amount = original.amount.amount;
+    const reversal: AccountTransaction = {
+      transaction_id: crypto.randomUUID(),
+      booking_date: original.booking_date,
+      transaction_date: original.transaction_date,
+      description: original.description,
+      amount: {
+        ...original.amount,
+        amount: (amount.startsWith("-") ? amount.slice(1) : `-${amount}`) as typeof amount,
+      },
+      category_id: original.category_id,
+      category_name: original.category_name,
+      reversal_of_transaction_id: original.transaction_id,
+    };
+    if (original.transaction_id === transaction.transaction_id) {
+      ownReversal = reversal;
+    }
+    const ledger = (next.transactions[on.account_id] ?? []).flatMap((candidate) =>
+      candidate.transaction_id === original.transaction_id
+        ? [{ ...candidate, reversed_by_transaction_id: reversal.transaction_id }, reversal]
+        : [candidate],
+    );
+    // An Accepted row's Imported transaction goes back to pending.
+    const rows = (next.importedRows?.[on.account_id] ?? []).map((row) => {
+      if (row.imported_transaction_id !== original.imported_transaction_id) {
+        return row;
+      }
+      const pending = { ...row, state: "PENDING" as const };
+      delete pending.transaction_id;
+      return pending;
+    });
+    const places = currencyPlaces(on.currency);
+    next = {
+      ...next,
+      transactions: { ...next.transactions, [on.account_id]: ledger },
+      importedRows: { ...next.importedRows, [on.account_id]: rows },
+      // A cash Account's balance is kept from what it records.
+      accounts:
+        on.kind === "CASH"
+          ? {
+              ...next.accounts,
+              [householdId]: (next.accounts[householdId] ?? []).map((candidate) =>
+                candidate.account_id === on.account_id
+                  ? {
+                      ...candidate,
+                      balance: {
+                        amount: fromUnits(
+                          toUnits(candidate.balance?.amount ?? "0", places) -
+                            toUnits(amount, places),
+                          places,
+                        ) as Decimal,
+                        currency: on.currency,
+                      },
+                    }
+                  : candidate,
+              ),
+            }
+          : next.accounts,
+    };
+  }
+  if (ownReversal === undefined) {
+    throw new Error("The reversed Transaction is always among those reversed.");
+  }
+  return { state: next, reversal: ownReversal };
+}
+
 /** The Transaction with its Account, when the caller can see it. */
 function findTransaction(
   state: MockState,
@@ -514,47 +655,14 @@ export function transactionHandlers(db: MockDb) {
             ),
           );
         }
-        const month = monthOf(transaction.booking_date);
-        if (month < account.open_month) {
-          return response(409).json(monthClosed(month, account.open_month));
+        const reversed = reverseWithCascade(state, params.household_id, account, transaction);
+        if ("problem" in reversed) {
+          return response(409).json(reversed.problem);
         }
-        const amount = transaction.amount.amount;
-        const reversal: AccountTransaction = {
-          transaction_id: crypto.randomUUID(),
-          booking_date: transaction.booking_date,
-          transaction_date: transaction.transaction_date,
-          description: transaction.description,
-          amount: {
-            ...transaction.amount,
-            amount: (amount.startsWith("-") ? amount.slice(1) : `-${amount}`) as typeof amount,
-          },
-          category_id: transaction.category_id,
-          category_name: transaction.category_name,
-          reversal_of_transaction_id: transaction.transaction_id,
-        };
-        const reversed = { ...transaction, reversed_by_transaction_id: reversal.transaction_id };
-        const ledger = (state.transactions[account.account_id] ?? []).flatMap((candidate) =>
-          candidate.transaction_id === transaction.transaction_id
-            ? [reversed, reversal]
-            : [candidate],
-        );
-        // An Accepted row's Imported transaction goes back to pending.
-        const rows = (state.importedRows?.[account.account_id] ?? []).map((row) => {
-          if (row.imported_transaction_id !== transaction.imported_transaction_id) {
-            return row;
-          }
-          const pending = { ...row, state: "PENDING" as const };
-          delete pending.transaction_id;
-          return pending;
-        });
-        db.write({
-          ...state,
-          transactions: { ...state.transactions, [account.account_id]: ledger },
-          importedRows: { ...state.importedRows, [account.account_id]: rows },
-        });
+        db.write(reversed.state);
         return response.untyped(
           await withExactAmounts(
-            response(201).json({ ...reversal, account_id: account.account_id }),
+            response(201).json({ ...reversed.reversal, account_id: account.account_id }),
           ),
         );
       },

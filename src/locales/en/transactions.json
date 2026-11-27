@@ -54,7 +54,13 @@
     "done": "Reversed.",
     "backToReview": "Its Imported transaction is back in To review.",
     "open": "Open",
-    "failed": "{{row}} wasn't reversed"
+    "failed": "{{row}} wasn't reversed",
+    "warning": {
+      "bankLeg": "Its row goes back to To review. If {{counterpart}}'s side was recorded by this Accept, it's reversed too. If you noted it by hand, it stays, In transit.",
+      "cashLeg": "Only this side is reversed. {{counterpart}}'s side stays Accepted, In transit.",
+      "both": "Both sides are reversed: this one and {{counterpart}}'s."
+    },
+    "monthClosed": "{{account}}'s {{month}} is closed. Reopen it to reverse this."
   },
   "record": {
     "title": "Record a Transaction",

@@ -27,3 +27,15 @@ export function isRegistrationRequired(error: unknown): boolean {
     isProblem(error) && error.status === 403 && error.type === "/problems/registration-required"
   );
 }
+
+/** A problem about a month: which one, and whose (`account_id`, which can be another Account's). */
+export type MonthProblem = components["schemas"]["MonthProblem"];
+
+/** A 409 `/problems/month-closed` naming its month. */
+export function isMonthClosed(error: unknown): error is MonthProblem & { booking_month: string } {
+  return (
+    isProblem(error) &&
+    error.type === "/problems/month-closed" &&
+    typeof (error as MonthProblem).booking_month === "string"
+  );
+}
