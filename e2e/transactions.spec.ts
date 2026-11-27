@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { comboboxListOpen, expectAccessible } from "./axe";
+import { forceCategory } from "./force-category";
 
 // Main in the default mock scenario (src/mocks/db.ts): its Opening balance, then
 // rent, 22 card payments and salary each month from January to November 2026,
@@ -143,6 +144,23 @@ test("a failed save rolls back, with a toast naming the row", async ({ page }) =
   await page.keyboard.press("F6");
   await failed.getByRole("button", { name: "Close" }).click();
   await expect(failed).toBeHidden();
+});
+
+test("a Category the server refuses for the row's sign rolls back, with a toast", async ({
+  page,
+}) => {
+  await page.goto(`${main}?booking_month=2026-11`);
+  await expect(picker(page, bolNov7)).toHaveValue("Uncategorised");
+
+  // An Income Category on money out, past the picker.
+  await forceCategory(page, home, "Salary");
+  await pick(page, bolNov7, "Transport");
+
+  const failed = toast(page, "wasn't changed");
+  await expect(failed).toContainText("The Category of Nov 7, 2026, Bol.com, -€9.28 wasn't changed");
+  await expect(failed).toContainText("Category doesn't fit the amount");
+  await expect(picker(page, bolNov7)).toHaveValue("Uncategorised");
+  await expectAccessible(page);
 });
 
 test("the Uncategorised toggle narrows a month, and keeps rows given a Category", async ({

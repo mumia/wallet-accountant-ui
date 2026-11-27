@@ -210,3 +210,100 @@ describe("POST …/accounts/{id}/transactions", () => {
     expect(status).toBe(201);
   });
 });
+
+describe("the Category direction rule", () => {
+  const cafeRow = "0190f5f2-7c00-7000-8000-000000000507";
+
+  /** Main's November Transaction described `description`. */
+  async function mainNovember(description: string) {
+    const { body } = await call(
+      "GET",
+      `/households/${home}/accounts/${main}/transactions?booking_month=2026-11`,
+    );
+    const found = (body as TransactionList).items.find(
+      (transaction) => transaction.description === description,
+    );
+    if (found === undefined) {
+      throw new Error(`No ${description} in Main's November`);
+    }
+    return found;
+  }
+
+  it("refuses an Expense Category on cash in, naming it, and books nothing", async () => {
+    const wallet = await addWallet();
+    const groceries = await categoryId("Groceries");
+
+    const { status, body } = await record(
+      wallet.account_id,
+      `${coffee(today(), "5.00")},"category_id":"${groceries}"`,
+    );
+
+    expect(status).toBe(422);
+    expect(body).toEqual({
+      type: "/problems/category-direction",
+      title: "Category doesn't fit the amount",
+      status: 422,
+      detail:
+        "An Expense Category takes only money out, and this amount is money in. Choose an Income Category, or Uncategorised.",
+      category_id: groceries,
+      category_kind: "EXPENSE",
+      direction: "IN",
+    });
+    expect(await transactionsOf(wallet.account_id)).toHaveLength(1);
+  });
+
+  it("refuses an Income Category on cash out", async () => {
+    const wallet = await addWallet();
+    const salary = await categoryId("Salary");
+
+    const { status, body } = await record(
+      wallet.account_id,
+      `${coffee()},"category_id":"${salary}"`,
+    );
+
+    expect(status).toBe(422);
+    expect(body).toMatchObject({
+      type: "/problems/category-direction",
+      category_id: salary,
+      category_kind: "INCOME",
+      direction: "OUT",
+    });
+  });
+
+  it("refuses Set Category of the wrong kind, and keeps the Category", async () => {
+    const bol = await mainNovember("Bol.com");
+    const salary = await categoryId("Salary");
+
+    const { status, body } = await call(
+      "PATCH",
+      `/households/${home}/transactions/${bol.transaction_id}`,
+      `{"category_id":"${salary}"}`,
+    );
+
+    expect(status).toBe(422);
+    expect(body).toMatchObject({
+      type: "/problems/category-direction",
+      category_id: salary,
+      category_kind: "INCOME",
+      direction: "OUT",
+    });
+    expect((await mainNovember("Bol.com")).category_id).toBe(bol.category_id);
+  });
+
+  it("refuses Accept with the wrong kind, leaving the row To review", async () => {
+    const salary = await categoryId("Salary");
+    const path = `/households/${home}/imported-transactions/${cafeRow}`;
+
+    const { status, body } = await call("POST", `${path}/accept`, `{"category_id":"${salary}"}`);
+
+    expect(status).toBe(422);
+    expect(body).toMatchObject({
+      type: "/problems/category-direction",
+      category_id: salary,
+      category_kind: "INCOME",
+      direction: "OUT",
+    });
+    const accepted = await call("POST", `${path}/accept`, "");
+    expect(accepted.status).toBe(200);
+  });
+});

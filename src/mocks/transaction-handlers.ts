@@ -4,6 +4,7 @@
 // (../wallet-accountant/internal/ledger/adapters/http/corrections.go, cash.go).
 import { parseExactJson } from "../api/exact-json";
 import type { components, Decimal } from "../api/schema.gen";
+import { categoryDirection } from "./category-direction";
 import type { MockDb, MockState } from "./db";
 import { http, withExactAmounts } from "./http";
 import { monthOf, monthWords } from "./months";
@@ -202,6 +203,10 @@ export function transactionHandlers(db: MockDb) {
             ),
           );
         }
+        const misdirected = categoryDirection(category, body.amount.amount);
+        if (misdirected !== undefined) {
+          return response(422).json(misdirected);
+        }
         if (body.date < account.start_date) {
           return response(422).json(
             invalidTransaction("The date is before the Account's start date."),
@@ -312,6 +317,11 @@ export function transactionHandlers(db: MockDb) {
               "Internal Categories belong to the system: only Uncategorised can be chosen.",
             ),
           );
+        }
+        // In a closed month too.
+        const misdirected = categoryDirection(category, transaction.amount.amount);
+        if (misdirected !== undefined) {
+          return response(422).json(misdirected);
         }
         const month = monthOf(transaction.booking_date);
         if (uncategorised && month < account.open_month) {
