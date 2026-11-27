@@ -6,8 +6,10 @@ import { useTranslation } from "react-i18next";
 import { useApi } from "../../api/context";
 import { Button, buttonVariants } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
+import { isCash } from "../../lib/account-query";
 import { formatMonth, isMonth, type Month } from "../../lib/month";
 import { ClosedMonth } from "./closed-month";
+import { InTransitCount } from "./in-transit-count";
 import { AwaitingFirstImport, MonthStateBadge } from "./months-tab";
 import { useMonths } from "./months-query";
 import { OpenMonth } from "./open-month";
@@ -95,6 +97,7 @@ export function MonthPage({
         {arrow(later, "next", t("noNext"), <ChevronRightIcon aria-hidden="true" />)}
         <MonthStateBadge state={status.state} />
       </div>
+      <InTransitCount count={status.transfer_legs_in_transit} />
       {status.state === "OPEN" && (
         <OpenMonth
           // A new month starts the form over.
@@ -105,6 +108,7 @@ export function MonthPage({
           status={status}
           currency={account.currency}
           decimalPlaces={decimalPlaces}
+          cash={isCash(account)}
         />
       )}
       {status.state === "CLOSED" && (
@@ -114,6 +118,7 @@ export function MonthPage({
           month={month}
           status={status}
           openMonth={openMonth}
+          cash={isCash(account)}
         />
       )}
       {status.state === "NOT_OPEN_YET" && (

@@ -24,6 +24,8 @@ export type ImportedRow = Omit<ImportedTransaction, "resembles"> & { resembles_i
 export interface MonthClose {
   statement_balance: components["schemas"]["Money"];
   closed_at: string;
+  /** The day a cash month's Cash count was taken. */
+  counted_on?: string;
 }
 
 /** The seeded User's display name; the token's name is "Sam Example" (`src/mocks/browser.ts`). */

@@ -6,6 +6,7 @@ import { useApi } from "../../api/context";
 import type { components } from "../../api/schema.gen";
 import { unwrap } from "../../api/unwrap";
 import { useRefetchAccountReads } from "../../lib/account-query";
+import type { IsoDate } from "../../lib/date";
 import type { Decimal } from "../../lib/money";
 
 export type AccountMonth = components["schemas"]["AccountMonth"];
@@ -27,13 +28,25 @@ export function useCloseMonth(householdId: string, accountId: string, currency: 
   const { fetchClient } = useApi();
   const refetch = useRefetchAccountReads(householdId, accountId);
   return useMutation({
-    mutationFn: async ({ month, statementBalance }: { month: string; statementBalance: Decimal }) =>
+    mutationFn: async ({
+      month,
+      statementBalance,
+      countedOn,
+    }: {
+      month: string;
+      statementBalance: Decimal;
+      /** A cash month's Cash count day; never sent for a statement Account. */
+      countedOn?: IsoDate;
+    }) =>
       unwrap(
         await fetchClient.POST(`${monthPath}/close`, {
           params: {
             path: { household_id: householdId, account_id: accountId, booking_month: month },
           },
-          body: { statement_balance: { amount: statementBalance, currency } },
+          body: {
+            statement_balance: { amount: statementBalance, currency },
+            ...(countedOn === undefined ? {} : { counted_on: countedOn }),
+          },
         }),
       ),
     onSuccess: refetch,

@@ -126,7 +126,7 @@ test("a date before the open month is refused", async ({ page }) => {
     const response = await fetch(`/api${path}/months/2026-10/close`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: '{"statement_balance":{"amount":40.00,"currency":"EUR"}}',
+      body: '{"statement_balance":{"amount":40.00,"currency":"EUR"},"counted_on":"2026-11-01"}',
     });
     return `${String(response.status)} ${await response.text()}`;
   }, wallet);
@@ -174,7 +174,7 @@ test("a server problem shows in the sheet, with the input kept", async ({ page }
     await fetch(`/api${path}/months/2026-10/close`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: '{"statement_balance":{"amount":40.00,"currency":"EUR"}}',
+      body: '{"statement_balance":{"amount":40.00,"currency":"EUR"},"counted_on":"2026-11-01"}',
     });
   }, wallet);
   await sheet.getByRole("button", { name: "Save", exact: true }).click();

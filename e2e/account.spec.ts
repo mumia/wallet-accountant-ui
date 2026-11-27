@@ -321,7 +321,7 @@ test("once the start month closes, the Opening count is locked and the item is g
     await fetch(`/api${path}/months/2026-10/close`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: '{"statement_balance":{"amount":40.00,"currency":"EUR"}}',
+      body: '{"statement_balance":{"amount":40.00,"currency":"EUR"},"counted_on":"2026-11-01"}',
     });
   }, wallet);
   await dialog.getByRole("textbox", { name: "Opening count (EUR)" }).fill("45");

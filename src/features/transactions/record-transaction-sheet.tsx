@@ -245,6 +245,7 @@ function RecordForm({
             },
             {
               onSuccess: (transaction) => {
+                prefill.onRecorded?.();
                 toast(
                   t("record.saved", {
                     description: transaction.description,

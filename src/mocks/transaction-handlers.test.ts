@@ -187,7 +187,7 @@ describe("POST …/accounts/{id}/transactions", () => {
     const closed = await call(
       "POST",
       `/households/${home}/accounts/${wallet.account_id}/months/2025-01/close`,
-      `{"statement_balance":{"amount":40.00,"currency":"EUR"}}`,
+      `{"statement_balance":{"amount":40.00,"currency":"EUR"},"counted_on":"2025-02-01"}`,
     );
     expect(closed.status).toBe(200);
 

@@ -69,8 +69,14 @@ export function withCounts(state: MockState, account: Account): Account {
   };
 }
 
-/** Accepted Transactions in the open month that aren't reversed: they block a Reopen. */
+/**
+ * Accepted Transactions in the open month that aren't reversed: they block a
+ * Reopen. A cash Account skips that condition, so it has none.
+ */
 export function acceptedInOpenMonth(state: MockState, account: Account): number {
+  if (account.kind === "CASH") {
+    return 0;
+  }
   const reversed = new Set(
     (state.transactions[account.account_id] ?? [])
       .filter(({ reversed_by_transaction_id }) => reversed_by_transaction_id !== undefined)
@@ -82,6 +88,14 @@ export function acceptedInOpenMonth(state: MockState, account: Account): number 
       monthOf(row.booking_date) === account.open_month &&
       (row.transaction_id === undefined || !reversed.has(row.transaction_id)),
   ).length;
+}
+
+/** The balance at the end of the day `date`: every Transaction booked up to it. */
+export function balanceAt(state: MockState, account: Account, date: string): bigint {
+  const places = currencyPlaces(account.currency);
+  return (state.transactions[account.account_id] ?? [])
+    .filter(({ booking_date }) => booking_date.slice(0, 10) <= date)
+    .reduce((sum, { amount }) => sum + toUnits(amount.amount, places), 0n);
 }
 
 /** One month as `getAccountMonth` gives it. */
@@ -107,7 +121,11 @@ export function accountMonth(state: MockState, account: Account, month: string):
     booking_month: month,
     state: monthStateNow,
     ...(monthStateNow === "CLOSED" && closed !== undefined
-      ? { statement_balance: closed.statement_balance, closed_at: closed.closed_at }
+      ? {
+          statement_balance: closed.statement_balance,
+          closed_at: closed.closed_at,
+          ...(closed.counted_on === undefined ? {} : { counted_on: closed.counted_on }),
+        }
       : {}),
     ...(account.awaiting_first_statement_import
       ? {}
