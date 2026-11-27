@@ -12,8 +12,15 @@
   "reversed": "Reversed",
   "categoryFor": "Category for {{row}}",
   "categoryFailed": "The Category of {{row}} wasn't changed",
+  "leg": {
+    "to": "Transfer to <account>{{account}}</account>",
+    "from": "Transfer from <account>{{account}}</account>",
+    "inTransit": "In transit"
+  },
   "uncategorisedOnly": "Uncategorised only",
   "uncategorisedCount": "Uncategorised only ({{count}})",
+  "inTransitOnly": "In transit only",
+  "inTransitCount": "In transit only ({{count}})",
   "chooseMonthFirst": "Choose a month first",
   "showingSoFar_one": "Showing {{count}} Transaction so far",
   "showingSoFar_other": "Showing {{count}} Transactions so far",
@@ -28,7 +35,8 @@
     "showAllTransactions": "Show all Transactions",
     "noneCash": "No Transactions yet",
     "monthCash": "No Transactions in {{month}} yet",
-    "recordOne": "Record one"
+    "recordOne": "Record one",
+    "noneInTransit": "Nothing in {{month}} is In transit ✓"
   },
   "reversalOf": "Reversal of {{row}}",
   "reversalOfUnknown": "Reversal",
@@ -57,6 +65,7 @@
     "amountZero": "The amount can't be zero",
     "otherSide": "Other side",
     "otherSideHelp": "Leave empty for Uncategorised.",
+    "inTransitNote": "This stays In transit until {{account}}'s statement row is Accepted as this Transfer.",
     "clearedExpense": "{{category}} was cleared: Expense Categories are for money out.",
     "clearedIncome": "{{category}} was cleared: Income Categories are for money in.",
     "date": "Date",

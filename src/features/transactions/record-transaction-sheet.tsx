@@ -8,7 +8,7 @@ import { z } from "zod";
 import { useApi } from "../../api/context";
 import type { components } from "../../api/schema.gen";
 import { AmountInput } from "../../components/amount-input";
-import { CategoryPicker } from "../../components/category-picker";
+import { CategoryPicker, counterpartOf } from "../../components/category-picker";
 import { DateInput } from "../../components/date-input";
 import { FormAlert } from "../../components/form-alert";
 import {
@@ -33,7 +33,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../../components/ui/sheet";
-import { isCash, useRefetchAccountReads } from "../../lib/account-query";
+import { isCash, refetchAccountReads, useRefetchAccountReads } from "../../lib/account-query";
 import { cashDateRange } from "../../lib/cash-dates";
 import { fitsSign, flattenCategories, signOf } from "../../lib/categories";
 import { formatDate, formatDateLong, type IsoDate } from "../../lib/date";
@@ -155,6 +155,17 @@ function RecordForm({
     params: { path: { household_id: householdId } },
   });
   const flat = useMemo(() => flattenCategories(categories.data?.items ?? []), [categories.data]);
+  const accounts = api.useQuery("get", "/households/{household_id}/accounts", {
+    params: { path: { household_id: householdId } },
+  });
+  // A Transfer's Counterpart: any other Household Account in the same currency.
+  const counterparts = useMemo(
+    () =>
+      (accounts.data?.items ?? []).filter(
+        (other) => other.account_id !== account.account_id && other.currency === account.currency,
+      ),
+    [accounts.data, account.account_id, account.currency],
+  );
   const record = api.useMutation(
     "post",
     "/households/{household_id}/accounts/{account_id}/transactions",
@@ -171,7 +182,7 @@ function RecordForm({
         context.addIssue({ code: "custom", message: t("record.amountZero") });
       }
     }),
-    categoryId: z.string().nullable(),
+    otherSide: z.string().nullable(),
     date: z
       .string()
       .min(1, t("record.dateInvalid", { example: formatDate(range.initial) }))
@@ -196,7 +207,7 @@ function RecordForm({
     resolver: zodResolver(schema),
     defaultValues: {
       amount: prefill.amount ?? null,
-      categoryId: null as string | null,
+      otherSide: null as string | null,
       date: prefill.date ?? range.initial,
       description: prefill.description ?? "",
       payee: "",
@@ -205,6 +216,10 @@ function RecordForm({
   const { errors } = form.formState;
   const amount = useWatch({ control: form.control, name: "amount" });
   const sign = amount === null ? undefined : signOf(amount);
+  const otherSide = useWatch({ control: form.control, name: "otherSide" });
+  const counterpart = counterparts.find(
+    ({ account_id }) => account_id === counterpartOf(otherSide),
+  );
 
   const describedBy = (id: string, error: string | undefined, help?: string) =>
     [help, error === undefined ? undefined : `${id}-error`].filter(Boolean).join(" ") || undefined;
@@ -212,9 +227,10 @@ function RecordForm({
   /** A new sign the chosen Category doesn't fit clears it, with a message. */
   const onAmountChange = (next: Decimal | null) => {
     form.setValue("amount", next, { shouldValidate: form.formState.isSubmitted });
-    const chosen = flat.find(({ id }) => id === form.getValues("categoryId"));
+    // A Transfer fits both signs, so only a Category can be cleared.
+    const chosen = flat.find(({ id }) => id === form.getValues("otherSide"));
     if (chosen !== undefined && !fitsSign(chosen, next === null ? undefined : signOf(next))) {
-      form.setValue("categoryId", null);
+      form.setValue("otherSide", null);
       setCleared({ name: chosen.path.join(" › "), kind: chosen.kind });
     }
   };
@@ -230,6 +246,11 @@ function RecordForm({
           if (values.amount === null) {
             return;
           }
+          const counterpartId = counterpartOf(values.otherSide);
+          // A cash ↔ cash Transfer records the Counterpart's leg too.
+          const counterpartIsCash = counterparts.some(
+            (other) => other.account_id === counterpartId && isCash(other),
+          );
           record.mutate(
             {
               params: {
@@ -240,7 +261,11 @@ function RecordForm({
                 amount: { amount: values.amount, currency: account.currency },
                 description: values.description,
                 ...(values.payee === "" ? {} : { payee: values.payee }),
-                ...(values.categoryId === null ? {} : { category_id: values.categoryId }),
+                ...(values.otherSide === null
+                  ? {}
+                  : counterpartId === undefined
+                    ? { category_id: values.otherSide }
+                    : { counterpart_account_id: counterpartId }),
               },
             },
             {
@@ -257,6 +282,14 @@ function RecordForm({
                     queryKey: transactionsKey(householdId, account.account_id),
                   }),
                   refetchAccount(),
+                  ...(counterpartId !== undefined && counterpartIsCash
+                    ? [
+                        queryClient.invalidateQueries({
+                          queryKey: transactionsKey(householdId, counterpartId),
+                        }),
+                        refetchAccountReads(queryClient, householdId, counterpartId),
+                      ]
+                    : []),
                 ]);
                 if (closing) {
                   onClose();
@@ -264,7 +297,7 @@ function RecordForm({
                 }
                 form.reset({
                   amount: null,
-                  categoryId: null,
+                  otherSide: null,
                   date: values.date,
                   description: "",
                   payee: "",
@@ -281,6 +314,7 @@ function RecordForm({
         {record.isError && <FormAlert error={record.error} />}
         {currencies.isError && <FormAlert error={currencies.error} />}
         {categories.isError && <FormAlert error={categories.error} />}
+        {accounts.isError && <FormAlert error={accounts.error} />}
         <Controller
           control={form.control}
           name="amount"
@@ -302,7 +336,7 @@ function RecordForm({
         />
         <Controller
           control={form.control}
-          name="categoryId"
+          name="otherSide"
           render={({ field }) => (
             <Field>
               <FieldLabel id={`${otherSideId}-label`} htmlFor={otherSideId}>
@@ -318,14 +352,27 @@ function RecordForm({
                   setCleared(undefined);
                 }}
                 sign={sign}
+                transfers={counterparts}
                 onBlur={field.onBlur}
                 name={field.name}
                 inputRef={field.ref}
-                aria-describedby={`${otherSideId}-help ${otherSideId}-cleared`}
+                aria-describedby={[
+                  `${otherSideId}-help`,
+                  `${otherSideId}-cleared`,
+                  ...(counterpart === undefined || isCash(counterpart)
+                    ? []
+                    : [`${otherSideId}-in-transit`]),
+                ].join(" ")}
               />
               <FieldDescription id={`${otherSideId}-help`}>
                 {t("record.otherSideHelp")}
               </FieldDescription>
+              {counterpart !== undefined && !isCash(counterpart) && (
+                // A leg to a statement Account waits for its statement row.
+                <FieldDescription id={`${otherSideId}-in-transit`}>
+                  {t("record.inTransitNote", { account: counterpart.name })}
+                </FieldDescription>
+              )}
               <p
                 id={`${otherSideId}-cleared`}
                 aria-live="polite"

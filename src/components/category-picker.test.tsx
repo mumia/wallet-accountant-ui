@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { initI18n } from "../app/i18n";
 import { categoryTree } from "../test/categories";
-import { CategoryPicker, topLevel } from "./category-picker";
+import { CategoryPicker, counterpartOf, topLevel, transferValue } from "./category-picker";
 
 function Harness({
   initial = null,
@@ -162,5 +162,65 @@ describe("CategoryPicker", () => {
 
       expect(optionNames()).not.toContain("Salary");
     });
+  });
+
+  describe("the Transfer group", () => {
+    const transfers = [
+      { account_id: "bank", name: "Bank" },
+      { account_id: "purse", name: "Purse" },
+    ];
+
+    it("comes last, named by the sign, and fits both signs", async () => {
+      const user = userEvent.setup();
+      render(<Harness transfers={transfers} sign="out" />);
+
+      await user.click(picker());
+
+      expect(
+        within(screen.getByRole("group", { name: "Transfer" }))
+          .getAllByRole("option")
+          .map((option) => option.textContent),
+      ).toEqual(["Transfer to Bank", "Transfer to Purse"]);
+      expect(optionNames().at(-1)).toBe("Transfer to Purse");
+    });
+
+    it("reads from the Counterpart for money in, and neither way with no sign", async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(<Harness transfers={transfers} sign="in" />);
+
+      await user.click(picker());
+      expect(screen.getByRole("option", { name: "Transfer from Bank" })).toBeInTheDocument();
+
+      rerender(<Harness transfers={transfers} sign={undefined} />);
+      expect(screen.getByRole("option", { name: "Transfer · Bank" })).toBeInTheDocument();
+    });
+
+    it("picks a Counterpart Account, searched by its label", async () => {
+      const user = userEvent.setup();
+      render(<Harness transfers={transfers} sign="out" />);
+
+      await user.click(picker());
+      await user.keyboard("transfer purse");
+      expect(optionNames()).toEqual(["Transfer to Purse"]);
+      await user.keyboard("{ArrowDown}{Enter}");
+
+      expect(screen.getByRole("status")).toHaveTextContent(transferValue("purse"));
+      expect(picker()).toHaveValue("Transfer to Purse");
+    });
+
+    it("has none by default", async () => {
+      const user = userEvent.setup();
+      render(<Harness />);
+
+      await user.click(picker());
+
+      expect(screen.queryByRole("group", { name: "Transfer" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("tells a Transfer's value from a Category's", () => {
+    expect(counterpartOf(transferValue("bank"))).toBe("bank");
+    expect(counterpartOf("salary")).toBeUndefined();
+    expect(counterpartOf(null)).toBeUndefined();
   });
 });

@@ -3,7 +3,9 @@ import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-tab
 import { cn } from "cn";
 import { EllipsisIcon, LockIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
+
+import { useApi } from "../../api/context";
 
 import { CategoryPicker } from "../../components/category-picker";
 import { mediumDate, rowLabel } from "../../components/row-label";
@@ -32,6 +34,7 @@ import {
 } from "../../lib/categories";
 import { formatMonth, monthOf, type Month } from "../../lib/month";
 import { formatMoney } from "../../lib/money";
+import { isInTransit, isTransferLeg, transferWay } from "../../lib/transfers";
 import { ReverseDialog } from "./reverse-dialog";
 import { useChangeCategory, type AccountTransaction } from "./transactions-query";
 
@@ -178,6 +181,10 @@ export function TransactionsTable({
         column.accessor("category_id", {
           header: () => t("columns.category"),
           cell: ({ row: { original } }) => {
+            // A Transfer leg's other side is always Account transfer.
+            if (isTransferLeg(original)) {
+              return <TransferLegCell householdId={householdId} transaction={original} />;
+            }
             const category = kinds.get(original.category_id);
             // The Opening balance, reversals and reversed rows can't change Category.
             const fixed =
@@ -386,5 +393,58 @@ function TransactionLink({
     >
       {children}
     </Link>
+  );
+}
+
+/**
+ * A Transfer leg's Category cell (spec, "Transfer legs in Transactions"):
+ * fixed text, "Transfer to Wallet" for money out or "Transfer from Bank" for
+ * money in, the Counterpart's name linking to its Transactions in the leg's
+ * month, and an In transit badge until the leg is Matched.
+ */
+function TransferLegCell({
+  householdId,
+  transaction,
+}: {
+  householdId: string;
+  transaction: AccountTransaction;
+}) {
+  const { t } = useTranslation("transactions");
+  const { api } = useApi();
+  const accounts = api.useQuery("get", "/households/{household_id}/accounts", {
+    params: { path: { household_id: householdId } },
+  });
+  const counterpartId = transaction.counterpart_account_id ?? "";
+  const counterpart = accounts.data?.items.find(({ account_id }) => account_id === counterpartId);
+  const way = transferWay(signOf(transaction.amount.amount));
+  return (
+    <div className="grid justify-items-start gap-0.5">
+      {counterpart === undefined ? (
+        <span>{transaction.category_name}</span>
+      ) : (
+        <span>
+          <Trans
+            t={t}
+            i18nKey={way === "from" ? "leg.from" : "leg.to"}
+            values={{ account: counterpart.name }}
+            components={{
+              account: (
+                <Link
+                  to="/households/$householdId/accounts/$accountId/transactions"
+                  params={{ householdId, accountId: counterpartId }}
+                  search={{ booking_month: monthOf(transaction.booking_date) }}
+                  className="font-medium underline underline-offset-4"
+                />
+              ),
+            }}
+          />
+        </span>
+      )}
+      {isInTransit(transaction) && (
+        <span className="rounded-full border px-2 py-0.5 text-xs font-medium">
+          {t("leg.inTransit")}
+        </span>
+      )}
+    </div>
   );
 }

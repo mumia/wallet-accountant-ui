@@ -1,6 +1,6 @@
-// The mock API's writes of a Transaction: recording a cash one, a Category
-// change and Reverse (ADR-0018, ADR-0024 in the backend), with the backend's
-// rules and problems word for word
+// The mock API's writes of a Transaction: recording a cash one or a Transfer
+// leg, a Category change and Reverse (ADR-0018, ADR-0024 and ADR-0026 in the
+// backend), with the backend's rules and problems word for word
 // (../wallet-accountant/internal/ledger/adapters/http/corrections.go, cash.go).
 import { parseExactJson } from "../api/exact-json";
 import type { components, Decimal } from "../api/schema.gen";
@@ -92,6 +92,120 @@ function isOpeningBalance(state: MockState, householdId: string, transaction: Ac
   );
 }
 
+const invalidTransfer = (reason: string, detail: string) => ({
+  ...problem(422, "invalid-transfer", "Invalid Transfer", detail),
+  reason,
+});
+
+/**
+ * Records a cash Transaction that is a Transfer leg, as the backend's
+ * recordCashLeg (ledger/app/cash.go) does: a statement Counterpart gets
+ * nothing and the leg stays In transit; a cash Counterpart gets the opposite
+ * leg, the two booked in Account ID order and Matched at once. Either
+ * Account's start date or closed month refuses it, naming that Account.
+ */
+function recordLegs(
+  state: MockState,
+  householdId: string,
+  account: Account,
+  body: CashTransactionCreation,
+): { problem: Problem } | { state: MockState; own: AccountTransaction } {
+  const accounts = state.accounts[householdId] ?? [];
+  const counterpartId = body.counterpart_account_id;
+  if (counterpartId === account.account_id) {
+    return {
+      problem: invalidTransfer("SAME_ACCOUNT", "The counterpart is the Transaction's own Account."),
+    };
+  }
+  const counterpart = accounts.find(({ account_id }) => account_id === counterpartId);
+  if (counterpart === undefined) {
+    return {
+      problem: invalidTransfer(
+        "UNKNOWN_ACCOUNT",
+        "The counterpart is not one of the Household's Accounts.",
+      ),
+    };
+  }
+  if (counterpart.currency !== account.currency) {
+    return {
+      problem: invalidTransfer(
+        "CURRENCY_MISMATCH",
+        "The counterpart has another Account currency.",
+      ),
+    };
+  }
+  const category = (state.categories[householdId] ?? []).find(
+    ({ kind, name }) => kind === "INTERNAL" && name === "Account transfer",
+  );
+  if (category === undefined) {
+    throw new Error("The mock Household has no Account transfer Category.");
+  }
+  const places = currencyPlaces(account.currency);
+  const amount = body.amount.amount;
+  const cashToCash = counterpart.kind === "CASH";
+  const matchId = cashToCash ? crypto.randomUUID() : undefined;
+  const leg = (on: Account, other: Account, signed: string): AccountTransaction => ({
+    transaction_id: crypto.randomUUID(),
+    booking_date: body.date,
+    transaction_date: body.date,
+    description: body.description,
+    amount: {
+      amount: fromUnits(toUnits(signed, places), places) as Decimal,
+      currency: on.currency,
+    },
+    category_id: category.category_id,
+    category_name: category.name,
+    counterpart_account_id: other.account_id,
+    ...(matchId === undefined ? {} : { match_id: matchId }),
+  });
+  const negated = amount.startsWith("-") ? amount.slice(1) : `-${amount}`;
+  const own = { account, transaction: leg(account, counterpart, amount) };
+  const legs = cashToCash
+    ? [own, { account: counterpart, transaction: leg(counterpart, account, negated) }].sort(
+        (a, b) => (a.account.account_id < b.account.account_id ? -1 : 1),
+      )
+    : [own];
+
+  let next = state;
+  for (const { account: on, transaction } of legs) {
+    if (body.date < on.start_date) {
+      return { problem: invalidTransaction("The date is before the Account's start date.") };
+    }
+    const month = monthOf(body.date);
+    if (month < on.open_month) {
+      return { problem: monthClosed(month, on.open_month, on.account_id) };
+    }
+    if (decimalPlaces(amount) > places) {
+      return {
+        problem: invalidTransaction(
+          "The amount has more decimal places than the Account currency.",
+        ),
+      };
+    }
+    const balance =
+      toUnits(on.balance?.amount ?? "0", places) + toUnits(transaction.amount.amount, places);
+    next = {
+      ...next,
+      accounts: {
+        ...next.accounts,
+        [householdId]: (next.accounts[householdId] ?? []).map((candidate) =>
+          candidate.account_id === on.account_id
+            ? {
+                ...candidate,
+                balance: { amount: fromUnits(balance, places) as Decimal, currency: on.currency },
+              }
+            : candidate,
+        ),
+      },
+      transactions: {
+        ...next.transactions,
+        [on.account_id]: inBookingOrder(next.transactions[on.account_id] ?? [], transaction),
+      },
+    };
+  }
+  return { state: next, own: own.transaction };
+}
+
 export function transactionHandlers(db: MockDb) {
   return [
     http.post(
@@ -168,13 +282,26 @@ export function transactionHandlers(db: MockDb) {
           );
         }
         if (body.counterpart_account_id !== undefined) {
-          // Transfer legs come with cash-accounts-and-transfers ticket 08.
-          return response.untyped(
-            Response.json(
-              { type: "about:blank", title: "Not in the mock yet", status: 500 },
-              { status: 500 },
-            ),
-          );
+          const legs = recordLegs(state, params.household_id, account, body);
+          if ("problem" in legs) {
+            return response.untyped(Response.json(legs.problem, { status: legs.problem.status }));
+          }
+          db.write({
+            ...legs.state,
+            ...(key === undefined
+              ? {}
+              : {
+                  cashRecords: {
+                    ...legs.state.cashRecords,
+                    [key]: {
+                      accountId: account.account_id,
+                      transactionId: legs.own.transaction_id,
+                      ...(body.payee === undefined ? {} : { payee: body.payee }),
+                    },
+                  },
+                }),
+          });
+          return respond(legs.own, body.payee);
         }
         const categories = state.categories[params.household_id] ?? [];
         const isUncategorised = ({ kind, name }: { kind: string; name: string }) =>
@@ -283,6 +410,16 @@ export function transactionHandlers(db: MockDb) {
         }
         if (isOpeningBalance(state, params.household_id, transaction)) {
           return response(422).json(openingBalanceTransaction);
+        }
+        if (transaction.counterpart_account_id !== undefined) {
+          return response(422).json(
+            problem(
+              422,
+              "transfer-leg",
+              "Transfer leg",
+              "A Transfer leg's other side is always the Account transfer Category.",
+            ),
+          );
         }
         if (transaction.reversed_by_transaction_id !== undefined) {
           return response(409).json(

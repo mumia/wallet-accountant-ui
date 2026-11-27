@@ -32,11 +32,11 @@ async function call(
 const today = () => new Date().toISOString().slice(0, 10);
 
 /** A cash Account counted at €40.00 on `startDate`. */
-async function addWallet(startDate = today()) {
+async function addWallet(startDate = today(), name = "Wallet") {
   const { body } = await call(
     "POST",
     `/households/${home}/accounts`,
-    `{"name":"Wallet","kind":"CASH","currency":"EUR","start_date":"${startDate}","opening_count":{"amount":40.00,"currency":"EUR"},"opening_count_confirmation":{"amount":40.00,"currency":"EUR"}}`,
+    `{"name":"${name}","kind":"CASH","currency":"EUR","start_date":"${startDate}","opening_count":{"amount":40.00,"currency":"EUR"},"opening_count_confirmation":{"amount":40.00,"currency":"EUR"}}`,
   );
   return body as Account;
 }
@@ -305,5 +305,142 @@ describe("the Category direction rule", () => {
     });
     const accepted = await call("POST", `${path}/accept`, "");
     expect(accepted.status).toBe(200);
+  });
+});
+
+describe("Transfer legs", () => {
+  type TransferProblem = components["schemas"]["TransferProblem"];
+  type AccountTransaction = components["schemas"]["AccountTransaction"];
+  const atm = (counterpart: string, amount = "50") =>
+    `"date":"${today()}","amount":{"amount":${amount},"currency":"EUR"},"description":"ATM","counterpart_account_id":"${counterpart}"`;
+  const inTransit = async (accountId: string) =>
+    (
+      (await call("GET", `/households/${home}/accounts/${accountId}/transactions?in_transit=true`))
+        .body as TransactionList
+    ).items;
+
+  it("records a leg to a statement Account In transit, against Account transfer", async () => {
+    const wallet = await addWallet();
+
+    const { status, body } = await record(wallet.account_id, atm(main));
+
+    expect(status).toBe(201);
+    const leg = body as AccountTransaction;
+    expect(leg).toMatchObject({
+      amount: { amount: "50.00" },
+      counterpart_account_id: main,
+      category_name: "Account transfer",
+    });
+    expect(leg.match_id).toBeUndefined();
+    expect(await balanceOf(wallet.account_id)).toMatchObject({ amount: "90.00" });
+    // Bank's side comes only from its statement row.
+    expect(await balanceOf(main)).toMatchObject({ amount: "1234.50" });
+    expect(
+      (await inTransit(wallet.account_id)).map(({ transaction_id }) => transaction_id),
+    ).toEqual([leg.transaction_id]);
+  });
+
+  it("records both legs of a cash ↔ cash Transfer, Matched", async () => {
+    const wallet = await addWallet();
+    const purse = await addWallet(today(), "Purse");
+
+    const { status, body } = await record(wallet.account_id, atm(purse.account_id, "-15"));
+
+    expect(status).toBe(201);
+    const own = body as AccountTransaction;
+    expect(own).toMatchObject({
+      amount: { amount: "-15.00" },
+      counterpart_account_id: purse.account_id,
+    });
+    expect(own.match_id).toBeDefined();
+    const theirs = (await transactionsOf(purse.account_id)).find(
+      ({ counterpart_account_id }) => counterpart_account_id === wallet.account_id,
+    );
+    expect(theirs).toMatchObject({
+      amount: { amount: "15.00" },
+      description: "ATM",
+      category_name: "Account transfer",
+      match_id: own.match_id,
+    });
+    expect(await balanceOf(wallet.account_id)).toMatchObject({ amount: "25.00" });
+    expect(await balanceOf(purse.account_id)).toMatchObject({ amount: "55.00" });
+    expect(await inTransit(wallet.account_id)).toEqual([]);
+    expect(await inTransit(purse.account_id)).toEqual([]);
+  });
+
+  it("refuses the Transaction's own Account", async () => {
+    const wallet = await addWallet();
+
+    const { status, body } = await record(wallet.account_id, atm(wallet.account_id));
+
+    expect(status).toBe(422);
+    expect(body as TransferProblem).toMatchObject({
+      type: "/problems/invalid-transfer",
+      reason: "SAME_ACCOUNT",
+    });
+  });
+
+  it("refuses an Account that isn't the Household's", async () => {
+    const wallet = await addWallet();
+
+    const { status, body } = await record(wallet.account_id, atm(crypto.randomUUID()));
+
+    expect(status).toBe(422);
+    expect(body as TransferProblem).toMatchObject({ reason: "UNKNOWN_ACCOUNT" });
+  });
+
+  it("refuses an Account in another currency", async () => {
+    const wallet = await addWallet();
+    const { body: dollars } = await call(
+      "POST",
+      `/households/${home}/accounts`,
+      `{"name":"Dollars","kind":"BANK_ACCOUNT","currency":"USD","start_date":"${today()}"}`,
+    );
+
+    const { status, body } = await record(wallet.account_id, atm((dollars as Account).account_id));
+
+    expect(status).toBe(422);
+    expect(body as TransferProblem).toMatchObject({
+      reason: "CURRENCY_MISMATCH",
+      detail: "The counterpart has another Account currency.",
+    });
+    expect(await transactionsOf(wallet.account_id)).toHaveLength(1);
+  });
+
+  it("refuses a date in the Counterpart's closed month, naming it, and books neither leg", async () => {
+    const wallet = await addWallet("2026-01-05");
+    const purse = await addWallet("2026-01-05", "Purse");
+    await call(
+      "POST",
+      `/households/${home}/accounts/${purse.account_id}/months/2026-01/close`,
+      `{"statement_balance":{"amount":40.00,"currency":"EUR"},"counted_on":"2026-02-01"}`,
+    );
+
+    const { status, body } = await record(
+      wallet.account_id,
+      `"date":"2026-01-20","amount":{"amount":-5,"currency":"EUR"},"description":"To Purse","counterpart_account_id":"${purse.account_id}"`,
+    );
+
+    expect(status).toBe(409);
+    expect(body).toMatchObject({ type: "/problems/month-closed", account_id: purse.account_id });
+    expect(await transactionsOf(wallet.account_id)).toHaveLength(1);
+    expect(await transactionsOf(purse.account_id)).toHaveLength(1);
+  });
+
+  it("refuses a Category change on a leg", async () => {
+    const wallet = await addWallet();
+    const { body } = await record(wallet.account_id, atm(main));
+
+    const { status, body: refused } = await call(
+      "PATCH",
+      `/households/${home}/transactions/${(body as Transaction).transaction_id}`,
+      `{"category_id":"${await categoryId("Salary")}"}`,
+    );
+
+    expect(status).toBe(422);
+    expect(refused as Problem).toMatchObject({
+      type: "/problems/transfer-leg",
+      detail: "A Transfer leg's other side is always the Account transfer Category.",
+    });
   });
 });

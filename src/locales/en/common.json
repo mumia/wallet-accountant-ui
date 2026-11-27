@@ -107,7 +107,8 @@
     "noMatch": "No Category matches",
     "kinds": {
       "EXPENSE": "Expense",
-      "INCOME": "Income"
+      "INCOME": "Income",
+      "TRANSFER": "Transfer"
     }
   },
   "monthField": {
@@ -126,5 +127,10 @@
     "description": "Other members of your Households see this name.",
     "save": "Save",
     "saving": "Saving…"
+  },
+  "transfer": {
+    "to": "Transfer to {{account}}",
+    "from": "Transfer from {{account}}",
+    "either": "Transfer · {{account}}"
   }
 }

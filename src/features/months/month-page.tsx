@@ -97,7 +97,12 @@ export function MonthPage({
         {arrow(later, "next", t("noNext"), <ChevronRightIcon aria-hidden="true" />)}
         <MonthStateBadge state={status.state} />
       </div>
-      <InTransitCount count={status.transfer_legs_in_transit} />
+      <InTransitCount
+        householdId={params.householdId}
+        accountId={params.accountId}
+        month={month}
+        count={status.transfer_legs_in_transit}
+      />
       {status.state === "OPEN" && (
         <OpenMonth
           // A new month starts the form over.

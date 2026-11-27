@@ -31,14 +31,10 @@ export function transactionsKey(householdId: string, accountId: string) {
   return ["get", path, { params: { path: { household_id: householdId, account_id: accountId } } }];
 }
 
-function monthKey(householdId: string, accountId: string, month: Month) {
+function monthKey(householdId: string, accountId: string, month: Month, inTransit: boolean) {
   const pathParams = { household_id: householdId, account_id: accountId };
-  return [
-    "get",
-    path,
-    { params: { path: pathParams, query: { booking_month: month } } },
-    "all-pages",
-  ];
+  const query = inTransit ? { booking_month: month, in_transit: true } : { booking_month: month };
+  return ["get", path, { params: { path: pathParams, query } }, "all-pages"];
 }
 
 function allKey(householdId: string, accountId: string) {
@@ -50,7 +46,7 @@ function usePage() {
   return async (
     householdId: string,
     accountId: string,
-    query: { booking_month?: Month; cursor?: string },
+    query: { booking_month?: Month; in_transit?: true; cursor?: string },
   ) => {
     return unwrap(
       await fetchClient.GET(path, {
@@ -63,17 +59,26 @@ function usePage() {
   };
 }
 
-/** One month, every page of it. */
-export function useMonthTransactions(householdId: string, accountId: string, month: Month) {
+/**
+ * One month, every page of it; with `inTransit`, only its Transfer legs In
+ * transit, as the backend filters them (`in_transit=true`).
+ */
+export function useMonthTransactions(
+  householdId: string,
+  accountId: string,
+  month: Month,
+  inTransit = false,
+) {
   const page = usePage();
   return useQuery({
-    queryKey: monthKey(householdId, accountId, month),
+    queryKey: monthKey(householdId, accountId, month, inTransit),
     queryFn: async () => {
       const items: AccountTransaction[] = [];
       let cursor: string | undefined;
       do {
         const next: Page = await page(householdId, accountId, {
           booking_month: month,
+          ...(inTransit ? { in_transit: true as const } : {}),
           ...(cursor === undefined ? {} : { cursor }),
         });
         items.push(...next.items);

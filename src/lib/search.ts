@@ -19,10 +19,12 @@ export const bookingMonthSearch = z.object({
 
 /**
  * The Transactions tab: the month, `uncategorised=true` for its Uncategorised
- * rows only, and `transaction_id` to highlight one Transaction.
+ * rows only or `in_transit=true` for its Transfer legs In transit only, and
+ * `transaction_id` to highlight one Transaction.
  */
 export const transactionsSearch = bookingMonthSearch.extend({
   uncategorised: z.literal(true).optional().catch(undefined),
+  in_transit: z.literal(true).optional().catch(undefined),
   transaction_id: z.string().optional().catch(undefined),
 });
 
