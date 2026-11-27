@@ -11,6 +11,8 @@ export interface RecordPrefill {
   amount?: Decimal;
   date?: IsoDate;
   description?: string;
+  /** Called after each save from this opening, such as to clear the refusal it answers. */
+  onRecorded?: () => void;
 }
 
 export type OpenRecord = (prefill?: RecordPrefill) => void;

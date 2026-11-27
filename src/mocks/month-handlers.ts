@@ -4,12 +4,13 @@
 import { parseExactJson } from "../api/exact-json";
 import type { components, Decimal } from "../api/schema.gen";
 import type { MockDb, MockState } from "./db";
-import { http, withExactAmounts } from "./http";
+import { badRequest, http, withExactAmounts } from "./http";
 import {
   acceptedInOpenMonth,
   accountMonth,
   accountMonths,
   addMonth,
+  balanceAt,
   dayWords,
   hasEnded,
   monthOf,
@@ -54,6 +55,15 @@ function writeAccount(
 
 const monthPath = "/households/{household_id}/accounts/{account_id}/months/{booking_month}";
 
+/** Whether `value` is a calendar date written YYYY-MM-DD. */
+function isDate(value: string): boolean {
+  return (
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
+    new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value
+  );
+}
+
 export function monthHandlers(db: MockDb) {
   return [
     http.get(
@@ -84,9 +94,16 @@ export function monthHandlers(db: MockDb) {
 
     http.post(`${monthPath}/close`, async ({ params, request, response }) => {
       // The amount is an exact JSON number: read it as text, never as a JS number.
-      const { statement_balance } = parseExactJson(await new Response(request.body).text()) as {
+      const { statement_balance, counted_on } = parseExactJson(
+        await new Response(request.body).text(),
+      ) as {
         statement_balance: { amount: Decimal; currency: string };
+        counted_on?: string;
       };
+      // The backend's decoder refuses a counted_on that isn't a date before anything else.
+      if (counted_on !== undefined && !isDate(counted_on)) {
+        return response.untyped(badRequest("Invalid value for: counted_on."));
+      }
       const found = findAccount(db, params.household_id, params.account_id);
       if (found === undefined) {
         return response(404).json(notFound);
@@ -112,6 +129,24 @@ export function monthHandlers(db: MockDb) {
         });
       if (statement_balance.currency !== account.currency) {
         return invalid("The Statement balance must be in the Account currency.");
+      }
+      const cash = account.kind === "CASH";
+      const invalidClosing = (detail: string) =>
+        response(400).json({
+          type: "/problems/invalid-month-closing",
+          title: "Invalid Month closing",
+          status: 400,
+          detail,
+        });
+      if (cash && counted_on === undefined) {
+        return invalidClosing(
+          "A cash month closes by a Cash count: send counted_on, the day the cash was counted.",
+        );
+      }
+      if (!cash && counted_on !== undefined) {
+        return invalidClosing(
+          "Only a cash Account's month closes by a count: leave out counted_on.",
+        );
       }
       const [, fraction = ""] = statement_balance.amount.split(".");
       if (fraction.replace(/0+$/, "").length > places) {
@@ -150,8 +185,22 @@ export function monthHandlers(db: MockDb) {
         );
       }
 
+      if (
+        counted_on !== undefined &&
+        (monthOf(counted_on) <= month || counted_on > new Date().toISOString().slice(0, 10))
+      ) {
+        return response(422).json({
+          type: "/problems/invalid-count-date",
+          title: "Invalid count date",
+          status: 422,
+          detail: `The cash must be counted after ${monthWords(month)} ends, and no later than today.`,
+        });
+      }
+
       const status = accountMonth(state, account, month);
-      const computed = toUnits(status.computed_balance?.amount ?? "0", places);
+      const monthEnd = toUnits(status.computed_balance?.amount ?? "0", places);
+      // A Cash count is compared with the books at the end of the day it was taken.
+      const computed = counted_on === undefined ? monthEnd : balanceAt(state, account, counted_on);
       const statement = toUnits(statement_balance.amount, places);
       const money = (units: bigint) => ({
         amount: fromUnits(units, places) as typeof statement_balance.amount,
@@ -214,7 +263,11 @@ export function monthHandlers(db: MockDb) {
             ...state.monthCloses,
             [account.account_id]: {
               ...state.monthCloses?.[account.account_id],
-              [month]: { statement_balance: money(statement), closed_at: closedAt },
+              // A cash month keeps the month-end balance its count proves.
+              [month]:
+                counted_on === undefined
+                  ? { statement_balance: money(statement), closed_at: closedAt }
+                  : { statement_balance: money(monthEnd), closed_at: closedAt, counted_on },
             },
           },
         },

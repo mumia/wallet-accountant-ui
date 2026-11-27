@@ -3,6 +3,7 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useErrorText } from "../../components/error-text";
+import { mediumDate } from "../../components/row-label";
 import { useInfoToast } from "../../components/toaster";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
@@ -38,7 +39,9 @@ function ReopenFailed({ error }: { error: unknown }) {
 /**
  * A closed month (spec, "Month screen": Closed): its Statement balance and when
  * it closed, and Reopen on the latest closed month, disabled with the reason
- * while the open month has Accepted Transactions.
+ * while the open month has Accepted Transactions. A cash month shows the day
+ * it was counted, and the month-end balance the count proved
+ * (cash-accounts-and-transfers spec, "Closing a cash month").
  */
 export function ClosedMonth({
   householdId,
@@ -46,12 +49,14 @@ export function ClosedMonth({
   month,
   status,
   openMonth,
+  cash,
 }: {
   householdId: string;
   accountId: string;
   month: Month;
   status: AccountMonth;
   openMonth: Month;
+  cash: boolean;
 }) {
   const { t } = useTranslation("months");
   const toast = useInfoToast();
@@ -65,9 +70,17 @@ export function ClosedMonth({
     <Card>
       <CardContent className="grid gap-4">
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1">
+          {status.counted_on !== undefined && (
+            <>
+              <dt className="text-muted-foreground">{t("closed.countedOn")}</dt>
+              <dd>{mediumDate(status.counted_on)}</dd>
+            </>
+          )}
           {status.statement_balance !== undefined && (
             <>
-              <dt className="text-muted-foreground">{t("closed.statementBalance")}</dt>
+              <dt className="text-muted-foreground">
+                {t(cash ? "closed.provenBalance" : "closed.statementBalance")}
+              </dt>
               <dd className="font-medium tabular-nums">{formatMoney(status.statement_balance)}</dd>
             </>
           )}
@@ -116,7 +129,9 @@ export function ClosedMonth({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("closed.dialogTitle", names)}</DialogTitle>
-            <DialogDescription>{t("closed.dialogBody", names)}</DialogDescription>
+            <DialogDescription>
+              {t(cash ? "closed.dialogBodyCash" : "closed.dialogBody", names)}
+            </DialogDescription>
           </DialogHeader>
           {reopen.isError && <ReopenFailed error={reopen.error} />}
           <DialogFooter>
