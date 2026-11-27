@@ -1,16 +1,21 @@
-// The mock API's Imported transactions (the list, Accept, Keep and Discard)
-// and Notifications (the list, mark read),
-// with the backend's rules and its problems word for word
-// (../wallet-accountant/internal/ingestion/adapters/http/importedtransactions.go).
-import type { components } from "../api/schema.gen";
+// The mock API's Imported transactions (the list, Accept, Accept as Transfer,
+// Transfer suggestions, Keep and Discard) and Notifications (the list, mark
+// read), with the backend's rules and its problems word for word
+// (../wallet-accountant/internal/ingestion/adapters/http/importedtransactions.go,
+// suggestions.go, and internal/ledger/app/transfers.go).
+import type { components, Decimal } from "../api/schema.gen";
 import { categoryDirection } from "./category-direction";
 import type { ImportedRow, MockDb, MockState } from "./db";
 import { http, withExactAmounts } from "./http";
 import { monthOf, monthWords } from "./months";
+import { currencyPlaces, fromUnits, toUnits } from "./statement-files";
 
 type Problem = components["schemas"]["Problem"];
 type ImportedTransaction = components["schemas"]["ImportedTransaction"];
 type AccountTransaction = components["schemas"]["AccountTransaction"];
+type Account = components["schemas"]["Account"];
+type Transaction = components["schemas"]["Transaction"];
+type TransferProblem = components["schemas"]["TransferProblem"];
 
 const notFound: Problem = { type: "about:blank", title: "Not Found", status: 404 };
 
@@ -143,6 +148,215 @@ function monthRefusal(state: MockState, accountId: string, row: ImportedRow, not
   return undefined;
 }
 
+/** Why the backend refuses each Accept as Transfer, word for word. */
+const transferDetails = {
+  CATEGORY_AND_TRANSFER:
+    "A Transfer leg is booked against Account transfer: send category_id or transfer_account_id, not both.",
+  COUNTERPART_NOT_CASH:
+    "transfer_account_id must be a cash Account: Transfers between statement Accounts come later.",
+  MATCH_WITHOUT_TRANSFER:
+    "match_transaction_id needs transfer_account_id, the cash Account it is on.",
+  NOT_A_MATCHING_LEG:
+    "match_transaction_id isn't an In transit leg on the cash Account naming this row's Account with the opposite amount.",
+  SAME_ACCOUNT: "transfer_account_id is the row's own Account.",
+  CURRENCY_MISMATCH: "transfer_account_id has another Account currency than the row.",
+  UNKNOWN_ACCOUNT: "transfer_account_id is not one of the Household's Accounts.",
+} as const;
+
+const transferRefused = (reason: keyof typeof transferDetails): TransferProblem => ({
+  type: "/problems/invalid-transfer",
+  title: "Invalid Transfer",
+  status: 422,
+  detail: transferDetails[reason],
+  reason,
+});
+
+/** How far either side of a row's Transaction date a cash leg is suggested, in days. */
+const suggestionWindow = 7;
+
+const daysBetween = (a: string, b: string) =>
+  Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000;
+
+const negate = (amount: string, currency: string) => {
+  const places = currencyPlaces(currency);
+  return fromUnits(-toUnits(amount, places), places) as Decimal;
+};
+
+const sameAmount = (a: string, b: string, currency: string) => {
+  const places = currencyPlaces(currency);
+  return toUnits(a, places) === toUnits(b, places);
+};
+
+/**
+ * The backend's checkCashCounterpart: for a row on `rowAccount`, the cash
+ * Account must be another of the Household's Accounts, a cash one, in the
+ * row's currency.
+ */
+function cashCounterpart(
+  state: MockState,
+  householdId: string,
+  rowAccount: string,
+  cashId: string,
+  currency: string,
+): { refused: TransferProblem } | { cash: Account } {
+  if (cashId === rowAccount) {
+    return { refused: transferRefused("SAME_ACCOUNT") };
+  }
+  const cash = (state.accounts[householdId] ?? []).find(({ account_id }) => account_id === cashId);
+  if (cash === undefined) {
+    return { refused: transferRefused("UNKNOWN_ACCOUNT") };
+  }
+  if (cash.kind !== "CASH") {
+    return { refused: transferRefused("COUNTERPART_NOT_CASH") };
+  }
+  if (cash.currency !== currency) {
+    return { refused: transferRefused("CURRENCY_MISMATCH") };
+  }
+  return { cash };
+}
+
+/** A leg on the cash Account that could be the row's other side, the date window aside. */
+const couldMatch = (leg: AccountTransaction, rowAccount: string, row: ImportedRow) =>
+  leg.counterpart_account_id === rowAccount &&
+  leg.match_id === undefined &&
+  leg.reversed_by_transaction_id === undefined &&
+  leg.reversal_of_transaction_id === undefined &&
+  leg.amount.currency === row.amount.currency &&
+  sameAmount(
+    leg.amount.amount,
+    negate(row.amount.amount, row.amount.currency),
+    row.amount.currency,
+  );
+
+/**
+ * The backend's BookTransfer: the cash Account checked, then either the given
+ * leg checked as one to Match, or the cash leg's month checked (its date is
+ * the row's Transaction date); then the bank leg recorded against Account
+ * transfer, the cash leg recorded (`created_by_transfer`) or the given one
+ * taken, and the two Matched.
+ */
+function bookTransfer(
+  state: MockState,
+  householdId: string,
+  rowAccount: string,
+  row: ImportedRow,
+  cashId: string,
+  matchLegId: string | undefined,
+):
+  | { refused: TransferProblem | ReturnType<typeof cashMonthClosed> }
+  | {
+      bankLeg: string;
+      changes: (now: MockState) => Partial<MockState>;
+    } {
+  const checked = cashCounterpart(state, householdId, rowAccount, cashId, row.amount.currency);
+  if ("refused" in checked) {
+    return checked;
+  }
+  const cash = checked.cash;
+  const cashLedger = state.transactions[cash.account_id] ?? [];
+  if (matchLegId !== undefined) {
+    const leg = cashLedger.find(({ transaction_id }) => transaction_id === matchLegId);
+    // No date window here (backend spec, "Accept as Transfer").
+    if (leg === undefined || !couldMatch(leg, rowAccount, row)) {
+      return { refused: transferRefused("NOT_A_MATCHING_LEG") };
+    }
+  } else if (monthOf(row.transaction_date) < cash.open_month) {
+    return { refused: cashMonthClosed(monthOf(row.transaction_date), cash) };
+  }
+  const transferCategory = (state.categories[householdId] ?? []).find(
+    ({ kind, name }) => kind === "INTERNAL" && name === "Account transfer",
+  );
+  if (transferCategory === undefined) {
+    throw new Error("The mock Household has no Account transfer Category.");
+  }
+  const matchId = crypto.randomUUID();
+  const against = {
+    category_id: transferCategory.category_id,
+    category_name: transferCategory.name,
+    match_id: matchId,
+  };
+  const bankLeg: AccountTransaction = {
+    transaction_id: crypto.randomUUID(),
+    booking_date: row.booking_date,
+    transaction_date: row.transaction_date,
+    description: row.description,
+    amount: row.amount,
+    imported_transaction_id: row.imported_transaction_id,
+    counterpart_account_id: cash.account_id,
+    ...against,
+  };
+  const cashAmount = negate(row.amount.amount, row.amount.currency);
+  const cashLeg: AccountTransaction | undefined =
+    matchLegId === undefined
+      ? {
+          transaction_id: crypto.randomUUID(),
+          booking_date: row.transaction_date,
+          transaction_date: row.transaction_date,
+          description: row.description,
+          amount: { amount: cashAmount, currency: cash.currency },
+          counterpart_account_id: rowAccount,
+          created_by_transfer: true,
+          ...against,
+        }
+      : undefined;
+  const changes = (now: MockState): Partial<MockState> => {
+    const nowCash = now.transactions[cash.account_id] ?? [];
+    const cashTransactions =
+      cashLeg === undefined
+        ? nowCash.map((leg) =>
+            leg.transaction_id === matchLegId ? { ...leg, match_id: matchId } : leg,
+          )
+        : [...nowCash, cashLeg].sort((a, b) => a.booking_date.localeCompare(b.booking_date));
+    const places = currencyPlaces(cash.currency);
+    return {
+      transactions: {
+        ...now.transactions,
+        [rowAccount]: [...(now.transactions[rowAccount] ?? []), bankLeg].sort((a, b) =>
+          a.booking_date.localeCompare(b.booking_date),
+        ),
+        [cash.account_id]: cashTransactions,
+      },
+      // A new cash leg moves the cash Account's balance.
+      ...(cashLeg === undefined
+        ? {}
+        : {
+            accounts: {
+              ...now.accounts,
+              [householdId]: (now.accounts[householdId] ?? []).map((account) =>
+                account.account_id === cash.account_id
+                  ? {
+                      ...account,
+                      balance: {
+                        amount: fromUnits(
+                          toUnits(account.balance?.amount ?? "0", places) +
+                            toUnits(cashAmount, places),
+                          places,
+                        ) as Decimal,
+                        currency: account.currency,
+                      },
+                    }
+                  : account,
+              ),
+            },
+          }),
+    };
+  };
+  return { bankLeg: bankLeg.transaction_id, changes };
+}
+
+/** The 409 of a cash leg dated in a closed month of the cash Account, naming it. */
+function cashMonthClosed(month: string, cash: Account) {
+  return {
+    type: "/problems/month-closed",
+    title: "Month closed",
+    status: 409,
+    detail: `${monthWords(month)} is closed. Reopen it to change its entries.`,
+    booking_month: month,
+    open_month: cash.open_month,
+    account_id: cash.account_id,
+  };
+}
+
 const rowPath = "/households/{household_id}/imported-transactions/{imported_transaction_id}";
 
 export function importedTransactionHandlers(db: MockDb) {
@@ -187,7 +401,16 @@ export function importedTransactionHandlers(db: MockDb) {
     http.post(`${rowPath}/accept`, async ({ params, request, response }) => {
       // The body is optional: no body means Uncategorised.
       const text = await new Response(request.body).text();
-      const body = text === "" ? {} : (JSON.parse(text) as { category_id?: string });
+      const body =
+        text === ""
+          ? {}
+          : (JSON.parse(text) as components["schemas"]["ImportedTransactionAcceptance"]);
+      if (body.category_id !== undefined && body.transfer_account_id !== undefined) {
+        return response(422).json(transferRefused("CATEGORY_AND_TRANSFER"));
+      }
+      if (body.match_transaction_id !== undefined && body.transfer_account_id === undefined) {
+        return response(422).json(transferRefused("MATCH_WITHOUT_TRANSFER"));
+      }
       const found = findRow(db, params.household_id, params.imported_transaction_id);
       if (found === undefined) {
         return response(404).json(notFound);
@@ -223,6 +446,26 @@ export function importedTransactionHandlers(db: MockDb) {
       const refusedForMonth = monthRefusal(state, accountId, row, true);
       if (refusedForMonth !== undefined) {
         return response(409).json(refusedForMonth);
+      }
+      if (body.transfer_account_id !== undefined) {
+        const booked = bookTransfer(
+          state,
+          params.household_id,
+          accountId,
+          row,
+          body.transfer_account_id,
+          body.match_transaction_id,
+        );
+        if ("refused" in booked) {
+          return response.untyped(Response.json(booked.refused, { status: booked.refused.status }));
+        }
+        const accepted = save(
+          db,
+          accountId,
+          { ...row, state: "ACCEPTED", transaction_id: booked.bankLeg },
+          booked.changes,
+        );
+        return response.untyped(await withExactAmounts(response(200).json(accepted)));
       }
       const categories = state.categories[params.household_id] ?? [];
       const category =
@@ -274,6 +517,51 @@ export function importedTransactionHandlers(db: MockDb) {
         }),
       );
       return response.untyped(await withExactAmounts(response(200).json(accepted)));
+    }),
+
+    http.get(`${rowPath}/transfer-suggestions`, async ({ params, query, response }) => {
+      const found = findRow(db, params.household_id, params.imported_transaction_id);
+      if (found === undefined) {
+        return response(404).json(notFound);
+      }
+      const { state, accountId, row } = found;
+      const checked = cashCounterpart(
+        state,
+        params.household_id,
+        accountId,
+        query.get("account_id"),
+        row.amount.currency,
+      );
+      if ("refused" in checked) {
+        return response(422).json(checked.refused);
+      }
+      const cash = checked.cash;
+      const items: Transaction[] = (state.transactions[cash.account_id] ?? [])
+        .filter(
+          (leg) =>
+            couldMatch(leg, accountId, row) &&
+            daysBetween(leg.transaction_date, row.transaction_date) <= suggestionWindow,
+        )
+        // Closest first, then by date, then by ID, as the backend orders them.
+        .sort(
+          (a, b) =>
+            daysBetween(a.transaction_date, row.transaction_date) -
+              daysBetween(b.transaction_date, row.transaction_date) ||
+            a.transaction_date.localeCompare(b.transaction_date) ||
+            a.transaction_id.localeCompare(b.transaction_id),
+        )
+        .map((leg) => ({
+          transaction_id: leg.transaction_id,
+          account_id: cash.account_id,
+          amount: leg.amount,
+          booking_date: leg.booking_date,
+          transaction_date: leg.transaction_date,
+          description: leg.description,
+          category_id: leg.category_id,
+          category_name: leg.category_name,
+          counterpart_account_id: accountId,
+        }));
+      return response.untyped(await withExactAmounts(response(200).json({ items })));
     }),
 
     http.post(`${rowPath}/keep`, async ({ params, response }) => {

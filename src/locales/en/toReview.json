@@ -86,5 +86,12 @@
   },
   "awaiting": "Rows to review appear here after the first Statement import.",
   "importFirst": "Import the first statement",
-  "notOpenYet": "{{month}} isn't open yet"
+  "notOpenYet": "{{month}} isn't open yet",
+  "suggestions": {
+    "title": "Did you already note this in {{account}}?",
+    "description": "{{row}}. Pick the Transfer you noted in {{account}}, so the money isn't counted twice.",
+    "recordNow": "No, record it in {{account}} now",
+    "accept": "Accept",
+    "cancel": "Cancel"
+  }
 }

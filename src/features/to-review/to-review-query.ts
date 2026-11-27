@@ -6,6 +6,8 @@ import { useApi } from "../../api/context";
 import { errorStatus } from "../../api/problem";
 import type { components } from "../../api/schema.gen";
 import { unwrap } from "../../api/unwrap";
+import { counterpartOf } from "../../components/category-picker";
+import { refetchAccountReads } from "../../lib/account-query";
 import type { Month } from "../../lib/month";
 import { notificationsKey } from "../../lib/notifications";
 import { settleEach } from "../../lib/pool";
@@ -87,51 +89,44 @@ export function usePendingPages(householdId: string, accountId: string, enabled:
 
 export type Decision = "accept" | "keep" | "discard";
 
-/** How one row's request ended. A 409 means someone else decided it first: not a failure. */
-export type Outcome =
-  | { row: ImportedTransaction; kind: "done" }
-  | { row: ImportedTransaction; kind: "conflict"; error: unknown }
-  | { row: ImportedTransaction; kind: "failed"; error: unknown };
+type Acceptance = components["schemas"]["ImportedTransactionAcceptance"];
 
 /**
- * Decides rows, one request per row, a few at a time, each with its own
- * Idempotency-Key and the write retries. Afterwards every read a decision
- * changes is refetched; the promise resolves once they are.
+ * What Accept sends for a picker's value: a Category, or a Transfer to the cash
+ * Account it names (cash-accounts-and-transfers spec, "Accept as Transfer"),
+ * with the In transit leg to Match when one was picked.
  */
-export function useDecide(householdId: string, accountId: string) {
-  const { fetchClient } = useApi();
-  const queryClient = useQueryClient();
-  const { mutateAsync } = useMutation({
-    mutationFn: async ({
-      decision,
-      row,
-      categoryId,
-    }: {
-      decision: Decision;
-      row: ImportedTransaction;
-      categoryId?: string;
-    }) => {
-      const params = {
-        path: { household_id: householdId, imported_transaction_id: row.imported_transaction_id },
-      };
-      const prefix = "/households/{household_id}/imported-transactions/{imported_transaction_id}";
-      switch (decision) {
-        case "accept":
-          return unwrap(
-            await fetchClient.POST(`${prefix}/accept`, {
-              params,
-              body: categoryId === undefined ? {} : { category_id: categoryId },
-            }),
-          );
-        case "keep":
-          return unwrap(await fetchClient.POST(`${prefix}/keep`, { params }));
-        case "discard":
-          return unwrap(await fetchClient.POST(`${prefix}/discard`, { params }));
-      }
-    },
-  });
+export function acceptance(value: string | undefined, matchTransactionId?: string): Acceptance {
+  const cash = counterpartOf(value ?? null);
+  if (cash === undefined) {
+    return value === undefined ? {} : { category_id: value };
+  }
+  return {
+    transfer_account_id: cash,
+    ...(matchTransactionId === undefined ? {} : { match_transaction_id: matchTransactionId }),
+  };
+}
 
-  const refetch = () => {
+export const suggestionsPath =
+  "/households/{household_id}/imported-transactions/{imported_transaction_id}/transfer-suggestions";
+
+/** `GET …/transfer-suggestions`: the cash Account's In transit legs that could be this row's other side. */
+export function suggestionsParams(householdId: string, rowId: string, cashAccountId: string) {
+  return {
+    params: {
+      path: { household_id: householdId, imported_transaction_id: rowId },
+      query: { account_id: cashAccountId },
+    },
+  };
+}
+
+/**
+ * Everything an Accept changes: this Account's reads, and, for a Transfer, the
+ * cash Account's Transactions, balance and months.
+ */
+function useRefetchAfterDecision(householdId: string, accountId: string) {
+  const queryClient = useQueryClient();
+  return (cashAccountIds: readonly string[] = []) => {
     const account = accountParams(householdId, accountId);
     return Promise.all([
       queryClient.invalidateQueries({ queryKey: ["get", path, account] }),
@@ -160,8 +155,115 @@ export function useDecide(householdId: string, accountId: string) {
           "/households/{household_id}/connections/{connection_id}/statement-imports",
         ],
       }),
+      ...[...new Set(cashAccountIds)].flatMap((cash) => [
+        queryClient.invalidateQueries({
+          queryKey: [
+            "get",
+            "/households/{household_id}/accounts/{account_id}/transactions",
+            accountParams(householdId, cash),
+          ],
+        }),
+        refetchAccountReads(queryClient, householdId, cash),
+      ]),
     ]);
   };
+}
+
+/**
+ * Accepts one row as a Transfer, from the suggestions dialog: the error is
+ * the caller's to show. Afterwards every read it changed is refetched.
+ */
+export function useAcceptTransfer(householdId: string, accountId: string) {
+  const { fetchClient } = useApi();
+  const refetch = useRefetchAfterDecision(householdId, accountId);
+  const { mutateAsync } = useMutation({
+    mutationFn: async ({
+      row,
+      cashAccountId,
+      matchTransactionId,
+    }: {
+      row: ImportedTransaction;
+      cashAccountId: string;
+      matchTransactionId: string | undefined;
+    }) =>
+      unwrap(
+        await fetchClient.POST(
+          "/households/{household_id}/imported-transactions/{imported_transaction_id}/accept",
+          {
+            params: {
+              path: {
+                household_id: householdId,
+                imported_transaction_id: row.imported_transaction_id,
+              },
+            },
+            body: {
+              transfer_account_id: cashAccountId,
+              ...(matchTransactionId === undefined
+                ? {}
+                : { match_transaction_id: matchTransactionId }),
+            },
+          },
+        ),
+      ),
+  });
+  return async (
+    row: ImportedTransaction,
+    cashAccountId: string,
+    matchTransactionId: string | undefined,
+  ) => {
+    try {
+      return await mutateAsync({ row, cashAccountId, matchTransactionId });
+    } finally {
+      await refetch([cashAccountId]);
+    }
+  };
+}
+
+/** How one row's request ended. A 409 means someone else decided it first: not a failure. */
+export type Outcome =
+  | { row: ImportedTransaction; kind: "done" }
+  | { row: ImportedTransaction; kind: "conflict"; error: unknown }
+  | { row: ImportedTransaction; kind: "failed"; error: unknown };
+
+/**
+ * Decides rows, one request per row, a few at a time, each with its own
+ * Idempotency-Key and the write retries. Afterwards every read a decision
+ * changes is refetched; the promise resolves once they are.
+ */
+export function useDecide(householdId: string, accountId: string) {
+  const { fetchClient } = useApi();
+  const { mutateAsync } = useMutation({
+    mutationFn: async ({
+      decision,
+      row,
+      categoryId,
+    }: {
+      decision: Decision;
+      row: ImportedTransaction;
+      /** A Category ID, or a Transfer's picker value (`transferValue`). */
+      categoryId?: string;
+    }) => {
+      const params = {
+        path: { household_id: householdId, imported_transaction_id: row.imported_transaction_id },
+      };
+      const prefix = "/households/{household_id}/imported-transactions/{imported_transaction_id}";
+      switch (decision) {
+        case "accept":
+          return unwrap(
+            await fetchClient.POST(`${prefix}/accept`, {
+              params,
+              body: acceptance(categoryId),
+            }),
+          );
+        case "keep":
+          return unwrap(await fetchClient.POST(`${prefix}/keep`, { params }));
+        case "discard":
+          return unwrap(await fetchClient.POST(`${prefix}/discard`, { params }));
+      }
+    },
+  });
+
+  const refetch = useRefetchAfterDecision(householdId, accountId);
 
   return async (
     decision: Decision,
@@ -172,7 +274,12 @@ export function useDecide(householdId: string, accountId: string) {
       const categoryId = categoryFor(row);
       return mutateAsync({ decision, row, ...(categoryId === undefined ? {} : { categoryId }) });
     });
-    await refetch();
+    // A Transfer changes its cash Account too.
+    await refetch(
+      decision === "accept"
+        ? rows.flatMap((row) => counterpartOf(categoryFor(row) ?? null) ?? [])
+        : [],
+    );
     return rows.map((row, index): Outcome => {
       const result = settled[index];
       if (result?.status === "fulfilled") {

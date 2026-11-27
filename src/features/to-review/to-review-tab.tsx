@@ -1,9 +1,10 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useApi } from "../../api/context";
-import { CategoryPicker } from "../../components/category-picker";
+import { CategoryPicker, counterpartOf } from "../../components/category-picker";
 import { errorText, useErrorText } from "../../components/error-text";
 import { MonthField, type MonthChoice } from "../../components/month-field";
 import { rowLabel } from "../../components/row-label";
@@ -20,6 +21,7 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { toReviewMonths } from "../../lib/account-months";
+import { isCash } from "../../lib/account-query";
 import {
   commonSign,
   fitsSign,
@@ -31,6 +33,8 @@ import {
 import { formatMonth, monthOf, type Month } from "../../lib/month";
 import { ReviewTable } from "./review-table";
 import {
+  suggestionsParams,
+  suggestionsPath,
   useAllRows,
   useDecide,
   usePendingPages,
@@ -38,6 +42,7 @@ import {
   type ImportedTransaction,
   type Outcome,
 } from "./to-review-query";
+import { TransferSuggestionsDialog, type Suggesting } from "./transfer-suggestions-dialog";
 
 interface ToReviewTabProps {
   householdId: string;
@@ -135,6 +140,8 @@ export function ToReviewTab({
   );
 }
 
+const noTransfers: readonly { account_id: string; name: string }[] = [];
+
 function uncategorisedId(categories: CategoryNode[] | undefined): string | undefined {
   return flattenCategories(categories ?? []).find(isUncategorised)?.id;
 }
@@ -168,6 +175,10 @@ function ReviewLists({
   const categories = api.useQuery("get", "/households/{household_id}/categories", {
     params: { path: { household_id: householdId } },
   }).data?.items;
+  const accounts = api.useQuery("get", "/households/{household_id}/accounts", {
+    params: { path: { household_id: householdId } },
+  }).data?.items;
+  const queryClient = useQueryClient();
   const suspectedQuery = useAllRows(householdId, accountId, "SUSPECTED_DUPLICATE", month, true);
   const pendingMonth = useAllRows(
     householdId,
@@ -195,6 +206,7 @@ function ReviewLists({
   const [chosen, setChosen] = useState<ReadonlyMap<string, string>>(new Map());
   const [bulkCategory, setBulkCategory] = useState<string>();
   const [toDiscard, setToDiscard] = useState<ImportedTransaction[]>();
+  const [suggesting, setSuggesting] = useState<Suggesting>();
 
   const uncategorised = uncategorisedId(categories);
   // A Pending row booked after the open month waits for its month to open. A
@@ -207,6 +219,19 @@ function ReviewLists({
   };
   const categoryOf = (row: ImportedTransaction) =>
     chosen.get(row.imported_transaction_id) ?? uncategorised;
+  // A row is a Transfer only with a cash Account in its currency (spec, "Accept as Transfer").
+  // By currency, so each row's picker gets the same list from render to render.
+  const cashByCurrency = useMemo(() => {
+    const byCurrency = new Map<string, { account_id: string; name: string }[]>();
+    for (const account of accounts ?? []) {
+      if (isCash(account) && account.account_id !== accountId) {
+        byCurrency.set(account.currency, [...(byCurrency.get(account.currency) ?? []), account]);
+      }
+    }
+    return byCurrency;
+  }, [accounts, accountId]);
+  const transfersOf = (row: ImportedTransaction) =>
+    cashByCurrency.get(row.amount.currency) ?? noTransfers;
 
   const suspectedRows = (suspectedQuery.data ?? []).filter(
     ({ imported_transaction_id: id }) => !removed.has(id) && !kept.has(id),
@@ -275,6 +300,47 @@ function ReviewLists({
       (current) => new Set([...current].filter((id) => !ids.includes(id) || failedIds.has(id))),
     );
     report(decision, outcomes);
+  };
+
+  /**
+   * Accept one row from its own button. A Transfer first asks for the cash
+   * Account's suggested legs: with none it Accepts at once, recording the
+   * cash leg; with some the member picks one in the dialog.
+   */
+  const acceptRow = async (row: ImportedTransaction) => {
+    const cashId = counterpartOf(categoryOf(row) ?? null);
+    const cash = cashByCurrency
+      .get(row.amount.currency)
+      ?.find(({ account_id }) => account_id === cashId);
+    if (cash === undefined) {
+      await run("accept", [row]);
+      return;
+    }
+    const id = row.imported_transaction_id;
+    setBusy((current) => new Set([...current, id]));
+    try {
+      const { items } = await queryClient.query({
+        ...api.queryOptions(
+          "get",
+          suggestionsPath,
+          suggestionsParams(householdId, id, cash.account_id),
+        ),
+        staleTime: 0,
+      });
+      if (items.length === 0) {
+        await run("accept", [row]);
+      } else {
+        setSuggesting({ row, cash });
+      }
+    } catch (error) {
+      const { title, detail } = errorText(error, tCommon);
+      errorToast(
+        t("failed.accept", { row: rowLabel(row) }),
+        detail === undefined ? title : `${title}: ${detail}`,
+      );
+    } finally {
+      setBusy((current) => new Set([...current].filter((busyId) => busyId !== id)));
+    }
   };
 
   const viewTransactions = {
@@ -433,13 +499,14 @@ function ReviewLists({
                 busy={busy}
                 categories={categories}
                 categoryOf={categoryOf}
+                transfersOf={transfersOf}
                 lockOf={lockOf}
                 onCategoryChange={(row, categoryId) => {
                   setChosen(
                     (current) => new Map([...current, [row.imported_transaction_id, categoryId]]),
                   );
                 }}
-                onAccept={(row) => void run("accept", [row])}
+                onAccept={(row) => void acceptRow(row)}
                 onDiscard={(row) => {
                   setToDiscard([row]);
                 }}
@@ -454,6 +521,21 @@ function ReviewLists({
           </Card>
         </section>
       )}
+      <TransferSuggestionsDialog
+        householdId={householdId}
+        accountId={accountId}
+        suggesting={suggesting}
+        onClose={() => {
+          setSuggesting(undefined);
+        }}
+        onAccepted={(row) => {
+          setSuggesting(undefined);
+          setSelected(
+            (current) => new Set([...current].filter((id) => id !== row.imported_transaction_id)),
+          );
+          report("accept", [{ row, kind: "done" }]);
+        }}
+      />
       <DiscardDialog
         rows={toDiscard}
         onCancel={() => {
