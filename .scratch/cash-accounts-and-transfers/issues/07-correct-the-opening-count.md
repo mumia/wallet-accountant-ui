@@ -1,6 +1,6 @@
 # 07: Correct the opening count
 
-Status: in-review
+Status: done
 Blocked by: 04
 Waits on backend: no
 

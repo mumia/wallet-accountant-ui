@@ -1,6 +1,6 @@
 # Spec: Cash Accounts and Transfers (UI)
 
-Status: ready (2026-11-26): grilled and agreed. No ticket has started.
+Status: done (2026-11-27): every ticket has landed, and the real-stack smoke test passed against backend v0.10.0.
 
 This is the UI half of the backend's cash-accounts-and-transfers work. The backend sources are:
 

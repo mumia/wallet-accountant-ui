@@ -1,6 +1,6 @@
 # 11: Pick up the backend's Category direction rule
 
-Status: in-review
+Status: done
 Blocked by: 03
 Waits on backend: no. v0.10.0 is released and carries `../wallet-accountant/.scratch/category-direction/`.
 

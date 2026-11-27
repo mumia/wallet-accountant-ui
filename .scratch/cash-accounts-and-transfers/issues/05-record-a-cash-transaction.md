@@ -1,6 +1,6 @@
 # 05: Record a cash Transaction
 
-Status: in-review
+Status: done
 Blocked by: 03, 04
 Waits on backend: no
 

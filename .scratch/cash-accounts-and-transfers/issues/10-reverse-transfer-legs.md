@@ -1,6 +1,6 @@
 # 10: Reverse Transfer legs
 
-Status: in-review
+Status: done
 Blocked by: 09
 Waits on backend: no
 

@@ -1,6 +1,6 @@
 # 09: Accept a bank row as a Transfer
 
-Status: in-review
+Status: done
 Blocked by: 03, 08
 Waits on backend: no
 

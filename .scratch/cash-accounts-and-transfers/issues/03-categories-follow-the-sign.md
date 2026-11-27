@@ -1,6 +1,6 @@
 # 03: Categories follow the amount's sign
 
-Status: in-review
+Status: done
 Blocked by: 02
 Waits on backend: no. The backend's enforcement is ticket 11.
 
