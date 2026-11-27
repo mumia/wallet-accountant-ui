@@ -38,6 +38,7 @@ import { cashDateRange } from "../../lib/cash-dates";
 import { fitsSign, flattenCategories, signOf } from "../../lib/categories";
 import { formatDate, formatDateLong, type IsoDate } from "../../lib/date";
 import { formatDecimal, formatMoney, type Decimal } from "../../lib/money";
+import { canTakeLegOn } from "../../lib/transfers";
 import { formatMonth, type Month } from "../../lib/month";
 import { transactionsKey } from "./transactions-query";
 
@@ -174,35 +175,57 @@ function RecordForm({
   // The Category a sign change cleared, named until another is picked.
   const [cleared, setCleared] = useState<{ name: string; kind: string }>();
 
-  const schema = z.object({
-    amount: z.custom<Decimal | null>().superRefine((amount, context) => {
-      if (amount === null) {
-        context.addIssue({ code: "custom", message: t("record.amountRequired") });
-      } else if (signOf(amount) === undefined) {
-        context.addIssue({ code: "custom", message: t("record.amountZero") });
-      }
-    }),
-    otherSide: z.string().nullable(),
-    date: z
-      .string()
-      .min(1, t("record.dateInvalid", { example: formatDate(range.initial) }))
-      .refine(
-        (date) => date >= range.min,
-        range.minReason === "start-date"
-          ? t("record.dateBeforeStart", { date: formatDateLong(range.min) })
-          : t("record.dateInClosedMonth", {
-              month: formatMonth(account.open_month as Month),
-              date: formatDateLong(range.min),
+  const schema = z
+    .object({
+      amount: z.custom<Decimal | null>().superRefine((amount, context) => {
+        if (amount === null) {
+          context.addIssue({ code: "custom", message: t("record.amountRequired") });
+        } else if (signOf(amount) === undefined) {
+          context.addIssue({ code: "custom", message: t("record.amountZero") });
+        }
+      }),
+      otherSide: z.string().nullable(),
+      date: z
+        .string()
+        .min(1, t("record.dateInvalid", { example: formatDate(range.initial) }))
+        .refine(
+          (date) => date >= range.min,
+          range.minReason === "start-date"
+            ? t("record.dateBeforeStart", { date: formatDateLong(range.min) })
+            : t("record.dateInClosedMonth", {
+                month: formatMonth(account.open_month as Month),
+                date: formatDateLong(range.min),
+              }),
+        )
+        .refine((date) => date <= range.max, t("record.dateTooLate")),
+      description: z
+        .string()
+        .trim()
+        .min(1, t("record.descriptionRequired"))
+        .max(500, t("record.descriptionTooLong")),
+      payee: z.string().trim().max(200, t("record.payeeTooLong")),
+    })
+    // A cash Counterpart takes its leg on the same date, and holds no money
+    // before its start date (backend: 422 `invalid-transfer`, `BEFORE_START_DATE`).
+    // Checked even while another field is wrong, so it shows with the others.
+    .superRefine(
+      ({ otherSide, date }, context) => {
+        const other = counterparts.find(
+          ({ account_id }) => account_id === counterpartOf(otherSide),
+        );
+        if (other !== undefined && date !== "" && !canTakeLegOn(other, date)) {
+          context.addIssue({
+            code: "custom",
+            path: ["otherSide"],
+            message: t("record.counterpartNotStarted", {
+              account: other.name,
+              date: formatDateLong(other.start_date as IsoDate),
             }),
-      )
-      .refine((date) => date <= range.max, t("record.dateTooLate")),
-    description: z
-      .string()
-      .trim()
-      .min(1, t("record.descriptionRequired"))
-      .max(500, t("record.descriptionTooLong")),
-    payee: z.string().trim().max(200, t("record.payeeTooLong")),
-  });
+          });
+        }
+      },
+      { when: () => true },
+    );
   const form = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -338,7 +361,7 @@ function RecordForm({
           control={form.control}
           name="otherSide"
           render={({ field }) => (
-            <Field>
+            <Field data-invalid={errors.otherSide !== undefined}>
               <FieldLabel id={`${otherSideId}-label`} htmlFor={otherSideId}>
                 {t("record.otherSide")}
               </FieldLabel>
@@ -356,12 +379,14 @@ function RecordForm({
                 onBlur={field.onBlur}
                 name={field.name}
                 inputRef={field.ref}
+                aria-invalid={errors.otherSide !== undefined}
                 aria-describedby={[
                   `${otherSideId}-help`,
                   `${otherSideId}-cleared`,
                   ...(counterpart === undefined || isCash(counterpart)
                     ? []
                     : [`${otherSideId}-in-transit`]),
+                  ...(errors.otherSide === undefined ? [] : [`${otherSideId}-error`]),
                 ].join(" ")}
               />
               <FieldDescription id={`${otherSideId}-help`}>
@@ -387,12 +412,17 @@ function RecordForm({
                       },
                     )}
               </p>
+              {errors.otherSide?.message !== undefined && (
+                <FieldError id={`${otherSideId}-error`}>{errors.otherSide.message}</FieldError>
+              )}
             </Field>
           )}
         />
         <Controller
           control={form.control}
           name="date"
+          // A new date can make the chosen cash Counterpart too new, or fit again.
+          rules={{ deps: ["otherSide"] }}
           render={({ field }) => (
             <Field data-invalid={errors.date !== undefined}>
               <FieldLabel htmlFor={dateId}>{t("record.date")}</FieldLabel>

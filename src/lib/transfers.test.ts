@@ -2,10 +2,35 @@ import i18next from "i18next";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { initI18n } from "../app/i18n";
-import { isInTransit, isTransferLeg, reverseWarning, transferLabel } from "./transfers";
+import {
+  canTakeLegOn,
+  isInTransit,
+  isTransferLeg,
+  reverseWarning,
+  transferLabel,
+} from "./transfers";
 
 beforeAll(async () => {
   await initI18n();
+});
+
+describe("canTakeLegOn", () => {
+  const wallet = { kind: "CASH", start_date: "2026-11-27" } as const;
+
+  it("refuses a cash leg before the cash Account's start date", () => {
+    expect(canTakeLegOn(wallet, "2026-11-02")).toBe(false);
+  });
+
+  it("takes a cash leg on the start date and after it", () => {
+    expect(canTakeLegOn(wallet, "2026-11-27")).toBe(true);
+    expect(canTakeLegOn(wallet, "2026-11-28")).toBe(true);
+  });
+
+  it("takes any date on a statement Account, whose leg is In transit", () => {
+    expect(canTakeLegOn({ kind: "BANK_ACCOUNT", start_date: "2026-11-27" }, "2026-11-02")).toBe(
+      true,
+    );
+  });
 });
 
 describe("transferLabel", () => {
