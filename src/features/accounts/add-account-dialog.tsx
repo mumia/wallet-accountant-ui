@@ -32,6 +32,7 @@ import { Label } from "../../components/ui/label";
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
 import { firstOfMonth, formatDate, today, type IsoDate } from "../../lib/date";
 import type { Decimal } from "../../lib/money";
+import { checkOpeningCounts } from "./opening-count";
 
 /** The kinds, in the contract's order: the four statement kinds, then Cash. */
 const kinds = Object.keys(kindKeys) as (keyof typeof kindKeys)[];
@@ -103,30 +104,9 @@ function AddAccountForm({ householdId, onAdded }: { householdId: string; onAdded
       openingCount: z.custom<Decimal | null>(),
       openingCountAgain: z.custom<Decimal | null>(),
     })
-    .superRefine(({ kind, openingCount, openingCountAgain }, context) => {
-      if (kind !== "CASH") {
-        return;
-      }
-      if (openingCount === null) {
-        context.addIssue({
-          code: "custom",
-          path: ["openingCount"],
-          message: t("add.openingCountRequired"),
-        });
-      }
-      if (openingCountAgain === null) {
-        context.addIssue({
-          code: "custom",
-          path: ["openingCountAgain"],
-          message: t("add.openingCountAgainRequired"),
-        });
-      } else if (openingCount !== null && openingCount !== openingCountAgain) {
-        // Both are canonical decimal text in the currency's places, so equal counts read alike.
-        context.addIssue({
-          code: "custom",
-          path: ["openingCountAgain"],
-          message: t("add.openingCountsDiffer"),
-        });
+    .superRefine(({ kind, ...counts }, context) => {
+      if (kind === "CASH") {
+        checkOpeningCounts(t, counts, context);
       }
     });
   const form = useForm({

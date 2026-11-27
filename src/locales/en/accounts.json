@@ -43,12 +43,20 @@
     "importStatement": "Import statement",
     "actions": "More Account actions",
     "rename": "Rename…",
+    "correctOpeningCount": "Correct opening count…",
     "tabs": "Account",
     "toReview": "To review",
     "transactions": "Transactions",
     "months": "Months",
     "statementImports": "Statement imports",
     "connections": "Connections"
+  },
+  "correctOpeningCount": {
+    "title": "Correct opening count",
+    "description": "Count the cash again as it was on {{date}}. The Opening balance Transaction is replaced, and the balance follows.",
+    "help": "The cash in it on {{date}}.",
+    "submit": "Correct opening count",
+    "saving": "Correcting…"
   },
   "rename": {
     "title": "Rename Account",

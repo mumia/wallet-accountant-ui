@@ -21,12 +21,34 @@ async function call(method: string, path: string, body?: string) {
   return { status: response.status, body: parseExactJson(await response.text()) };
 }
 
-const addAccount = (fields: string) =>
+const addAccount = (fields: string, startDate = "2026-11-26") =>
   call(
     "POST",
     `/households/${home}/accounts`,
-    `{"name":"Wallet","currency":"EUR","start_date":"2026-11-26",${fields}}`,
+    `{"name":"Wallet","currency":"EUR","start_date":"${startDate}",${fields}}`,
   );
+
+/** A cash Account counted at €40.00 on `startDate`. */
+async function addWallet(startDate?: string) {
+  const { body } = await addAccount(
+    `"kind":"CASH","opening_count":{"amount":40.00,"currency":"EUR"},"opening_count_confirmation":{"amount":40.00,"currency":"EUR"}`,
+    startDate,
+  );
+  return body as Account;
+}
+
+const recount = (accountId: string, count: string, again = count) =>
+  call(
+    "POST",
+    `/households/${home}/accounts/${accountId}/opening-count`,
+    `{"opening_count":{"amount":${count},"currency":"EUR"},"opening_count_confirmation":{"amount":${again},"currency":"EUR"}}`,
+  );
+
+const transactionsOf = async (accountId: string) =>
+  (
+    (await call("GET", `/households/${home}/accounts/${accountId}/transactions`))
+      .body as TransactionList
+  ).items;
 
 describe("POST …/accounts", () => {
   it("adds a cash Account with its Opening balance Transaction and a balance", async () => {
@@ -98,5 +120,80 @@ describe("POST …/accounts", () => {
     );
     expect(status).toBe(422);
     expect((problem as Problem).type).toBe("/problems/invalid-connection");
+  });
+});
+
+describe("POST …/accounts/{id}/opening-count", () => {
+  it("replaces the Opening balance Transaction, and the balance follows", async () => {
+    const wallet = await addWallet();
+    const [opening] = await transactionsOf(wallet.account_id);
+
+    const { status, body } = await recount(wallet.account_id, "45.5", "45.50");
+
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ balance: { amount: "45.50", currency: "EUR" } });
+    const items = await transactionsOf(wallet.account_id);
+    expect(items).toMatchObject([
+      { transaction_id: opening?.transaction_id, amount: { amount: "40.00" } },
+      {
+        reversal_of_transaction_id: opening?.transaction_id,
+        booking_date: "2026-11-26",
+        amount: { amount: "-40.00" },
+      },
+      {
+        booking_date: "2026-11-26",
+        description: "Opening balance",
+        amount: { amount: "45.50" },
+        category_name: "Opening balance",
+      },
+    ]);
+    expect(items[0]?.reversed_by_transaction_id).toBe(items[1]?.transaction_id);
+    const account = await call("GET", `/households/${home}/accounts/${wallet.account_id}`);
+    expect(account.body).toMatchObject({ balance: { amount: "45.50" } });
+  });
+
+  it("records nothing for the same count again", async () => {
+    const wallet = await addWallet();
+
+    const { status, body } = await recount(wallet.account_id, "40");
+
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ balance: { amount: "40.00" } });
+    expect(await transactionsOf(wallet.account_id)).toHaveLength(1);
+  });
+
+  it("refuses two different counts", async () => {
+    const wallet = await addWallet();
+
+    const { status, body } = await recount(wallet.account_id, "45.00", "54.00");
+
+    expect(status).toBe(422);
+    expect((body as Problem).type).toBe("/problems/opening-count-mismatch");
+    expect(await transactionsOf(wallet.account_id)).toHaveLength(1);
+  });
+
+  it("refuses a statement Account as not-a-cash-account", async () => {
+    const main = "0190f5f2-7c00-7000-8000-000000000101";
+
+    const { status, body } = await recount(main, "45.00");
+
+    expect(status).toBe(422);
+    expect((body as Problem).type).toBe("/problems/not-a-cash-account");
+  });
+
+  it("refuses once the start month has closed, as opening-count-locked", async () => {
+    // A month long ended, so it can close whatever the clock.
+    const wallet = await addWallet("2025-01-15");
+    const closed = await call(
+      "POST",
+      `/households/${home}/accounts/${wallet.account_id}/months/2025-01/close`,
+      `{"statement_balance":{"amount":40.00,"currency":"EUR"}}`,
+    );
+    expect(closed.status).toBe(200);
+
+    const { status, body } = await recount(wallet.account_id, "45.00");
+
+    expect(status).toBe(409);
+    expect((body as Problem).type).toBe("/problems/opening-count-locked");
   });
 });
