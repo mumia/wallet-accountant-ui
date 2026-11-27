@@ -20,11 +20,15 @@ The cash month must have ended for step 5. Use start dates in an earlier month, 
 ## Acceptance criteria
 
 - [x] `smoke.spec.ts` runs the steps above after the existing ones
-- [ ] `make local-smoke` passes on a fresh cluster with backend v0.9.0. Note the tag in an `## Answer`
+- [x] `make local-smoke` passes on a fresh cluster with backend v0.9.0. Note the tag in an `## Answer`
 
 ## Spec
 
 [spec.md](../spec.md): "Testing Decisions" (real-stack smoke test).
+
+## Answer
+
+Done on 2026-11-27. `make local-smoke` passed on a fresh cluster with the backend at **v0.10.0** (fd8fb62), which is the contract version since ticket 11, rather than v0.9.0. The browser test took 25 s and the whole run 643 s. Every step passed: Wallet added and its Opening count corrected, the cash purchase, the ATM leg In transit, the bank's ATM row Accepted as that Transfer (no longer In transit), Wallet's month closed after Record the difference…, and the bank leg reversed once its month was reopened (row back To review, Wallet's leg In transit again).
 
 ## Comments
 
@@ -36,4 +40,4 @@ The cash month must have ended for step 5. Use start dates in an earlier month, 
   - **Reverse "needs the months reopened".** The Transactions list offers no Reverse… on a row in a closed month, so the step checks the bank leg has no Actions, reopens the bank's last month and reverses. It checks the bank-leg warning, that the row is back in To review, and that Wallet's manual leg is In transit again. Only the bank's month needs reopening. In the backend, a leg posts only to its own Account, and unmatching the other leg doesn't check closed months (`Transactions.Reverse` in ledger/app/corrections.go). Wallet's last month stays closed.
   - **Backend tag:** the contract is now v0.10.0 (ticket 11), not v0.9.0, so run the smoke test with the backend at **v0.10.0**.
 - 2026-11-27: `make lint` and `make typecheck` passed. Both cover `smoke/`.
-- Not run yet: `make local-smoke` refuses to start while the developer's k3d cluster `wallet-accountant` exists, and that cluster was kept. The backend checkout is also on `category-direction`, not v0.10.0. To run it: `git checkout v0.10.0` in wallet-accountant, then `make local-down` there, then `make local-smoke` here. Then tick the last box and note the result in an `## Answer`.
+- 2026-11-27: the first `make local-smoke` failed in the existing first step, before any new step ran. The Household's Name was typed, then dropped: the form rendered fresh as `/households/new`'s `/currencies` loader settled, about 8 ms after the fill. The Base currency, typed after it, stayed. The step now types both again until both values hold, then clicks Create Household. The second run passed (see `## Answer`).

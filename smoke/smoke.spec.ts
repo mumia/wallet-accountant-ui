@@ -237,9 +237,17 @@ test("a new User signs in, imports a statement and closes last month; a second U
     await page.getByRole("button", { name: "Redeem" }).click();
 
     await expect(page).toHaveURL(`${base}/households/new`);
-    await page.getByRole("textbox", { name: "Name" }).fill(household);
-    await page.getByRole("combobox", { name: "Base currency" }).fill("eur");
-    await page.getByRole("option", { name: "EUR — Euro" }).click();
+    // The form can render once more as the page's loader settles, dropping
+    // what was typed: type again until both values hold.
+    const name = page.getByRole("textbox", { name: "Name" });
+    const currency = page.getByRole("combobox", { name: "Base currency" });
+    await expect(async () => {
+      await name.fill(household);
+      await currency.fill("eur");
+      await page.getByRole("option", { name: "EUR — Euro" }).click();
+      await expect(name).toHaveValue(household, { timeout: 1_000 });
+      await expect(currency).toHaveValue("EUR — Euro", { timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
     await page.getByRole("button", { name: "Create Household" }).click();
 
     await expect(page).toHaveURL(/\/households\/[0-9a-f-]{36}$/);
