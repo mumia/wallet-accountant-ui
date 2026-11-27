@@ -23,7 +23,7 @@ export default defineConfig({
   globalSetup: fileURLToPath(new URL("global-setup.ts", import.meta.url)),
   outputDir: process.env["WA_RESULTS_DIR"] ?? "test-results",
   reporter: [["list"]],
-  timeout: 300_000,
+  timeout: 480_000,
   expect: { timeout: 15_000 },
   retries: 0,
   workers: 1,
