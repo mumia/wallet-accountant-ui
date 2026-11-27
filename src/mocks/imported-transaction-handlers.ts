@@ -161,6 +161,8 @@ const transferDetails = {
   SAME_ACCOUNT: "transfer_account_id is the row's own Account.",
   CURRENCY_MISMATCH: "transfer_account_id has another Account currency than the row.",
   UNKNOWN_ACCOUNT: "transfer_account_id is not one of the Household's Accounts.",
+  BEFORE_START_DATE:
+    "The row's date is before the cash Account's start date: the cash Account didn't exist yet.",
 } as const;
 
 const transferRefused = (reason: keyof typeof transferDetails): TransferProblem => ({
@@ -262,6 +264,15 @@ function bookTransfer(
     }
   } else if (monthOf(row.transaction_date) < cash.open_month) {
     return { refused: cashMonthClosed(monthOf(row.transaction_date), cash) };
+  } else if (row.transaction_date < cash.start_date) {
+    // The cash leg's booking refuses it, after the month checks.
+    return {
+      refused: {
+        ...transferRefused("BEFORE_START_DATE"),
+        detail: `The row's date, ${row.transaction_date}, is before the cash Account's start date, ${cash.start_date}: the cash Account didn't exist yet. Accept the row against an Expense Category, such as cash spending, or as a Transfer to a cash Account that started on or before the row's date.`,
+        account_id: cash.account_id,
+      },
+    };
   }
   const transferCategory = (state.categories[householdId] ?? []).find(
     ({ kind, name }) => kind === "INTERNAL" && name === "Account transfer",

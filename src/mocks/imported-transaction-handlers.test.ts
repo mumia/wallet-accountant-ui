@@ -228,6 +228,34 @@ describe("POST …/accept with a Transfer", () => {
     expect(body).toMatchObject({ reason: "NOT_A_MATCHING_LEG" });
   });
 
+  it("refuses a cash Account that started after the row's Transaction date, booking nothing", async () => {
+    const late = await addCash("Late", "EUR", "2026-11-20");
+    const mainBalance = await balanceOf(main);
+
+    const { status, body } = await accept(`{"transfer_account_id":"${late}"}`);
+
+    expect(status).toBe(422);
+    expect(body).toMatchObject({
+      type: "/problems/invalid-transfer",
+      reason: "BEFORE_START_DATE",
+      account_id: late,
+      detail: expect.stringContaining(
+        "The row's date, 2026-11-19, is before the cash Account's start date, 2026-11-20",
+      ) as unknown,
+    });
+    expect(await rowState()).toBe("PENDING");
+    expect(await balanceOf(late)).toEqual({ amount: "40.00", currency: "EUR" });
+    expect(await balanceOf(main)).toEqual(mainBalance);
+  });
+
+  it("takes a cash Account that started on the row's Transaction date", async () => {
+    const onTheDay = await addCash("On the day", "EUR", "2026-11-19");
+
+    const { status } = await accept(`{"transfer_account_id":"${onTheDay}"}`);
+
+    expect(status).toBe(200);
+  });
+
   it("refuses a cash Account in another currency", async () => {
     const purse = await addCash("Purse", "USD");
 

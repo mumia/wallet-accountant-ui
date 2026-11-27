@@ -233,17 +233,20 @@ function isOpeningBalance(state: MockState, householdId: string, transaction: Ac
   );
 }
 
-const invalidTransfer = (reason: string, detail: string) => ({
+const invalidTransfer = (reason: string, detail: string, accountId?: string) => ({
   ...problem(422, "invalid-transfer", "Invalid Transfer", detail),
   reason,
+  ...(accountId === undefined ? {} : { account_id: accountId }),
 });
 
 /**
  * Records a cash Transaction that is a Transfer leg, as the backend's
  * recordCashLeg (ledger/app/cash.go) does: a statement Counterpart gets
  * nothing and the leg stays In transit; a cash Counterpart gets the opposite
- * leg, the two booked in Account ID order and Matched at once. Either
- * Account's start date or closed month refuses it, naming that Account.
+ * leg, the two booked in Account ID order and Matched at once. The
+ * Account's own start date is checked first; then, leg by leg, a start date
+ * and a closed month refuse it, naming that Account: a counterpart's start
+ * date is an `invalid-transfer` (`BEFORE_START_DATE`).
  */
 function recordLegs(
   state: MockState,
@@ -307,10 +310,19 @@ function recordLegs(
       )
     : [own];
 
+  if (body.date < account.start_date) {
+    return { problem: invalidTransaction("The date is before the Account's start date.") };
+  }
   let next = state;
   for (const { account: on, transaction } of legs) {
     if (body.date < on.start_date) {
-      return { problem: invalidTransaction("The date is before the Account's start date.") };
+      return {
+        problem: invalidTransfer(
+          "BEFORE_START_DATE",
+          `The date, ${body.date}, is before the counterpart cash Account's start date, ${on.start_date}: it didn't exist yet. Record the Transaction against a Category, or as a Transfer with a cash Account that started on or before that date.`,
+          on.account_id,
+        ),
+      };
     }
     const month = monthOf(body.date);
     if (month < on.open_month) {
