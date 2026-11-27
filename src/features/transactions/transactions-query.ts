@@ -14,7 +14,7 @@ import { unwrap } from "../../api/unwrap";
 import type { components } from "../../api/schema.gen";
 import { errorText } from "../../components/error-text";
 import { useErrorToast } from "../../components/toaster";
-import { useRefetchAccountReads } from "../../lib/account-query";
+import { refetchAccountReads, useRefetchAccountReads } from "../../lib/account-query";
 import type { Month } from "../../lib/month";
 
 export type AccountTransaction = components["schemas"]["AccountTransaction"];
@@ -173,7 +173,9 @@ export function useChangeCategory(householdId: string, accountId: string) {
 /**
  * Reverses a Transaction (spec, "Reverse"): not optimistic. Afterwards the
  * list, the months, the Account and To review are read again, since an
- * Accepted row's Imported transaction goes back to pending.
+ * Accepted row's Imported transaction goes back to pending; for a Transfer
+ * leg, the Counterpart Account's too, whose leg is reversed or unmatched
+ * (cash-accounts-and-transfers spec, "Reversing legs").
  */
 export function useReverse(householdId: string, accountId: string) {
   const { fetchClient } = useApi();
@@ -188,10 +190,20 @@ export function useReverse(householdId: string, accountId: string) {
           },
         }),
       ),
-    onSettled: () =>
-      Promise.all([
+    onSettled: (_reversal, _error, transaction) => {
+      const counterpart = transaction.counterpart_account_id;
+      return Promise.all([
         queryClient.invalidateQueries({ queryKey: transactionsKey(householdId, accountId) }),
         refetchAccount(),
-      ]),
+        ...(counterpart === undefined
+          ? []
+          : [
+              queryClient.invalidateQueries({
+                queryKey: transactionsKey(householdId, counterpart),
+              }),
+              refetchAccountReads(queryClient, householdId, counterpart),
+            ]),
+      ]);
+    },
   });
 }

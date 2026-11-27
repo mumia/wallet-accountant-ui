@@ -25,12 +25,12 @@ async function call(method: string, path: string, body?: string) {
   return { status: response.status, body: parseExactJson(await response.text()) };
 }
 
-/** A cash Account counted at 40.00 on November 1, 2026. */
-async function addCash(name = "Wallet", currency = "EUR") {
+/** A cash Account counted at 40.00 on `startDate`, November 1, 2026 unless given. */
+async function addCash(name = "Wallet", currency = "EUR", startDate = "2026-11-01") {
   const { body } = await call(
     "POST",
     `/households/${home}/accounts`,
-    `{"name":"${name}","kind":"CASH","currency":"${currency}","start_date":"2026-11-01","opening_count":{"amount":40.00,"currency":"${currency}"},"opening_count_confirmation":{"amount":40.00,"currency":"${currency}"}}`,
+    `{"name":"${name}","kind":"CASH","currency":"${currency}","start_date":"${startDate}","opening_count":{"amount":40.00,"currency":"${currency}"},"opening_count_confirmation":{"amount":40.00,"currency":"${currency}"}}`,
   );
   return (body as Account).account_id;
 }
@@ -54,15 +54,17 @@ const suggestions = (cash: string, row = cafeRow) =>
 const accept = (body: string, row = cafeRow) =>
   call("POST", `/households/${home}/imported-transactions/${row}/accept`, body);
 
-const transactionsOf = async (accountId: string) =>
+const transactionsOfMonth = async (accountId: string, month: string) =>
   (
     (
       await call(
         "GET",
-        `/households/${home}/accounts/${accountId}/transactions?booking_month=2026-11&limit=200`,
+        `/households/${home}/accounts/${accountId}/transactions?booking_month=${month}&limit=200`,
       )
     ).body as { items: AccountTransaction[] }
   ).items;
+
+const transactionsOf = (accountId: string) => transactionsOfMonth(accountId, "2026-11");
 
 const balanceOf = async (accountId: string) =>
   ((await call("GET", `/households/${home}/accounts/${accountId}`)).body as Account).balance;
@@ -233,5 +235,109 @@ describe("POST …/accept with a Transfer", () => {
 
     expect(body).toMatchObject({ reason: "CURRENCY_MISMATCH" });
     expect(await rowState()).toBe("PENDING");
+  });
+});
+
+describe("POST …/reverse on a Transfer leg", () => {
+  const reverse = (transactionId: string) =>
+    call("POST", `/households/${home}/transactions/${transactionId}/reverse`);
+  const legOn = async (accountId: string, counterpart: string) =>
+    (await transactionsOf(accountId)).find(
+      ({ counterpart_account_id, reversal_of_transaction_id }) =>
+        counterpart_account_id === counterpart && reversal_of_transaction_id === undefined,
+    );
+
+  it("puts a bank leg's row back To review and reverses the cash leg the Accept recorded", async () => {
+    const wallet = await addCash();
+    await accept(`{"transfer_account_id":"${wallet}"}`);
+    const bankLeg = await legOn(main, wallet);
+
+    const { status } = await reverse(bankLeg?.transaction_id ?? "");
+
+    expect(status).toBe(201);
+    expect(await rowState()).toBe("PENDING");
+    expect((await legOn(main, wallet))?.reversed_by_transaction_id).toBeDefined();
+    const cashLeg = await legOn(wallet, main);
+    expect(cashLeg?.reversed_by_transaction_id).toBeDefined();
+    expect(cashLeg?.match_id).toBeUndefined();
+    expect(await balanceOf(wallet)).toEqual({ amount: "40.00", currency: "EUR" });
+  });
+
+  it("leaves a cash leg noted by hand In transit when the bank leg is reversed", async () => {
+    const wallet = await addCash();
+    const noted = await noteLeg(wallet, "2026-11-19");
+    await accept(
+      `{"transfer_account_id":"${wallet}","match_transaction_id":"${noted.transaction_id}"}`,
+    );
+
+    await reverse((await legOn(main, wallet))?.transaction_id ?? "");
+
+    expect(await rowState()).toBe("PENDING");
+    const cashLeg = await legOn(wallet, main);
+    expect(cashLeg?.reversed_by_transaction_id).toBeUndefined();
+    expect(cashLeg?.match_id).toBeUndefined();
+    expect(await balanceOf(wallet)).toEqual({ amount: "58.00", currency: "EUR" });
+  });
+
+  it("reverses a cash leg alone, leaving the bank leg Accepted, In transit", async () => {
+    const wallet = await addCash();
+    await accept(`{"transfer_account_id":"${wallet}"}`);
+
+    const { status } = await reverse((await legOn(wallet, main))?.transaction_id ?? "");
+
+    expect(status).toBe(201);
+    expect(await rowState()).toBe("not pending");
+    const bankLeg = await legOn(main, wallet);
+    expect(bankLeg?.reversed_by_transaction_id).toBeUndefined();
+    expect(bankLeg?.match_id).toBeUndefined();
+    expect(await balanceOf(wallet)).toEqual({ amount: "40.00", currency: "EUR" });
+  });
+
+  it("reverses both legs of a cash ↔ cash Transfer", async () => {
+    const wallet = await addCash();
+    const purse = await addCash("Purse");
+    await noteLeg(wallet, "2026-11-19", "-5", purse);
+
+    const { status } = await reverse((await legOn(purse, wallet))?.transaction_id ?? "");
+
+    expect(status).toBe(201);
+    for (const [on, other] of [
+      [wallet, purse],
+      [purse, wallet],
+    ] as const) {
+      const leg = await legOn(on, other);
+      expect(leg?.reversed_by_transaction_id).toBeDefined();
+      expect(leg?.match_id).toBeUndefined();
+      expect(await balanceOf(on)).toEqual({ amount: "40.00", currency: "EUR" });
+    }
+  });
+
+  it("refuses when the other leg's month is closed, naming its Account, and reverses nothing", async () => {
+    const wallet = await addCash("Wallet", "EUR", "2026-10-01");
+    const purse = await addCash("Purse", "EUR", "2026-10-01");
+    await noteLeg(wallet, "2026-10-15", "-5", purse);
+    const closed = await call(
+      "POST",
+      `/households/${home}/accounts/${purse}/months/2026-10/close`,
+      `{"statement_balance":{"amount":45.00,"currency":"EUR"},"counted_on":"2026-11-01"}`,
+    );
+    expect(closed.status).toBe(200);
+    const leg = (await transactionsOfMonth(wallet, "2026-10")).find(
+      ({ counterpart_account_id }) => counterpart_account_id === purse,
+    );
+
+    const { status, body } = await reverse(leg?.transaction_id ?? "");
+
+    expect(status).toBe(409);
+    expect(body).toMatchObject({
+      type: "/problems/month-closed",
+      booking_month: "2026-10",
+      account_id: purse,
+    });
+    const after = (await transactionsOfMonth(wallet, "2026-10")).find(
+      ({ transaction_id }) => transaction_id === leg?.transaction_id,
+    );
+    expect(after?.reversed_by_transaction_id).toBeUndefined();
+    expect(after?.match_id).toBe(leg?.match_id);
   });
 });
