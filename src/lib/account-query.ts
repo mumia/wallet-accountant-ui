@@ -66,30 +66,35 @@ export async function redirectCashAccount(
  */
 export function useRefetchAccountReads(householdId: string, accountId: string) {
   const queryClient = useQueryClient();
+  return () => refetchAccountReads(queryClient, householdId, accountId);
+}
+
+/** `useRefetchAccountReads` for any Account, such as a Transfer's Counterpart. */
+export function refetchAccountReads(
+  queryClient: QueryClient,
+  householdId: string,
+  accountId: string,
+) {
   const account = { params: { path: { household_id: householdId, account_id: accountId } } };
   const accountPath = "/households/{household_id}/accounts/{account_id}";
-  return () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["get", `${accountPath}/months`, account] }),
-      queryClient.invalidateQueries({
-        queryKey: ["get", `${accountPath}/months/{booking_month}`],
-      }),
-      queryClient.invalidateQueries({ queryKey: ["get", accountPath, account] }),
-      queryClient.invalidateQueries({
-        queryKey: [
-          "get",
-          "/households/{household_id}/accounts",
-          { params: { path: { household_id: householdId } } },
-        ],
-      }),
-      queryClient.invalidateQueries({
-        queryKey: ["get", `${accountPath}/imported-transactions`, account],
-      }),
-      queryClient.invalidateQueries({
-        queryKey: [
-          "get",
-          "/households/{household_id}/connections/{connection_id}/statement-imports",
-        ],
-      }),
-    ]);
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["get", `${accountPath}/months`, account] }),
+    queryClient.invalidateQueries({
+      queryKey: ["get", `${accountPath}/months/{booking_month}`],
+    }),
+    queryClient.invalidateQueries({ queryKey: ["get", accountPath, account] }),
+    queryClient.invalidateQueries({
+      queryKey: [
+        "get",
+        "/households/{household_id}/accounts",
+        { params: { path: { household_id: householdId } } },
+      ],
+    }),
+    queryClient.invalidateQueries({
+      queryKey: ["get", `${accountPath}/imported-transactions`, account],
+    }),
+    queryClient.invalidateQueries({
+      queryKey: ["get", "/households/{household_id}/connections/{connection_id}/statement-imports"],
+    }),
+  ]);
 }

@@ -8,6 +8,7 @@ import {
   type AmountSign,
   type CategoryNode,
 } from "../lib/categories";
+import { transferLabel } from "../lib/transfers";
 import {
   Combobox,
   ComboboxCollection,
@@ -36,6 +37,14 @@ function matchesPath(option: PickerOption, query: string): boolean {
 
 /** The value of the "Top level" option, for moving a Category to the root. */
 export const topLevel = "top-level";
+
+/** The value of a Transfer option: its Counterpart Account, marked apart from Category IDs. */
+export const transferValue = (accountId: string) => `transfer:${accountId}`;
+
+/** The Counterpart Account a picked value names, when it's a Transfer option. */
+export function counterpartOf(value: string | null): string | undefined {
+  return value?.startsWith("transfer:") === true ? value.slice("transfer:".length) : undefined;
+}
 
 const kindGroups = ["EXPENSE", "INCOME"] as const;
 type KindGroup = (typeof kindGroups)[number];
@@ -74,6 +83,12 @@ interface CategoryPickerProps {
   includeUncategorised?: boolean;
   /** Categories not to offer, such as one being moved and its sub-Categories. */
   exclude?: ReadonlySet<string>;
+  /**
+   * Accounts to offer as a Transfer's Counterpart, in a Transfer group last
+   * (spec, "Record a Transaction"), both ways. Their values are
+   * `transferValue(account_id)`. None by default.
+   */
+  transfers?: readonly { account_id: string; name: string }[];
   /** Offers a first option with this label and the value `topLevel`. */
   topLevelLabel?: string;
   /**
@@ -96,7 +111,8 @@ interface CategoryPickerProps {
  * option, searchable by its full path ("Food › Groceries"), grouped as
  * Uncategorised, then Expense, then Income. Parents can be picked; Internal
  * Categories other than Uncategorised are never offered. Given the amount's
- * sign, it offers only the kind that fits it.
+ * sign, it offers only the kind that fits it. Given `transfers`, a Transfer
+ * group follows, named by the sign: "Transfer to Bank" for money out.
  */
 export function CategoryPicker({
   id,
@@ -107,6 +123,7 @@ export function CategoryPicker({
   sign,
   includeUncategorised = true,
   exclude,
+  transfers,
   topLevelLabel,
   label,
   onBlur,
@@ -153,9 +170,30 @@ export function CategoryPicker({
         result.push({ value: kind, label: t(`categoryPicker.kinds.${kind}`), items });
       }
     }
+    // Transfers fit both signs.
+    const transferOptions = (transfers ?? []).map((account): PickerOption => {
+      const text = transferLabel(t, sign, account.name);
+      return {
+        value: transferValue(account.account_id),
+        label: text,
+        ancestors: "",
+        name: text,
+        depth: 0,
+      };
+    });
+    if (transferOptions.length > 0) {
+      result.push({
+        value: "TRANSFER",
+        label: t("categoryPicker.kinds.TRANSFER"),
+        items: transferOptions,
+      });
+    }
     // A Category that isn't offered, such as one breaking the sign rule, still shows.
-    return { groups: result, all: [...(top === undefined ? [] : [top]), ...every.map(option)] };
-  }, [categories, exclude, includeUncategorised, kinds, sign, t, topLevelLabel]);
+    return {
+      groups: result,
+      all: [...(top === undefined ? [] : [top]), ...every.map(option), ...transferOptions],
+    };
+  }, [categories, exclude, includeUncategorised, kinds, sign, t, topLevelLabel, transfers]);
 
   const selected = all.find((option) => option.value === value) ?? null;
 

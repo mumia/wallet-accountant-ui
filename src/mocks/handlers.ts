@@ -526,8 +526,16 @@ export function createHandlers(db: MockDb) {
           return response(404).json(notFound);
         }
         const month = query.get("booking_month");
+        // Only the Transfer legs neither Matched nor reversed.
+        const inTransit = query.get("in_transit") === "true";
         const all = (db.read().transactions[params.account_id] ?? []).filter(
-          (transaction) => month === null || transaction.booking_date.startsWith(month),
+          (transaction) =>
+            (month === null || transaction.booking_date.startsWith(month)) &&
+            (!inTransit ||
+              (transaction.counterpart_account_id !== undefined &&
+                transaction.match_id === undefined &&
+                transaction.reversal_of_transaction_id === undefined &&
+                transaction.reversed_by_transaction_id === undefined)),
         );
         const start = Number(query.get("cursor") ?? "0");
         const limit = Math.min(Number(query.get("limit") ?? "50"), 200);

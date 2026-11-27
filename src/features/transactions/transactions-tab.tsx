@@ -24,22 +24,26 @@ interface TransactionsTabProps {
   accountId: string;
   bookingMonth: MonthChoice | undefined;
   uncategorised: boolean;
+  /** Only the Transfer legs In transit. Never with `uncategorised`: no leg is Uncategorised. */
+  inTransit: boolean;
   /** A Transaction to highlight. */
   highlighted: string | undefined;
 }
 
 /**
  * The Transactions tab (spec, "Transactions"): the month field, the
- * "Uncategorised only" chip, and the list.
+ * "Uncategorised only" and "In transit only" chips, and the list.
  */
 export function TransactionsTab({
   householdId,
   accountId,
   bookingMonth,
   uncategorised,
+  inTransit,
   highlighted,
 }: TransactionsTabProps) {
   const { t } = useTranslation("transactions");
+  const hintId = useId();
   const { api } = useApi();
   const navigate = useNavigate();
   const path = { params: { path: { household_id: householdId, account_id: accountId } } };
@@ -62,7 +66,7 @@ export function TransactionsTab({
   const months = useMemo(() => transactionMonths(accountMonths.items), [accountMonths]);
   const openMonth = account.open_month as Month;
 
-  const show = (search: { booking_month: MonthChoice; uncategorised?: true }) =>
+  const show = (search: { booking_month: MonthChoice; uncategorised?: true; in_transit?: true }) =>
     navigate({
       to: "/households/$householdId/accounts/$accountId/transactions",
       params: { householdId, accountId },
@@ -84,22 +88,46 @@ export function TransactionsTab({
           onValueChange={(choice) => void show({ booking_month: choice })}
         />
         {month === "all" ? (
-          <UncategorisedChip disabled />
+          <>
+            {/* Both filters need a month. */}
+            <FilterChip label={t("uncategorisedOnly")} disabled describedBy={hintId} />
+            <FilterChip label={t("inTransitOnly")} disabled describedBy={hintId} />
+            <span id={hintId} className="text-sm text-muted-foreground">
+              {t("chooseMonthFirst")}
+            </span>
+          </>
         ) : (
-          <MonthChip
-            householdId={householdId}
-            accountId={accountId}
-            month={month}
-            pressed={uncategorised}
-            categories={categories.data?.items}
-            onToggle={() =>
-              void show(
-                uncategorised
-                  ? { booking_month: month }
-                  : { booking_month: month, uncategorised: true },
-              )
-            }
-          />
+          <>
+            {/* The two filters are exclusive: pressing one releases the other. */}
+            <MonthChip
+              householdId={householdId}
+              accountId={accountId}
+              month={month}
+              pressed={uncategorised}
+              categories={categories.data?.items}
+              onToggle={() =>
+                void show(
+                  uncategorised
+                    ? { booking_month: month }
+                    : { booking_month: month, uncategorised: true },
+                )
+              }
+            />
+            <FilterChip
+              label={t("inTransitOnly")}
+              countLabel={(count) => t("inTransitCount", { count })}
+              count={
+                accountMonths.items.find(({ booking_month }) => booking_month === month)
+                  ?.transfer_legs_in_transit
+              }
+              pressed={inTransit}
+              onToggle={() =>
+                void show(
+                  inTransit ? { booking_month: month } : { booking_month: month, in_transit: true },
+                )
+              }
+            />
+          </>
         )}
       </div>
       {month === "all" ? (
@@ -114,11 +142,12 @@ export function TransactionsTab({
         <OneMonth
           // A new month or filter starts the list over, so rows kept visible
           // under the filter (see there) don't carry across.
-          key={`${month}-${String(uncategorised)}`}
+          key={`${month}-${String(uncategorised)}-${String(inTransit)}`}
           householdId={householdId}
           accountId={accountId}
           month={month}
           uncategorised={uncategorised}
+          inTransit={inTransit}
           categories={categories.data?.items}
           openMonth={openMonth}
           highlighted={highlighted}
@@ -148,39 +177,37 @@ function uncategorisedRows(
       );
 }
 
-function UncategorisedChip({
-  disabled = false,
-  pressed = false,
+/** A filter chip, a toggle button, with its count once known. */
+function FilterChip({
+  label,
+  countLabel,
   count,
+  disabled = false,
+  describedBy,
+  pressed = false,
   onToggle,
 }: {
+  label: string;
+  countLabel?: (count: number) => string;
+  count?: number | undefined;
   disabled?: boolean;
+  describedBy?: string;
   pressed?: boolean;
-  count?: number;
   onToggle?: () => void;
 }) {
-  const { t } = useTranslation("transactions");
-  const hintId = useId();
   return (
-    <>
-      <Button
-        variant={pressed ? "secondary" : "outline"}
-        size="sm"
-        className="rounded-full"
-        aria-pressed={pressed}
-        disabled={disabled}
-        aria-describedby={disabled ? hintId : undefined}
-        onClick={onToggle}
-      >
-        {pressed && <CheckIcon aria-hidden="true" />}
-        {count === undefined ? t("uncategorisedOnly") : t("uncategorisedCount", { count })}
-      </Button>
-      {disabled && (
-        <span id={hintId} className="text-sm text-muted-foreground">
-          {t("chooseMonthFirst")}
-        </span>
-      )}
-    </>
+    <Button
+      variant={pressed ? "secondary" : "outline"}
+      size="sm"
+      className="rounded-full"
+      aria-pressed={pressed}
+      disabled={disabled}
+      aria-describedby={describedBy}
+      onClick={onToggle}
+    >
+      {pressed && <CheckIcon aria-hidden="true" />}
+      {count === undefined || countLabel === undefined ? label : countLabel(count)}
+    </Button>
   );
 }
 
@@ -199,12 +226,15 @@ function MonthChip({
   categories: CategoryNode[] | undefined;
   onToggle: () => void;
 }) {
+  const { t } = useTranslation("transactions");
   const { data } = useMonthTransactions(householdId, accountId, month);
   const count = data === undefined ? undefined : uncategorisedRows(data, categories)?.length;
   return (
-    <UncategorisedChip
+    <FilterChip
+      label={t("uncategorisedOnly")}
+      countLabel={(n) => t("uncategorisedCount", { count: n })}
+      count={count}
       pressed={pressed}
-      {...(count === undefined ? {} : { count })}
       onToggle={onToggle}
     />
   );
@@ -215,6 +245,7 @@ function OneMonth({
   accountId,
   month,
   uncategorised,
+  inTransit,
   categories,
   openMonth,
   highlighted,
@@ -227,6 +258,7 @@ function OneMonth({
   accountId: string;
   month: Month;
   uncategorised: boolean;
+  inTransit: boolean;
   categories: CategoryNode[] | undefined;
   openMonth: Month;
   highlighted: string | undefined;
@@ -238,7 +270,8 @@ function OneMonth({
 }) {
   const { t } = useTranslation("transactions");
   const record = useRecordTransaction();
-  const query = useMonthTransactions(householdId, accountId, month);
+  // In transit is the backend's filter; Uncategorised is worked out here.
+  const query = useMonthTransactions(householdId, accountId, month, inTransit);
   // Under the filter, a row given a Category (or reversed) stays until the
   // filter changes or the page reloads, so it doesn't vanish under the User's
   // pointer.
@@ -264,6 +297,15 @@ function OneMonth({
   const closed = month < openMonth;
 
   if (rows.length === 0) {
+    if (inTransit) {
+      return (
+        <Empty
+          message={t("empty.noneInTransit", { month: formatMonth(month) })}
+          action={t("empty.showAllTransactions")}
+          onAction={onShowEverything}
+        />
+      );
+    }
     return uncategorised ? (
       <Empty
         message={t("empty.allCategorised", { month: formatMonth(month) })}
