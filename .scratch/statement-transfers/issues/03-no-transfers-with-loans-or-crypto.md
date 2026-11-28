@@ -1,6 +1,6 @@
 # 03: Loans and crypto wallets take no part in Transfers
 
-Status: claimed
+Status: done
 Blocked by: 02
 Waits on backend: no. v0.11.0 is pinned by 02.
 
@@ -15,11 +15,11 @@ A Transfer is only between `CASH`, `BANK_ACCOUNT` and `CREDIT_CARD` Accounts, on
 
 ## Acceptance criteria
 
-- [ ] `takesPartInTransfers` unit-tested for every Account kind
-- [ ] No Transfer group on a loan or crypto wallet row in To review
-- [ ] No loan or crypto wallet in Record a Transaction's Transfer group
-- [ ] Mock: Accept as Transfer and `recordCashTransaction` refuse a loan or crypto wallet on either side with `ACCOUNT_KIND_NOT_SUPPORTED`, `account_id` naming it (the row's own Account first)
-- [ ] E2e: a loan row has no Transfer group; Record a Transaction doesn't offer the loan
+- [x] `takesPartInTransfers` unit-tested for every Account kind
+- [x] No Transfer group on a loan or crypto wallet row in To review
+- [x] No loan or crypto wallet in Record a Transaction's Transfer group
+- [x] Mock: Accept as Transfer and `recordCashTransaction` refuse a loan or crypto wallet on either side with `ACCOUNT_KIND_NOT_SUPPORTED`, `account_id` naming it (the row's own Account first)
+- [x] E2e: a loan row has no Transfer group; Record a Transaction doesn't offer the loan
 
 ## Spec
 
@@ -33,4 +33,5 @@ A Transfer is only between `CASH`, `BANK_ACCOUNT` and `CREDIT_CARD` Accounts, on
   - **Record a Transaction:** `counterparts` keeps only Accounts that take part.
   - **The mock** has the backend's rule in its own module, `src/mocks/transfer-kinds.ts`, not the UI's helper, so a filtering bug in the UI can't hide behind the mock. Its checks run in the backend's order: same Account, unknown Account, currency, then the kind rule (the row's own Account named first). It covers Accept as Transfer, suggestions with and without `account_id`, and a cash leg naming a loan or crypto wallet.
   - **Tests:** unit tests for `takesPartInTransfers` and four mock refusals; e2e `transfer-kinds.spec.ts` gives a loan a statement through the mock API (Connection, preview, confirm), then checks its row has no Transfer group and that Record a Transaction doesn't offer it. Both e2e tests failed against the build without this change.
+- 2026-11-28: `make check` passed: lint, typecheck, 615 unit tests, build, audit, the contract check against v0.11.0, 153 of 153 e2e, and the image test. PR #65, stacked on ticket 02's branch.
 
