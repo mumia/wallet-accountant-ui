@@ -12,6 +12,7 @@ function row(n: number, extra: Partial<ImportedTransaction> = {}): ImportedTrans
   return {
     imported_transaction_id: `row-${String(n)}`,
     statement_import_id: "import-1",
+    account_id: "account-1",
     state: "PENDING",
     line: n + 1,
     booking_date: `2026-11-1${String(n)}`,

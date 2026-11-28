@@ -335,7 +335,7 @@ function ReviewLists({
     const id = row.imported_transaction_id;
     setBusy((current) => new Set([...current, id]));
     try {
-      const { items } = await queryClient.query({
+      const { legs } = await queryClient.query({
         ...api.queryOptions(
           "get",
           suggestionsPath,
@@ -343,7 +343,7 @@ function ReviewLists({
         ),
         staleTime: 0,
       });
-      if (items.length === 0) {
+      if (legs.length === 0) {
         await run("accept", [row]);
       } else {
         setSuggesting({ row, cash });
