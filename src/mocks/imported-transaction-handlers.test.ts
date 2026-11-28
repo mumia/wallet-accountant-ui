@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { parseExactJson } from "../api/exact-json";
 import type { components } from "../api/schema.gen";
+import { mockDb } from "../test/server";
 
 const api = "http://localhost/api";
 const home = "0190f5f2-7c00-7000-8000-000000000001";
@@ -14,7 +15,7 @@ const cafeRow = "0190f5f2-7c00-7000-8000-000000000507";
 type Account = components["schemas"]["Account"];
 type AccountTransaction = components["schemas"]["AccountTransaction"];
 type ImportedTransaction = components["schemas"]["ImportedTransaction"];
-type TransactionList = components["schemas"]["TransactionList"];
+type TransferSuggestionList = components["schemas"]["TransferSuggestionList"];
 
 async function call(method: string, path: string, body?: string) {
   const response = await fetch(`${api}${path}`, {
@@ -94,16 +95,37 @@ describe("GET …/transfer-suggestions", () => {
     const { status, body } = await suggestions(wallet);
 
     expect(status).toBe(200);
-    const { items } = body as TransactionList;
-    expect(items.map(({ transaction_id }) => transaction_id)).toEqual([
+    const { legs, imported_transactions } = body as TransferSuggestionList;
+    expect(imported_transactions).toEqual([]);
+    expect(legs.map(({ transaction_id }) => transaction_id)).toEqual([
       closest.transaction_id,
       later.transaction_id,
     ]);
-    expect(items[0]).toMatchObject({
+    expect(legs[0]).toMatchObject({
       account_id: wallet,
       counterpart_account_id: main,
       amount: { amount: "18.00", currency: "EUR" },
     });
+  });
+
+  it("looks on every cash Account in the row's currency when none is named", async () => {
+    const wallet = await addCash();
+    const purse = await addCash("Purse");
+    await addCash("Dollars", "USD");
+    const inWallet = await noteLeg(wallet, "2026-11-18");
+    const inPurse = await noteLeg(purse, "2026-11-19");
+
+    const { status, body } = await call(
+      "GET",
+      `/households/${home}/imported-transactions/${cafeRow}/transfer-suggestions`,
+    );
+
+    expect(status).toBe(200);
+    const { legs } = body as TransferSuggestionList;
+    expect(legs.map(({ transaction_id, account_id }) => [transaction_id, account_id])).toEqual([
+      [inPurse.transaction_id, purse],
+      [inWallet.transaction_id, wallet],
+    ]);
   });
 
   it("leaves out a leg already Matched", async () => {
@@ -113,7 +135,7 @@ describe("GET …/transfer-suggestions", () => {
       `{"transfer_account_id":"${wallet}","match_transaction_id":"${leg.transaction_id}"}`,
     );
 
-    expect(((await suggestions(wallet)).body as TransactionList).items).toEqual([]);
+    expect(((await suggestions(wallet)).body as TransferSuggestionList).legs).toEqual([]);
   });
 
   it("refuses a statement Account and an unknown one", async () => {
@@ -367,5 +389,114 @@ describe("POST …/reverse on a Transfer leg", () => {
     );
     expect(after?.reversed_by_transaction_id).toBeUndefined();
     expect(after?.match_id).toBe(leg?.match_id);
+  });
+});
+
+describe("ImportedTransaction.account_id", () => {
+  it("names the row's Account when listed and when Accepted", async () => {
+    const { body } = await call(
+      "GET",
+      `/households/${home}/accounts/${main}/imported-transactions`,
+    );
+    const { items } = body as { items: ImportedTransaction[] };
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.every(({ account_id }) => account_id === main)).toBe(true);
+
+    const accepted = await accept("{}");
+    expect(accepted.body).toMatchObject({ imported_transaction_id: cafeRow, account_id: main });
+  });
+});
+
+describe("loan and crypto wallet Accounts in Transfers", () => {
+  const loanRow = "0190f5f2-7c00-7000-8000-00000000f001";
+
+  /** A loan Account, with one pending −18.00 row on 2026-11-19 when `withRow`. */
+  async function addLoan(kind = "LOAN", withRow = false) {
+    const { body } = await call(
+      "POST",
+      `/households/${home}/accounts`,
+      `{"name":"Mortgage","kind":"${kind}","currency":"EUR","start_date":"2026-11-01"}`,
+    );
+    const loan = (body as Account).account_id;
+    if (withRow) {
+      const state = mockDb.read();
+      mockDb.write({
+        ...state,
+        importedRows: {
+          ...state.importedRows,
+          [loan]: [
+            {
+              imported_transaction_id: loanRow,
+              statement_import_id: "0190f5f2-7c00-7000-8000-00000000f002",
+              state: "PENDING",
+              line: 2,
+              booking_date: "2026-11-19",
+              transaction_date: "2026-11-19",
+              amount: { amount: "-18.00", currency: "EUR" },
+              description: "Repayment",
+            },
+          ],
+        },
+      });
+    }
+    return loan;
+  }
+
+  const refusedFor = (account: string) => ({
+    status: 422,
+    type: "/problems/invalid-transfer",
+    reason: "ACCOUNT_KIND_NOT_SUPPORTED",
+    account_id: account,
+  });
+
+  it.each(["LOAN", "CRYPTO_WALLET"])(
+    "refuses a bank row Accepted as a Transfer to a %s",
+    async (kind) => {
+      const loan = await addLoan(kind);
+
+      const { status, body } = await accept(`{"transfer_account_id":"${loan}"}`);
+
+      expect(status).toBe(422);
+      expect(body).toMatchObject(refusedFor(loan));
+      expect(await rowState()).toBe("PENDING");
+    },
+  );
+
+  it("refuses a loan row Accepted as a Transfer to cash, naming the loan", async () => {
+    const wallet = await addCash();
+    const loan = await addLoan("LOAN", true);
+
+    const { body } = await accept(`{"transfer_account_id":"${wallet}"}`, loanRow);
+
+    expect(body).toMatchObject(refusedFor(loan));
+  });
+
+  it("refuses suggestions for a loan row, with or without an Account named", async () => {
+    const wallet = await addCash();
+    const loan = await addLoan("LOAN", true);
+
+    expect((await suggestions(wallet, loanRow)).body).toMatchObject(refusedFor(loan));
+    expect(
+      (
+        await call(
+          "GET",
+          `/households/${home}/imported-transactions/${loanRow}/transfer-suggestions`,
+        )
+      ).body,
+    ).toMatchObject(refusedFor(loan));
+  });
+
+  it("refuses a cash leg naming a loan", async () => {
+    const wallet = await addCash();
+    const loan = await addLoan();
+
+    const { status, body } = await call(
+      "POST",
+      `/households/${home}/accounts/${wallet}/transactions`,
+      `{"date":"2026-11-19","amount":{"amount":-5,"currency":"EUR"},"description":"To the loan","counterpart_account_id":"${loan}"}`,
+    );
+
+    expect(status).toBe(422);
+    expect(body).toMatchObject(refusedFor(loan));
   });
 });

@@ -19,7 +19,10 @@ type Member = components["schemas"]["Member"];
  * A row a Statement import brought in. A Suspected duplicate names the earlier
  * row it resembles by ID; the API shows that row as it is now.
  */
-export type ImportedRow = Omit<ImportedTransaction, "resembles"> & { resembles_id?: string };
+/** A stored row: stored per Account, so its `account_id` is added when it is shown. */
+export type ImportedRow = Omit<ImportedTransaction, "resembles" | "account_id"> & {
+  resembles_id?: string;
+};
 
 export interface MonthClose {
   statement_balance: components["schemas"]["Money"];

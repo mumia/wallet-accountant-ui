@@ -9,6 +9,7 @@ import type { ImportedRow, MockDb, MockState } from "./db";
 import { http, withExactAmounts } from "./http";
 import { monthOf, monthWords } from "./months";
 import { currencyPlaces, fromUnits, toUnits } from "./statement-files";
+import { accountKindDetail, kindRefusedFor } from "./transfer-kinds";
 
 type Problem = components["schemas"]["Problem"];
 type ImportedTransaction = components["schemas"]["ImportedTransaction"];
@@ -29,9 +30,17 @@ const conflict = (type: string, title: string, detail: string): Problem => ({
 const isMember = (state: MockState, householdId: string) =>
   state.registered && state.households.some(({ household_id }) => household_id === householdId);
 
-/** The row as the API shows it, with the row it resembles as that row is now. */
-function shown(row: ImportedRow, all: readonly ImportedRow[]): ImportedTransaction {
-  const { resembles_id, ...rest } = row;
+/**
+ * The row as the API shows it: on `accountId`, with the row it resembles as
+ * that row is now.
+ */
+function shown(
+  row: ImportedRow,
+  all: readonly ImportedRow[],
+  accountId: string,
+): ImportedTransaction {
+  const { resembles_id, ...stored } = row;
+  const rest = { ...stored, account_id: accountId };
   const resembled = all.find(
     ({ imported_transaction_id }) => imported_transaction_id === resembles_id,
   );
@@ -113,7 +122,7 @@ function save(
     statementImports: imports,
     importedRows: { ...state.importedRows, [accountId]: rows },
   });
-  return shown(changed, rows);
+  return shown(changed, rows, accountId);
 }
 
 /** The 409 of a row booked in a closed month, or (`notOpen`) in one not open yet. */
@@ -148,16 +157,26 @@ function monthRefusal(state: MockState, accountId: string, row: ImportedRow, not
   return undefined;
 }
 
-/** Why the backend refuses each Accept as Transfer, word for word. */
+/**
+ * Why the backend refuses each Accept as Transfer, word for word (v0.11.0).
+ * `COUNTERPART_NOT_CASH` is gone from the contract: the mock keeps refusing a
+ * bank or card counterpart this way only until it books one
+ * (statement-transfers ticket 04). The UI doesn't offer one before then.
+ */
 const transferDetails = {
   CATEGORY_AND_TRANSFER:
     "A Transfer leg is booked against Account transfer: send category_id or transfer_account_id, not both.",
   COUNTERPART_NOT_CASH:
     "transfer_account_id must be a cash Account: Transfers between statement Accounts come later.",
   MATCH_WITHOUT_TRANSFER:
-    "match_transaction_id needs transfer_account_id, the cash Account it is on.",
+    "match_transaction_id and match_imported_transaction_id need transfer_account_id, the Account they are on.",
+  MATCH_LEG_AND_ROW:
+    "Send match_transaction_id or match_imported_transaction_id, not both: the other side is either a leg already booked or a pending row.",
   NOT_A_MATCHING_LEG:
-    "match_transaction_id isn't an In transit leg on the cash Account naming this row's Account with the opposite amount.",
+    "match_transaction_id isn't an In transit leg on transfer_account_id naming this row's Account with the opposite amount.",
+  NOT_A_MATCHING_ROW:
+    "match_imported_transaction_id isn't another pending row on transfer_account_id with the opposite amount in the same currency.",
+  ACCOUNT_KIND_NOT_SUPPORTED: accountKindDetail,
   SAME_ACCOUNT: "transfer_account_id is the row's own Account.",
   CURRENCY_MISMATCH: "transfer_account_id has another Account currency than the row.",
   UNKNOWN_ACCOUNT: "transfer_account_id is not one of the Household's Accounts.",
@@ -165,13 +184,36 @@ const transferDetails = {
     "The row's date is before the cash Account's start date: the cash Account didn't exist yet.",
 } as const;
 
-const transferRefused = (reason: keyof typeof transferDetails): TransferProblem => ({
+const transferRefused = (
+  reason: keyof typeof transferDetails,
+  accountId?: string,
+): TransferProblem => ({
   type: "/problems/invalid-transfer",
   title: "Invalid Transfer",
   status: 422,
   detail: transferDetails[reason],
   reason,
+  ...(accountId === undefined ? {} : { account_id: accountId }),
 });
+
+/**
+ * `ACCOUNT_KIND_NOT_SUPPORTED` when the row's Account, then the counterpart,
+ * is a loan or crypto wallet; undefined otherwise.
+ */
+function kindRefusal(
+  state: MockState,
+  householdId: string,
+  rowAccount: string,
+  counterpart?: Account,
+): TransferProblem | undefined {
+  const own = (state.accounts[householdId] ?? []).find(
+    ({ account_id }) => account_id === rowAccount,
+  );
+  const refused = own === undefined ? undefined : kindRefusedFor(own, counterpart);
+  return refused === undefined
+    ? undefined
+    : transferRefused("ACCOUNT_KIND_NOT_SUPPORTED", refused.account_id);
+}
 
 /** How far either side of a row's Transaction date a cash leg is suggested, in days. */
 const suggestionWindow = 7;
@@ -190,9 +232,11 @@ const sameAmount = (a: string, b: string, currency: string) => {
 };
 
 /**
- * The backend's checkCashCounterpart: for a row on `rowAccount`, the cash
- * Account must be another of the Household's Accounts, a cash one, in the
- * row's currency.
+ * The backend's counterpart check: for a row on `rowAccount`, the counterpart
+ * must be another of the Household's Accounts, in the row's currency, and
+ * neither Account a loan or crypto wallet (the row's own named first). The
+ * mock then still wants a cash counterpart, until it books a bank or card one
+ * (statement-transfers ticket 04).
  */
 function cashCounterpart(
   state: MockState,
@@ -208,11 +252,15 @@ function cashCounterpart(
   if (cash === undefined) {
     return { refused: transferRefused("UNKNOWN_ACCOUNT") };
   }
-  if (cash.kind !== "CASH") {
-    return { refused: transferRefused("COUNTERPART_NOT_CASH") };
-  }
   if (cash.currency !== currency) {
     return { refused: transferRefused("CURRENCY_MISMATCH") };
+  }
+  const kind = kindRefusal(state, householdId, rowAccount, cash);
+  if (kind !== undefined) {
+    return { refused: kind };
+  }
+  if (cash.kind !== "CASH") {
+    return { refused: transferRefused("COUNTERPART_NOT_CASH") };
   }
   return { cash };
 }
@@ -396,7 +444,7 @@ export function importedTransactionHandlers(db: MockDb) {
           // Booking date, then the order they were imported (the API's order).
           .map((row, index) => ({ row, index }))
           .sort((a, b) => a.row.booking_date.localeCompare(b.row.booking_date) || a.index - b.index)
-          .map(({ row }) => shown(row, all));
+          .map(({ row }) => shown(row, all, params.account_id));
         const start = Number(query.get("cursor") ?? "0");
         const limit = Math.min(Number(query.get("limit") ?? "50"), 200);
         const items = matching.slice(start, start + limit);
@@ -536,34 +584,52 @@ export function importedTransactionHandlers(db: MockDb) {
         return response(404).json(notFound);
       }
       const { state, accountId, row } = found;
-      const checked = cashCounterpart(
-        state,
-        params.household_id,
-        accountId,
-        query.get("account_id"),
-        row.amount.currency,
-      );
-      if ("refused" in checked) {
-        return response(422).json(checked.refused);
+      const named = query.get("account_id");
+      // Without account_id, every Account the row could be a Transfer with:
+      // for now, the Household's other cash Accounts in its currency.
+      let counterparts: Account[];
+      if (named === null) {
+        const kind = kindRefusal(state, params.household_id, accountId);
+        if (kind !== undefined) {
+          return response(422).json(kind);
+        }
+        counterparts = (state.accounts[params.household_id] ?? []).filter(
+          (account) =>
+            account.account_id !== accountId &&
+            account.kind === "CASH" &&
+            account.currency === row.amount.currency,
+        );
+      } else {
+        const checked = cashCounterpart(
+          state,
+          params.household_id,
+          accountId,
+          named,
+          row.amount.currency,
+        );
+        if ("refused" in checked) {
+          return response(422).json(checked.refused);
+        }
+        counterparts = [checked.cash];
       }
-      const cash = checked.cash;
-      const items: Transaction[] = (state.transactions[cash.account_id] ?? [])
+      const legs: Transaction[] = counterparts
+        .flatMap(({ account_id: on }) => (state.transactions[on] ?? []).map((leg) => ({ leg, on })))
         .filter(
-          (leg) =>
+          ({ leg }) =>
             couldMatch(leg, accountId, row) &&
             daysBetween(leg.transaction_date, row.transaction_date) <= suggestionWindow,
         )
         // Closest first, then by date, then by ID, as the backend orders them.
         .sort(
-          (a, b) =>
+          ({ leg: a }, { leg: b }) =>
             daysBetween(a.transaction_date, row.transaction_date) -
               daysBetween(b.transaction_date, row.transaction_date) ||
             a.transaction_date.localeCompare(b.transaction_date) ||
             a.transaction_id.localeCompare(b.transaction_id),
         )
-        .map((leg) => ({
+        .map(({ leg, on }) => ({
           transaction_id: leg.transaction_id,
-          account_id: cash.account_id,
+          account_id: on,
           amount: leg.amount,
           booking_date: leg.booking_date,
           transaction_date: leg.transaction_date,
@@ -572,7 +638,10 @@ export function importedTransactionHandlers(db: MockDb) {
           category_name: leg.category_name,
           counterpart_account_id: accountId,
         }));
-      return response.untyped(await withExactAmounts(response(200).json({ items })));
+      // Pending rows on bank and credit card Accounts come with ticket 05.
+      return response.untyped(
+        await withExactAmounts(response(200).json({ legs, imported_transactions: [] })),
+      );
     }),
 
     http.post(`${rowPath}/keep`, async ({ params, response }) => {
