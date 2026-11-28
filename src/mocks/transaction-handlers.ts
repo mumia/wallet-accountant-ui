@@ -9,6 +9,7 @@ import type { MockDb, MockState } from "./db";
 import { http, withExactAmounts } from "./http";
 import { monthOf, monthWords } from "./months";
 import { currencyPlaces, fromUnits, toUnits } from "./statement-files";
+import { accountKindDetail, kindRefusedFor } from "./transfer-kinds";
 
 type Problem = components["schemas"]["Problem"];
 type AccountTransaction = components["schemas"]["AccountTransaction"];
@@ -275,6 +276,16 @@ function recordLegs(
       problem: invalidTransfer(
         "CURRENCY_MISMATCH",
         "The counterpart has another Account currency.",
+      ),
+    };
+  }
+  const refusedKind = kindRefusedFor(account, counterpart);
+  if (refusedKind !== undefined) {
+    return {
+      problem: invalidTransfer(
+        "ACCOUNT_KIND_NOT_SUPPORTED",
+        accountKindDetail,
+        refusedKind.account_id,
       ),
     };
   }

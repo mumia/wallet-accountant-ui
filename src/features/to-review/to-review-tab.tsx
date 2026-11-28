@@ -31,7 +31,7 @@ import {
   type CategoryNode,
 } from "../../lib/categories";
 import { formatMonth, monthOf, type Month } from "../../lib/month";
-import { canTakeLegOn } from "../../lib/transfers";
+import { canTakeLegOn, takesPartInTransfers } from "../../lib/transfers";
 import { ReviewTable } from "./review-table";
 import {
   suggestionsParams,
@@ -226,11 +226,18 @@ function ReviewLists({
     chosen.get(row.imported_transaction_id) ?? uncategorised;
   // A row is a Transfer only with a cash Account in its currency (spec, "Accept as Transfer")
   // that had started by the row's Transaction date, the date its cash leg is booked on.
+  // A loan or crypto wallet takes no part in Transfers, on either side
+  // (statement-transfers spec): its own rows get no Transfer group at all.
   // Built once per currency and start date, so each row's picker gets the same
   // list from render to render: the one for the latest start date by the row's.
   const cashByCurrency = useMemo(() => {
+    const own = accounts?.find(({ account_id }) => account_id === accountId);
+    if (own !== undefined && !takesPartInTransfers(own)) {
+      return new Map<string, { from: string; list: TransferChoice[] }[]>();
+    }
     const cash = (accounts ?? []).filter(
-      (account) => isCash(account) && account.account_id !== accountId,
+      (account) =>
+        isCash(account) && takesPartInTransfers(account) && account.account_id !== accountId,
     );
     const byCurrency = new Map<string, { from: string; list: TransferChoice[] }[]>();
     for (const currency of new Set(cash.map((account) => account.currency))) {

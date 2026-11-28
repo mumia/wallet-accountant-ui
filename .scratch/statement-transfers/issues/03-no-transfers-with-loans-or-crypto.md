@@ -1,8 +1,8 @@
 # 03: Loans and crypto wallets take no part in Transfers
 
-Status: ready-for-agent
+Status: claimed
 Blocked by: 02
-Waits on backend: no, once 02 is in
+Waits on backend: no. v0.11.0 is pinned by 02.
 
 ## What to build
 
@@ -24,3 +24,13 @@ A Transfer is only between `CASH`, `BANK_ACCOUNT` and `CREDIT_CARD` Accounts, on
 ## Spec
 
 [spec.md](../spec.md): story 8; "Which Accounts take part in Transfers (ticket 03)".
+
+## Comments
+
+- 2026-11-28: built on `build/statement-transfers-03-no-loan-or-crypto-transfers`, from ticket 02's branch (#64, not merged yet).
+  - **The rule in the UI:** `takesPartInTransfers(account)` in `src/lib/transfers.ts`: cash, bank and credit card only. A kind this build doesn't know (`AccountKind` is an open enum) takes no part.
+  - **To review:** when the tab's own Account takes no part, the row picker's Transfer group is empty, so it isn't shown. Counterparts are filtered by the rule too, although they're still cash-only until ticket 04.
+  - **Record a Transaction:** `counterparts` keeps only Accounts that take part.
+  - **The mock** has the backend's rule in its own module, `src/mocks/transfer-kinds.ts`, not the UI's helper, so a filtering bug in the UI can't hide behind the mock. Its checks run in the backend's order: same Account, unknown Account, currency, then the kind rule (the row's own Account named first). It covers Accept as Transfer, suggestions with and without `account_id`, and a cash leg naming a loan or crypto wallet.
+  - **Tests:** unit tests for `takesPartInTransfers` and four mock refusals; e2e `transfer-kinds.spec.ts` gives a loan a statement through the mock API (Connection, preview, confirm), then checks its row has no Transfer group and that Record a Transaction doesn't offer it. Both e2e tests failed against the build without this change.
+

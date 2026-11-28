@@ -7,11 +7,25 @@ import {
   isInTransit,
   isTransferLeg,
   reverseWarning,
+  takesPartInTransfers,
   transferLabel,
 } from "./transfers";
 
 beforeAll(async () => {
   await initI18n();
+});
+
+describe("takesPartInTransfers", () => {
+  it.each(["CASH", "BANK_ACCOUNT", "CREDIT_CARD"])("lets a %s Account take part", (kind) => {
+    expect(takesPartInTransfers({ kind })).toBe(true);
+  });
+
+  it.each(["LOAN", "CRYPTO_WALLET", "PENSION_FUND"])(
+    "keeps a %s Account out, a kind this build doesn't know included",
+    (kind) => {
+      expect(takesPartInTransfers({ kind })).toBe(false);
+    },
+  );
 });
 
 describe("canTakeLegOn", () => {

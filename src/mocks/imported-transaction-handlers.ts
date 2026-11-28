@@ -9,6 +9,7 @@ import type { ImportedRow, MockDb, MockState } from "./db";
 import { http, withExactAmounts } from "./http";
 import { monthOf, monthWords } from "./months";
 import { currencyPlaces, fromUnits, toUnits } from "./statement-files";
+import { accountKindDetail, kindRefusedFor } from "./transfer-kinds";
 
 type Problem = components["schemas"]["Problem"];
 type ImportedTransaction = components["schemas"]["ImportedTransaction"];
@@ -175,8 +176,7 @@ const transferDetails = {
     "match_transaction_id isn't an In transit leg on transfer_account_id naming this row's Account with the opposite amount.",
   NOT_A_MATCHING_ROW:
     "match_imported_transaction_id isn't another pending row on transfer_account_id with the opposite amount in the same currency.",
-  ACCOUNT_KIND_NOT_SUPPORTED:
-    "Loan and crypto wallet Accounts take no part in Transfers yet: only cash, bank and credit card Accounts do.",
+  ACCOUNT_KIND_NOT_SUPPORTED: accountKindDetail,
   SAME_ACCOUNT: "transfer_account_id is the row's own Account.",
   CURRENCY_MISMATCH: "transfer_account_id has another Account currency than the row.",
   UNKNOWN_ACCOUNT: "transfer_account_id is not one of the Household's Accounts.",
@@ -184,13 +184,36 @@ const transferDetails = {
     "The row's date is before the cash Account's start date: the cash Account didn't exist yet.",
 } as const;
 
-const transferRefused = (reason: keyof typeof transferDetails): TransferProblem => ({
+const transferRefused = (
+  reason: keyof typeof transferDetails,
+  accountId?: string,
+): TransferProblem => ({
   type: "/problems/invalid-transfer",
   title: "Invalid Transfer",
   status: 422,
   detail: transferDetails[reason],
   reason,
+  ...(accountId === undefined ? {} : { account_id: accountId }),
 });
+
+/**
+ * `ACCOUNT_KIND_NOT_SUPPORTED` when the row's Account, then the counterpart,
+ * is a loan or crypto wallet; undefined otherwise.
+ */
+function kindRefusal(
+  state: MockState,
+  householdId: string,
+  rowAccount: string,
+  counterpart?: Account,
+): TransferProblem | undefined {
+  const own = (state.accounts[householdId] ?? []).find(
+    ({ account_id }) => account_id === rowAccount,
+  );
+  const refused = own === undefined ? undefined : kindRefusedFor(own, counterpart);
+  return refused === undefined
+    ? undefined
+    : transferRefused("ACCOUNT_KIND_NOT_SUPPORTED", refused.account_id);
+}
 
 /** How far either side of a row's Transaction date a cash leg is suggested, in days. */
 const suggestionWindow = 7;
@@ -209,9 +232,11 @@ const sameAmount = (a: string, b: string, currency: string) => {
 };
 
 /**
- * The backend's checkCashCounterpart: for a row on `rowAccount`, the cash
- * Account must be another of the Household's Accounts, a cash one, in the
- * row's currency.
+ * The backend's counterpart check: for a row on `rowAccount`, the counterpart
+ * must be another of the Household's Accounts, in the row's currency, and
+ * neither Account a loan or crypto wallet (the row's own named first). The
+ * mock then still wants a cash counterpart, until it books a bank or card one
+ * (statement-transfers ticket 04).
  */
 function cashCounterpart(
   state: MockState,
@@ -227,11 +252,15 @@ function cashCounterpart(
   if (cash === undefined) {
     return { refused: transferRefused("UNKNOWN_ACCOUNT") };
   }
-  if (cash.kind !== "CASH") {
-    return { refused: transferRefused("COUNTERPART_NOT_CASH") };
-  }
   if (cash.currency !== currency) {
     return { refused: transferRefused("CURRENCY_MISMATCH") };
+  }
+  const kind = kindRefusal(state, householdId, rowAccount, cash);
+  if (kind !== undefined) {
+    return { refused: kind };
+  }
+  if (cash.kind !== "CASH") {
+    return { refused: transferRefused("COUNTERPART_NOT_CASH") };
   }
   return { cash };
 }
@@ -560,6 +589,10 @@ export function importedTransactionHandlers(db: MockDb) {
       // for now, the Household's other cash Accounts in its currency.
       let counterparts: Account[];
       if (named === null) {
+        const kind = kindRefusal(state, params.household_id, accountId);
+        if (kind !== undefined) {
+          return response(422).json(kind);
+        }
         counterparts = (state.accounts[params.household_id] ?? []).filter(
           (account) =>
             account.account_id !== accountId &&

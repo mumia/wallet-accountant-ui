@@ -38,7 +38,7 @@ import { cashDateRange } from "../../lib/cash-dates";
 import { fitsSign, flattenCategories, signOf } from "../../lib/categories";
 import { formatDate, formatDateLong, type IsoDate } from "../../lib/date";
 import { formatDecimal, formatMoney, type Decimal } from "../../lib/money";
-import { canTakeLegOn } from "../../lib/transfers";
+import { canTakeLegOn, takesPartInTransfers } from "../../lib/transfers";
 import { formatMonth, type Month } from "../../lib/month";
 import { transactionsKey } from "./transactions-query";
 
@@ -159,11 +159,15 @@ function RecordForm({
   const accounts = api.useQuery("get", "/households/{household_id}/accounts", {
     params: { path: { household_id: householdId } },
   });
-  // A Transfer's Counterpart: any other Household Account in the same currency.
+  // A Transfer's Counterpart: any other Household Account in the same currency
+  // that takes part in Transfers: never a loan or crypto wallet (statement-transfers spec).
   const counterparts = useMemo(
     () =>
       (accounts.data?.items ?? []).filter(
-        (other) => other.account_id !== account.account_id && other.currency === account.currency,
+        (other) =>
+          other.account_id !== account.account_id &&
+          other.currency === account.currency &&
+          takesPartInTransfers(other),
       ),
     [accounts.data, account.account_id, account.currency],
   );
