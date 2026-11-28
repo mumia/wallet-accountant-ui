@@ -106,7 +106,7 @@ function Suggestions({
     suggestionsPath,
     suggestionsParams(householdId, row.imported_transaction_id, cash.account_id),
   );
-  const items = suggestions.data?.items ?? [];
+  const legs = suggestions.data?.legs ?? [];
   const [choice, setChoice] = useState<string>();
   const [error, setError] = useState<unknown>();
   const [waiting, setWaiting] = useState(false);
@@ -114,9 +114,9 @@ function Suggestions({
   // The closest leg is picked until the member picks; one gone since falls back to it.
   const picked =
     choice !== undefined &&
-    (choice === recordNow || items.some(({ transaction_id }) => transaction_id === choice))
+    (choice === recordNow || legs.some(({ transaction_id }) => transaction_id === choice))
       ? choice
-      : (items[0]?.transaction_id ?? recordNow);
+      : (legs[0]?.transaction_id ?? recordNow);
 
   const confirm = async () => {
     setWaiting(true);
@@ -151,7 +151,7 @@ function Suggestions({
           setChoice(next);
         }}
       >
-        {items.map((leg) => (
+        {legs.map((leg) => (
           <Label
             key={leg.transaction_id}
             className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border p-3 font-normal"

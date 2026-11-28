@@ -14,7 +14,7 @@ const cafeRow = "0190f5f2-7c00-7000-8000-000000000507";
 type Account = components["schemas"]["Account"];
 type AccountTransaction = components["schemas"]["AccountTransaction"];
 type ImportedTransaction = components["schemas"]["ImportedTransaction"];
-type TransactionList = components["schemas"]["TransactionList"];
+type TransferSuggestionList = components["schemas"]["TransferSuggestionList"];
 
 async function call(method: string, path: string, body?: string) {
   const response = await fetch(`${api}${path}`, {
@@ -94,16 +94,37 @@ describe("GET …/transfer-suggestions", () => {
     const { status, body } = await suggestions(wallet);
 
     expect(status).toBe(200);
-    const { items } = body as TransactionList;
-    expect(items.map(({ transaction_id }) => transaction_id)).toEqual([
+    const { legs, imported_transactions } = body as TransferSuggestionList;
+    expect(imported_transactions).toEqual([]);
+    expect(legs.map(({ transaction_id }) => transaction_id)).toEqual([
       closest.transaction_id,
       later.transaction_id,
     ]);
-    expect(items[0]).toMatchObject({
+    expect(legs[0]).toMatchObject({
       account_id: wallet,
       counterpart_account_id: main,
       amount: { amount: "18.00", currency: "EUR" },
     });
+  });
+
+  it("looks on every cash Account in the row's currency when none is named", async () => {
+    const wallet = await addCash();
+    const purse = await addCash("Purse");
+    await addCash("Dollars", "USD");
+    const inWallet = await noteLeg(wallet, "2026-11-18");
+    const inPurse = await noteLeg(purse, "2026-11-19");
+
+    const { status, body } = await call(
+      "GET",
+      `/households/${home}/imported-transactions/${cafeRow}/transfer-suggestions`,
+    );
+
+    expect(status).toBe(200);
+    const { legs } = body as TransferSuggestionList;
+    expect(legs.map(({ transaction_id, account_id }) => [transaction_id, account_id])).toEqual([
+      [inPurse.transaction_id, purse],
+      [inWallet.transaction_id, wallet],
+    ]);
   });
 
   it("leaves out a leg already Matched", async () => {
@@ -113,7 +134,7 @@ describe("GET …/transfer-suggestions", () => {
       `{"transfer_account_id":"${wallet}","match_transaction_id":"${leg.transaction_id}"}`,
     );
 
-    expect(((await suggestions(wallet)).body as TransactionList).items).toEqual([]);
+    expect(((await suggestions(wallet)).body as TransferSuggestionList).legs).toEqual([]);
   });
 
   it("refuses a statement Account and an unknown one", async () => {
@@ -367,5 +388,20 @@ describe("POST …/reverse on a Transfer leg", () => {
     );
     expect(after?.reversed_by_transaction_id).toBeUndefined();
     expect(after?.match_id).toBe(leg?.match_id);
+  });
+});
+
+describe("ImportedTransaction.account_id", () => {
+  it("names the row's Account when listed and when Accepted", async () => {
+    const { body } = await call(
+      "GET",
+      `/households/${home}/accounts/${main}/imported-transactions`,
+    );
+    const { items } = body as { items: ImportedTransaction[] };
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.every(({ account_id }) => account_id === main)).toBe(true);
+
+    const accepted = await accept("{}");
+    expect(accepted.body).toMatchObject({ imported_transaction_id: cafeRow, account_id: main });
   });
 });

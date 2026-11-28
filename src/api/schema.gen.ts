@@ -576,7 +576,9 @@ export interface paths {
      *     the Account itself, isn't one of the Household's, or has another
      *     Account currency get 422 `/problems/invalid-transfer` with a
      *     `reason`. So does a date before a cash counterpart's start date
-     *     (`BEFORE_START_DATE`, naming the counterpart in `account_id`). An
+     *     (`BEFORE_START_DATE`, naming the counterpart in `account_id`), and a
+     *     loan or crypto wallet counterpart, which take no part in Transfers
+     *     (`ACCOUNT_KIND_NOT_SUPPORTED`, naming it in `account_id`). An
      *     Account that isn't cash gets 422
      *     `/problems/not-a-cash-account`: statement Accounts take
      *     Transactions only from their statements. A zero amount, one in
@@ -802,28 +804,49 @@ export interface paths {
      *     `booking_month`, and the second also the Account's `open_month`.
      *
      *     With `transfer_account_id` instead of `category_id`, the row is
-     *     Accepted as a Transfer to or from that cash Account: the Transaction
-     *     recorded is the row's Transfer leg, against the Account transfer
-     *     Category, and the cash Account gets the opposite leg, dated on the
-     *     row's Transaction date, with its description and payee. The two legs
+     *     Accepted as a Transfer to or from that Account (ADR-0026): the
+     *     Transaction recorded is the row's Transfer leg, against the Account
+     *     transfer Category, naming that Account as its counterpart. Only cash,
+     *     bank and credit card Accounts take part in Transfers: a loan or
+     *     crypto wallet Account on either side is refused.
+     *
+     *     A cash counterpart gets the opposite leg, dated on the row's
+     *     Transaction date, with its description and payee, and the two legs
      *     are Matched in the same transaction. With `match_transaction_id`, no
      *     cash leg is recorded: the given leg, one the cash Account already
      *     has In transit (see `listTransferSuggestions`), is Matched instead.
      *     A cash leg dated in a closed month of the cash Account gets 409
      *     `/problems/month-closed`, naming the cash Account in `account_id`.
+     *
+     *     A bank or credit card counterpart gets no leg: its leg can only come
+     *     from its own statement. The row's leg stays In transit, or is
+     *     Matched to `match_transaction_id`, an In transit leg the counterpart
+     *     already has, or to the leg of `match_imported_transaction_id`, a
+     *     pending row on the counterpart, which is Accepted in the same
+     *     transaction with its own leg. The paired row must be booked in its
+     *     Account's open month: otherwise 409 `/problems/month-closed` or
+     *     `/problems/month-not-open-yet`, naming its Account in `account_id`.
+     *     The response is this row; the paired row is read with
+     *     `listImportedTransactions`. A leg in a closed month can still be
+     *     Matched: a Match changes no amount.
+     *
      *     Refused Transfers get 422 `/problems/invalid-transfer` with a
      *     `reason`: both `category_id` and `transfer_account_id`
-     *     (`CATEGORY_AND_TRANSFER`), `match_transaction_id` alone
-     *     (`MATCH_WITHOUT_TRANSFER`), a counterpart that isn't a cash Account
-     *     (`COUNTERPART_NOT_CASH`; Transfers between statement Accounts come
-     *     later), the row's own Account (`SAME_ACCOUNT`), another Account
-     *     currency (`CURRENCY_MISMATCH`), an Account that isn't the
-     *     Household's (`UNKNOWN_ACCOUNT`), a leg to match that isn't an In
-     *     transit leg on the cash Account naming this row's Account with the
-     *     opposite amount (`NOT_A_MATCHING_LEG`), or a row dated before the
-     *     cash Account's start date, when the cash Account didn't exist yet
+     *     (`CATEGORY_AND_TRANSFER`), `match_transaction_id` or
+     *     `match_imported_transaction_id` without `transfer_account_id`
+     *     (`MATCH_WITHOUT_TRANSFER`), both `match_transaction_id` and
+     *     `match_imported_transaction_id` (`MATCH_LEG_AND_ROW`), a loan or
+     *     crypto wallet Account on either side (`ACCOUNT_KIND_NOT_SUPPORTED`,
+     *     naming it in `account_id`), the row's own Account (`SAME_ACCOUNT`),
+     *     another Account currency (`CURRENCY_MISMATCH`), an Account that
+     *     isn't the Household's (`UNKNOWN_ACCOUNT`), a leg to match that isn't
+     *     an In transit leg on the counterpart naming this row's Account with
+     *     the opposite amount (`NOT_A_MATCHING_LEG`), a row to pair that isn't
+     *     a pending row on the counterpart, other than this one, with the
+     *     opposite amount (`NOT_A_MATCHING_ROW`), or a row dated before a cash
+     *     counterpart's start date, when the cash Account didn't exist yet
      *     (`BEFORE_START_DATE`, naming the cash Account in `account_id`).
-     *     Nothing is booked, and the row stays pending.
+     *     Nothing is booked, and every row stays pending.
      *
      *     Retrying with the same Idempotency-Key and body returns the original
      *     result and never books twice.
@@ -843,16 +866,29 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Cash legs an Imported transaction could be Matched to
-     * @description Lists the Transfer legs on the cash Account `account_id` that could
-     *     be the other side of this Imported transaction: not Matched and not
-     *     reversed, naming the row's Account as their counterpart, with the
-     *     opposite amount, and dated within 7 days either side of the row's
-     *     Transaction date. Closest date first. They are worked out on each
-     *     request and never stored; a User confirms one by Accepting the row
-     *     with it as `match_transaction_id`. An `account_id` that isn't a
-     *     cash Account of the Household gets 422 `/problems/invalid-transfer`
-     *     (`COUNTERPART_NOT_CASH` or `UNKNOWN_ACCOUNT`).
+     * What could be the other side of an Imported transaction's Transfer
+     * @description Lists what could be the other side of this Imported transaction as a
+     *     Transfer, on the Account `account_id` or, without it, on every
+     *     Account of the Household it could be a Transfer with: another cash,
+     *     bank or credit card Account in the row's currency, when the row's
+     *     own Account is one of those kinds too.
+     *
+     *     - `legs`: Transfer legs that are In transit (not Matched and not
+     *       reversed), naming the row's Account as their counterpart. A User
+     *       confirms one by Accepting the row with it as
+     *       `match_transaction_id`.
+     *     - `imported_transactions`: pending rows on a bank or credit card
+     *       Account, including rows booked in a month that isn't open yet. A
+     *       User confirms one by Accepting the row with it as
+     *       `match_imported_transaction_id`.
+     *
+     *     Both have the opposite amount and are dated within 7 days either
+     *     side of the row's Transaction date, closest date first. They are
+     *     worked out on each request and never stored. An `account_id` the
+     *     row can't be a Transfer with gets 422 `/problems/invalid-transfer`
+     *     (`ACCOUNT_KIND_NOT_SUPPORTED`, `SAME_ACCOUNT`, `CURRENCY_MISMATCH`
+     *     or `UNKNOWN_ACCOUNT`), and so does a row on a loan or crypto wallet
+     *     Account (`ACCOUNT_KIND_NOT_SUPPORTED`).
      */
     get: operations["listTransferSuggestions"];
     put?: never;
@@ -2275,11 +2311,6 @@ export interface components {
       /** @description Whether an Accept as Transfer recorded this cash leg automatically */
       created_by_transfer?: boolean;
     };
-    /** @description A list of Transactions */
-    TransactionList: {
-      /** @description The Transactions */
-      items: components["schemas"]["Transaction"][];
-    };
     /**
      * @description A Transaction on a cash Account. Its other side is `category_id`, or
      *     `counterpart_account_id` for a Transfer leg, never both; neither
@@ -2381,6 +2412,11 @@ export interface components {
        */
       statement_import_id: string;
       /**
+       * Format: uuid
+       * @description The Account whose statement it is on
+       */
+      account_id: string;
+      /**
        * @description Where it is in its review
        * @example PENDING
        */
@@ -2466,16 +2502,30 @@ export interface components {
       category_id?: string;
       /**
        * Format: uuid
-       * @description The cash Account on the other side, which Accepts the row as a
-       *     Transfer instead of with a Category
+       * @description The cash, bank or credit card Account on the other side, which
+       *     Accepts the row as a Transfer instead of with a Category
        */
       transfer_account_id?: string;
       /**
        * Format: uuid
-       * @description An In transit leg on `transfer_account_id` to Match the row to,
-       *     instead of recording a new cash leg
+       * @description An In transit leg on `transfer_account_id` to Match the row to;
+       *     for a cash Account, instead of recording a new cash leg
        */
       match_transaction_id?: string;
+      /**
+       * Format: uuid
+       * @description A pending row on `transfer_account_id`, a bank or credit card
+       *     Account, to Accept together with this one as the other leg of
+       *     the Transfer
+       */
+      match_imported_transaction_id?: string;
+    };
+    /** @description What could be the other side of an Imported transaction's Transfer */
+    TransferSuggestionList: {
+      /** @description In transit Transfer legs, closest date first */
+      legs: components["schemas"]["Transaction"][];
+      /** @description Pending rows on bank or credit card Accounts, closest date first */
+      imported_transactions: components["schemas"]["ImportedTransaction"][];
     };
     /** @description A page of an Account's Imported transactions */
     ImportedTransactionPage: {
@@ -2675,7 +2725,8 @@ export interface components {
     /**
      * @description Problem details (RFC 9457) of a request that can't be carried out.
      *     A refused Transfer (`/problems/invalid-transfer`) gives its `reason`,
-     *     and for `BEFORE_START_DATE` the cash Account in `account_id`.
+     *     and for `BEFORE_START_DATE` and `ACCOUNT_KIND_NOT_SUPPORTED` the
+     *     Account in `account_id`.
      *     A Category whose kind doesn't fit the amount's sign
      *     (`/problems/category-direction`) gives `category_id`,
      *     `category_kind` and `direction`.
@@ -2702,23 +2753,26 @@ export interface components {
       detail?: string;
       /**
        * @description Why the Transfer is refused
-       * @example COUNTERPART_NOT_CASH
+       * @example ACCOUNT_KIND_NOT_SUPPORTED
        */
       reason?:
         | "CATEGORY_AND_TRANSFER"
         | "MATCH_WITHOUT_TRANSFER"
-        | "COUNTERPART_NOT_CASH"
+        | "MATCH_LEG_AND_ROW"
+        | "ACCOUNT_KIND_NOT_SUPPORTED"
         | "SAME_ACCOUNT"
         | "CURRENCY_MISMATCH"
         | "UNKNOWN_ACCOUNT"
         | "NOT_A_MATCHING_LEG"
+        | "NOT_A_MATCHING_ROW"
         | "BEFORE_START_DATE"
         | `${string}`;
       /**
        * Format: uuid
-       * @description The cash Account the Transfer is refused for: for
-       *     `BEFORE_START_DATE`, the one whose start date is after the
-       *     leg's date
+       * @description The Account the Transfer is refused for: for
+       *     `BEFORE_START_DATE`, the cash Account whose start date is after
+       *     the leg's date; for `ACCOUNT_KIND_NOT_SUPPORTED`, the loan or
+       *     crypto wallet Account
        */
       account_id?: string;
       /**
@@ -4185,9 +4239,9 @@ export interface operations {
   };
   listTransferSuggestions: {
     parameters: {
-      query: {
-        /** @description The cash Account whose legs are suggested */
-        account_id: string;
+      query?: {
+        /** @description The one Account whose legs and rows are suggested; absent, every Account the row could be a Transfer with */
+        account_id?: string;
       };
       header?: never;
       path: {
@@ -4200,13 +4254,13 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description The suggested legs */
+      /** @description The suggested legs and rows */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["TransactionList"];
+          "application/json": components["schemas"]["TransferSuggestionList"];
         };
       };
       400: components["responses"]["BadRequest"];
