@@ -1,6 +1,6 @@
 # 01: Backend hand-off: Transfers between statement Accounts
 
-Status: needs-triage
+Status: resolved
 Blocked by: —
 Waits on backend: yes. `v0.11.0` isn't tagged yet (see "Tag to pin").
 
@@ -155,3 +155,8 @@ POST /api/households/{h}/imported-transactions/{loan-row}/accept
 - Transfers whose amounts differ (a fee inside the row), or between currencies.
 - Pointing out likely Transfers at import time: suggestions are asked for row by row.
 - Household transfers, split Transactions, and Matching a manual entry to an Imported transaction.
+
+## Answer
+
+Resolved on 2026-11-28 by [spec.md](../spec.md), written from this hand-off. Decided with the user: suggestions are asked with the counterpart named (picker first), so "Find the other side" without naming the Account (backend stories 9 and 11) is out of scope for now. Ticket 02 pins v0.11.0 once it's tagged.
+
