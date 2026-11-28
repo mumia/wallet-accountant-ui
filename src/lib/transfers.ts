@@ -8,6 +8,18 @@ import type { AmountSign } from "./categories";
 
 type AccountKind = components["schemas"]["AccountKind"];
 
+const transferKinds: ReadonlySet<AccountKind> = new Set(["CASH", "BANK_ACCOUNT", "CREDIT_CARD"]);
+
+/**
+ * Whether an Account of this kind can be either side of a Transfer: cash,
+ * bank and credit card Accounts can; loans and crypto wallets can't yet
+ * (statement-transfers spec, "Which Accounts take part in Transfers"), and
+ * neither can a kind this build doesn't know.
+ */
+export function takesPartInTransfers(account: { kind: AccountKind }) {
+  return transferKinds.has(account.kind);
+}
+
 /**
  * Whether a Transfer on `date` (an ISO date) can book a leg on this Account.
  * A cash Account holds no money before its start date, so the Ledger refuses
